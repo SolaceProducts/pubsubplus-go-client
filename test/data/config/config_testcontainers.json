@@ -1,0 +1,33 @@
+{
+    "messaging": {
+        "host": "localhost"
+    },
+    "semp": {
+        "host": "localhost"
+    },
+    "toxiproxy": {
+        "upstream": "solbroker",
+        "host": "localhost",
+        "port": 8474,
+        "plaintext_port": 15555,
+        "compressed_port": 15003,
+        "secure_port": 15443
+    },
+    "testcontainers": {
+        "broker_hostname": "solbroker",
+        "broker_tag": "9.13.0.16",
+        "broker_repo": "solace/solace-pubsub",
+        "broker_edition": "standard",
+        "toxiproxy_hostname": "toxiproxy",
+        "network_name": "solace_msg_net"
+    },
+    "kerberos": {
+        "hostname": "ats-kdc-server",
+        "domain": "ATS.SOLACE.COM",
+        "username": "localtest@LOCAL.ATS.SOLACE.COM",
+        "password": "localtest"
+    },
+    "oauth": {
+        "hostname": "solaceOAuth"
+    }
+}

@@ -1,0 +1,16 @@
+version: '3.5'
+
+services:
+  krbserver:
+    image: $KRB_TEST_IMAGE
+    networks:
+      - solace_internal_net
+    ports:
+      - "89:88/tcp"
+      - "89:88/udp"
+      - "750:750/tcp"
+      - "750:750/udp"
+      - "48081:8081"
+    hostname: $PUBSUB_KDC_HOSTNAME
+    container_name: $PUBSUB_KDC_HOSTNAME
+    domainname: $PUBSUB_DOMAIN
