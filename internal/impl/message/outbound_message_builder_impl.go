@@ -58,6 +58,12 @@ func (builder *OutboundMessageBuilderImpl) build(additionalConfiguration ...conf
 		mergeMessagePropertyMap(properties, additionalConfig)
 	}
 
+	// Override defaults to match documented edfaults
+	// SOL-67545: DMQ Eligible should default to true when not configured
+	if _, ok := properties[config.MessagePropertyPersistentDMQEligible]; !ok {
+		properties[config.MessagePropertyPersistentDMQEligible] = true
+	}
+
 	err = SetProperties(msg, properties)
 	if err != nil {
 		return nil, err

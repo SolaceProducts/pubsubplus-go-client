@@ -1909,6 +1909,15 @@ var _ = Describe("Remote Message Tests", func() {
 				Entry("with DMQ eligible false", false),
 				Entry("with DMQ eligible true", true),
 			)
+
+			It("should default DMQ eligible to true", func() {
+				msg, err := messagingService.MessageBuilder().FromConfigurationProvider(config.MessagePropertyMap{
+					config.MessagePropertyPersistentTimeToLive: 1000,
+				}).Build()
+				Expect(err).ToNot(HaveOccurred())
+				publishMsg(msg)
+				validateQueueContents(true)
+			})
 		})
 	})
 
