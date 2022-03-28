@@ -40,17 +40,17 @@ License terms can be found at: https://code.google.com/archive/p/msinttypes/
 Copyright 2008 Alexander Chemeris
 Home page: https://code.google.com/archive/p/msinttypes/
 
-openssl-1.0.2.tar.gz
+openssl-1.1.1.tar.gz
 --------------------
 Licensed under OpenSSL
-License terms can be found at: https://github.com/openssl/openssl
-Copyright 2018 The OpenSSL Project.
+License terms can be found at: https://www.openssl.org/source/license.html
+Copyright 2018 OpenSSL Software Foundation
 
-zlib-1.2.3.tar.gz
------------------
+zlib-1.2.11.tar.gz
+------------------
 Licensed under Zlib
 License terms can be found at: http://www.zlib.net/
-Copyright 1995-2004 Jean-loup Gailly and Mark Adler
+Copyright 2017 Jean-loup Gailly and Mark Adler
 
 
 LICENSE REQUIREMENTS & SPECIFICATIONS
