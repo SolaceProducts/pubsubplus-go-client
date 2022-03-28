@@ -49,8 +49,8 @@ type executor struct {
 	channel           unsafe.Pointer
 	channelLock       sync.RWMutex
 	stateLock         sync.RWMutex
-	closed            bool
-	scale             int
+	closed            int32
+	scale             int64
 	terminateComplete chan struct{}
 }
 
@@ -90,15 +90,11 @@ func (executor *executor) AwaitTermination() {
 func (executor *executor) Terminate() {
 	// start off by closing the channel meaning no more tasks will be submitted
 	// acquire a hard lock to make sure that no tasks are submitted racing with the closed
-	executor.channelLock.RLock()
-	defer executor.channelLock.RUnlock()
 	executor.stateLock.Lock()
 	defer executor.stateLock.Unlock()
-	if executor.closed {
-		return
+	if atomic.CompareAndSwapInt32(&executor.closed, 0, 1) {
+		close(executor.getChannel())
 	}
-	close(executor.getChannel())
-	executor.closed = true
 }
 
 // Submit will submit a new task to the executor. If the channel is full, a new one
@@ -108,8 +104,7 @@ func (executor *executor) Submit(task Task) (submitted bool) {
 	// the state lock should only be in contention with a call to terminate
 	executor.stateLock.RLock()
 	defer executor.stateLock.RUnlock()
-	closed := executor.closed
-	if closed {
+	if atomic.LoadInt32(&executor.closed) != 0 {
 		return false
 	}
 	// acquire the channel read lock, should only be in contention with other resizes
@@ -124,6 +119,7 @@ func (executor *executor) Submit(task Task) (submitted bool) {
 		// relock with the write lock, this requires all read locks to be released. Run will not hold the
 		// read lock for long when we are going to resize.
 		executor.channelLock.Lock()
+		defer executor.channelLock.Unlock()
 		// first try to submit the task again since its possible that this races with another resize
 		select {
 		case executor.getChannel() <- task:
@@ -133,7 +129,6 @@ func (executor *executor) Submit(task Task) (submitted bool) {
 			executor.resize()
 			executor.getChannel() <- task
 		}
-		executor.channelLock.Unlock()
 	}
 	return true
 }
@@ -143,8 +138,9 @@ func (executor *executor) Submit(task Task) (submitted bool) {
 func (executor *executor) resize() {
 	// create a new channel, close the old channel and drain it, moving all items to the new channel
 	// during this time, Run will not be able to get any more tasks as this function will be surrounded by locks
-	executor.scale = scalingFactor * executor.scale
-	newChannel := make(chan Task, executor.scale)
+	newScale := scalingFactor * atomic.LoadInt64(&executor.scale)
+	atomic.StoreInt64(&executor.scale, newScale)
+	newChannel := make(chan Task, newScale)
 	oldChannel := executor.getChannel()
 	close(oldChannel)
 	for t := range executor.getChannel() {
@@ -162,7 +158,7 @@ func NewExecutor() Executor {
 	executor.channelLock = sync.RWMutex{}
 	executor.stateLock = sync.RWMutex{}
 	executor.scale = defaultSize
-	executor.closed = false
+	executor.closed = 0
 	executor.terminateComplete = make(chan struct{})
 	return executor
 }
