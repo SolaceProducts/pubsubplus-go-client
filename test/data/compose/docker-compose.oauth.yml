@@ -1,0 +1,29 @@
+version: "3.5"
+
+secrets:
+  keystore.ks: 
+    file: ../fixtures/keystore.ks
+  jwks_endpoint.json:
+    file: ../fixtures/jwks_key_endpoint.json
+  userinfo_endpoint.json:
+    file: ../fixtures/userinfo.json
+    
+services:
+  oauth_endpoints:
+    image: $OAUTH_TEST_IMAGE
+    hostname: $PUBSUB_OAUTHSERVER_HOSTNAME
+    container_name: $PUBSUB_OAUTHSERVER_HOSTNAME
+    ports:
+      - "4400-4410:4400-4410"
+    command: supervisord -n -c /etc/supervisord.conf
+    environment:
+      - KEYSTORE=/run/secrets/keystore.ks
+      - KEYSTORE_PASSWORD=changeme
+      - JWTENDPOINTFILE=/run/secrets/jwks_endpoint.json
+      - USERINFOENDPOINTFILE=/run/secrets/userinfo_endpoint.json
+    secrets:
+      - keystore.ks
+      - jwks_endpoint.json
+      - userinfo_endpoint.json
+    networks:
+      - solace_internal_net

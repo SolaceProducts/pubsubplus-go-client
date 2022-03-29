@@ -1,0 +1,25 @@
+{
+    "messaging": {
+        "vpn": "default",
+        "client_profile": "default",
+        "acl_profile": "default",
+        "authentication": {
+            "basic_username": "default",
+            "basic_password": "default"
+        },
+        "ports": {
+            "plaintext": 55555,
+            "secure": 55443,
+            "compressed": 55003,
+            "healthcheck": 5550,
+            "web": 8008,
+            "secure_web": 1443
+        }
+    },
+    "semp": {
+        "port": 8080,
+        "secure": 1943,
+        "username": "admin",
+        "password": "admin"
+    }
+}
