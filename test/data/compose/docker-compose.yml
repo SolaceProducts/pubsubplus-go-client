@@ -1,0 +1,53 @@
+version: '3.5'
+
+networks:
+  solace_internal_net:
+    name: solace_internal_net
+    driver: bridge
+
+services:
+  solbroker:
+    image: $PUBSUB_REPO_BASE-$PUBSUB_EDITION:$PUBSUB_TAG
+    hostname: "$PUBSUB_HOSTNAME"
+    container_name: "$PUBSUB_HOSTNAME"
+    networks:
+      - solace_internal_net
+    env_file:
+      - ./solace.env
+    ports:
+      - "$PUBSUB_SEMP_PORT:8080" # SEMP plaintext
+      - "$PUBSUB_SECURE_SEMP_PORT:1943" # SEMP secure
+      - "$PUBSUB_PLAINTEXT_PORT:55555" # SMF Pplaintext
+      - "$PUBSUB_COMPRESSED_PORT:55003" # SMF compressed
+      - "$PUBSUB_SECURE_PORT:55443" # SMF secure 
+      - "$PUBSUB_HEALTHCHECK_PORT:5550" # Healthcheck
+      - "$PUBSUB_WEB_PORT:8008" # Web Transport
+      - "$PUBSUB_SECURE_WEB_PORT:1443" # Secure Web Transport
+    shm_size: 2g
+    ulimits:
+      memlock: -1
+      nofile:
+        soft: 2448
+        hard: 42192
+    secrets:
+      - server.pem
+      - server_passphrase
+
+  toxiproxy:
+    image: shopify/toxiproxy
+    container_name: toxiproxy
+    hostname: "$TOXIPROXY_HOSTNAME"
+    ports:
+      - "$TOXIPROXY_PORT:8474"
+      # in this case we will want the docker and toxi proxy ports to match as we need to configure them on the fly
+      - "$TOXIPROXY_PLAINTEXT_PORT:$TOXIPROXY_PLAINTEXT_PORT"
+      - "$TOXIPROXY_COMPRESSED_PORT:$TOXIPROXY_COMPRESSED_PORT"
+      - "$TOXIPROXY_SECURE_PORT:$TOXIPROXY_SECURE_PORT"
+    networks:
+      - solace_internal_net
+
+secrets:
+  server.pem:
+    file: "../fixtures/api-server.pem" # Path relative to the docker-compose file
+  server_passphrase:
+    file: "../fixtures/api-server-passphrase.txt"
