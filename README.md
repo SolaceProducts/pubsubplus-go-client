@@ -1,12 +1,13 @@
 # Solace: solace.dev/go/messaging
 [![Test](https://github.com/SolaceProducts/pubsubplus-go-client/actions/workflows/test.yml/badge.svg)](https://github.com/SolaceProducts/pubsubplus-go-client/actions/workflows/test.yml)
 [![PkgGoDev](https://pkg.go.dev/badge/solace.dev/go/messaging.svg)](https://pkg.go.dev/solace.dev/go/messaging)
+[![Go Report Card](https://goreportcard.com/badge/solace.dev/go/messaging)](https://goreportcard.com/report/solace.dev/go/messaging)
 
-The Solace PubSub+ API for Go used to access the services of a Solace PubSub+ Event Broker.
+The Solace PubSub+ API for Go is used to access the services of a Solace PubSub+ Event Broker.
 
 ## Getting Started
 
-To get started using the Solace PubSub+ API for Go, simply include it as a required module in your Go project by running `go get solace.dev/go/messaging`. The Solace PubSUb+ API for Go requires Go version 1.17+.
+To get started using the Solace PubSub+ API for Go, simply include it as a required module in your Go project by running `go get solace.dev/go/messaging`. The Solace PubSub+ API for Go requires Go version 1.17+.
 
 ### Usage
 
@@ -17,8 +18,8 @@ To get started using the Solace PubSub+ API for Go, simply include it as a requi
 ### OS Support
 
 The Solace PubSub+ API for Go is a wrapper around the high performance Solace C API via Cgo and has support for the following operating systems:
-- Linux x86_64 with glibc (ie. Ubuntu)
-- MacOS x86_64
+- Linux variants with Linux26-x86_64 GCC or greater [Debian-based (Ubuntu), Windows WSL 2.0, and CentOS/RHEL-based (Red Hat Linux, CentOS) distributions],
+- macOS (10.15 and later, x86_64-bit versions)
 
 ## Contributing
 
@@ -51,7 +52,7 @@ https://solace.com/support
 
 ## Resources
 
-- The [Solace Developer Portal](https//dev.solace.com)
-- Understanding [Solace technology](https://dev.solace.com/tech/)
+- The [Solace Developer Portal](https://dev.solace.com)
+- Understanding [Solace technology](https://solace.com/products/tech/)
 
 Copyright 2021-2022 Solace Corporation. All rights reserved.
