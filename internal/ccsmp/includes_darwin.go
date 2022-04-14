@@ -18,7 +18,7 @@ package ccsmp
 
 /*
 // specific flags for darwin static builds in C
-#cgo CFLAGS: -I${SRCDIR}/../../lib/darwin/include
-#cgo LDFLAGS: -L/usr/local/opt/openssl@1.1/lib ${SRCDIR}/../../lib/darwin/lib/libsolclient.a -lssl -lcrypto -framework Kerberos
+#cgo CFLAGS: -I${SRCDIR}/lib/include
+#cgo LDFLAGS: -L/usr/local/opt/openssl@1.1/lib ${SRCDIR}/lib/darwin/libsolclient.a -lssl -lcrypto -framework Kerberos
 */
 import "C"
