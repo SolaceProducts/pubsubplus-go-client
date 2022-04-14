@@ -33,7 +33,7 @@ See the list of [contributors](https://github.com/SolaceProducts/pubsubplus-go-c
 
 This project is licensed under the Apache License, Version 2.0. - See the [LICENSE](LICENSE.txt) file for details.
 
-This project packages and links against a variety of C dependencies, and any usage of this API is subject to the terms and conditions of these dependencies. See [the licenses](./lib/licenses.txt) for details.
+This project packages and links against a variety of C dependencies, and any usage of this API is subject to the terms and conditions of these dependencies. See [the licenses](./internal/ccsmp/lib/licenses.txt) for details.
 
 ## Code of Conduct
 
