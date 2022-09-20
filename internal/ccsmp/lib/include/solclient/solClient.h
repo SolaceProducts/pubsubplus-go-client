@@ -2,7 +2,7 @@
 *
 * @file solClient.h include file for the Solace Corporation Messaging API for C
 *
-* Copyright 2007-2021 Solace Corporation. All rights reserved.
+* Copyright 2007-2022 Solace Corporation. All rights reserved.
 *
 * This include file provides the public constants and API calls for clients
 * connecting to a Solace messaging appliance.
@@ -1448,7 +1448,7 @@ typedef struct solClient_field {
 * </tr>
 * <tr>
 *     <td width="300"> SOLCLIENT_SUBCODE_REPLAY_STARTED                     </td>
-*     <td width="300"> A replay was started on the queue/topic endpoint, either by another client or by an adminstrator on the message router. </td>
+*     <td width="300"> A replay was started on the queue/topic endpoint, either by another client or by an administrator on the message router. </td>
 *     <td width="300"> 503 Replay Started </td>
 * </tr>
 * <tr>
@@ -1528,6 +1528,11 @@ typedef struct solClient_field {
 *     <td width="300"> Replication Group Message Id are not comparable. Messages must be published to the same broker or HA pair for their Replicaton Group Message Id to be comparable. </td>
 *     <td width="300"> N/A </td>
 * </tr>
+* <tr>
+*     <td width="300"> SOLCLIENT_SUBCODE_REPLAY_ANONYMOUS_NOT_SUPPORTED </td>
+*     <td width="300"> The client attempted to start replay on a flow bound to an anonymous queue. </td>
+*     <td width="300"> 403 Replay Not Supported on Anonymous Queue </td>
+* </tr>
 * </table>
 */
   typedef enum solClient_subCode
@@ -1554,7 +1559,7 @@ typedef struct solClient_field {
     SOLCLIENT_SUBCODE_LOGIN_FAILURE                     = 19, /**< The client could not log into the appliance (bad username or password). */
     SOLCLIENT_SUBCODE_INVALID_VIRTUAL_ADDRESS           = 20, /**< An attempt was made to connect to the wrong IP address on the appliance (must use CVRID if configured) or the appliance CVRID has changed and this was detected on reconnect. */
     SOLCLIENT_SUBCODE_CLIENT_DELETE_IN_PROGRESS         = 21, /**< The client login not currently possible as previous instance of same client still being deleted. */
-    SOLCLIENT_SUBCODE_TOO_MANY_CLIENTS                  = 22, /**< The client login not currently possible becuase the maximum number of active clients on appliance has already been reached. */
+    SOLCLIENT_SUBCODE_TOO_MANY_CLIENTS                  = 22, /**< The client login not currently possible because the maximum number of active clients on appliance has already been reached. */
     SOLCLIENT_SUBCODE_SUBSCRIPTION_ALREADY_PRESENT      = 23, /**< The client attempted to add a subscription which already exists. This subcode is only returned if the Session property SOLCLIENT_SESSION_PROP_IGNORE_DUP_SUBSCRIPTION_ERROR is not enabled. */
     SOLCLIENT_SUBCODE_SUBSCRIPTION_NOT_FOUND            = 24, /**< The client attempted to remove a subscription which did not exist. This subcode is only returned if the Session property SOLCLIENT_SESSION_PROP_IGNORE_DUP_SUBSCRIPTION_ERROR is not enabled. */
     SOLCLIENT_SUBCODE_SUBSCRIPTION_INVALID              = 25, /**< The client attempted to add/remove a subscription that is not valid. */
@@ -1677,7 +1682,7 @@ typedef struct solClient_field {
     SOLCLIENT_SUBCODE_REPLAY_TEMPORARY_NOT_SUPPORTED                 = 138, /**< Replay is not supported on temporary endpoints. */
     SOLCLIENT_SUBCODE_UNKNOWN_START_LOCATION_TYPE                    = 139, /**< The client attempted to start a replay but provided an unknown start location type. */
     SOLCLIENT_SUBCODE_REPLAY_MESSAGE_UNAVAILABLE                     = 140, /**< A replay in progress on a flow failed because messages to be replayed were trimmed from the replay log. */
-    SOLCLIENT_SUBCODE_REPLAY_STARTED                                 = 141, /**< A replay was started on the queue/topic endpoint, either by another client or by an adminstrator on the message router. */
+    SOLCLIENT_SUBCODE_REPLAY_STARTED                                 = 141, /**< A replay was started on the queue/topic endpoint, either by another client or by an administrator on the message router. */
     SOLCLIENT_SUBCODE_REPLAY_CANCELLED                               = 142, /**< A replay in progress on a flow was administratively cancelled, causing the flow to be unbound. */
     SOLCLIENT_SUBCODE_REPLAY_START_TIME_NOT_AVAILABLE                = 143, /**< A replay was requested but the requested start time is not available in the replay log. */
     SOLCLIENT_SUBCODE_REPLAY_MESSAGE_REJECTED                        = 144, /**< The Solace Message Router attempted to replay a message, but the queue/topic endpoint rejected the message to the sender. */
@@ -1693,7 +1698,8 @@ typedef struct solClient_field {
     SOLCLIENT_SUBCODE_OBJECT_DESTROYED                               = 154, /**< The operation cannot be completed because the object (context, session, flow) for the method has been destroyed in another thread. */
     SOLCLIENT_SUBCODE_DELIVERY_COUNT_NOT_SUPPORTED                   = 155, /**< The message was received from endpoint that does not support delivery count */
     SOLCLIENT_SUBCODE_REPLAY_START_MESSAGE_UNAVAILABLE               = 156, /**< A replay was requested but the requested start message is not available in the replay log. */
-    SOLCLIENT_SUBCODE_MESSAGE_ID_NOT_COMPARABLE                      = 157  /**< Replication Group Message Id are not comparable. Messages must be published to the same broker or HA pair for their Replicaton Group Message Id to be comparable. */
+    SOLCLIENT_SUBCODE_MESSAGE_ID_NOT_COMPARABLE                      = 157, /**< Replication Group Message Id are not comparable. Messages must be published to the same broker or HA pair for their Replicaton Group Message Id to be comparable. */
+    SOLCLIENT_SUBCODE_REPLAY_ANONYMOUS_NOT_SUPPORTED                  = 158  /**< The client attempted to start replay on a flow bound to an anonymous queue. */
     /*
      * ADDING NEW SUBCODES: When adding a new subcode always add a new entry to the HTML table in 
      * the comment above this enumeration 
@@ -2105,7 +2111,7 @@ The valid range is >=0. Default: ::SOLCLIENT_SESSION_PROP_DEFAULT_RECONNECT_RETR
 #define SOLCLIENT_SESSION_PROP_MODIFYPROP_TIMEOUT_MS         "SESSION_MODIFYPROP_TIMEOUT_MS" /**< Maximum amount of time (in milliseconds) to wait for session property modification. Default: ::SOLCLIENT_SESSION_PROP_DEFAULT_MODIFYPROP_TIMEOUT_MS */
 #define SOLCLIENT_SESSION_PROP_ACK_EVENT_MODE                 "SESSION_ACK_EVENT_MODE"              /**< This property specifies if a session event ::SOLCLIENT_SESSION_EVENT_ACKNOWLEDGEMENT acknowledges a single message (see ::SOLCLIENT_SESSION_PROP_ACK_EVENT_MODE_PER_MSG) or a range of messages (see ::SOLCLIENT_SESSION_PROP_ACK_EVENT_MODE_WINDOWED).  Default: ::SOLCLIENT_SESSION_PROP_ACK_EVENT_MODE_PER_MSG. \n Setting this property to ::SOLCLIENT_SESSION_PROP_ACK_EVENT_MODE_WINDOWED will not affect RejectedMessageError events, they will still be emitted on a per message basis. */
 #define SOLCLIENT_SESSION_PROP_SSL_EXCLUDED_PROTOCOLS        "SESSION_SSL_EXCLUDED_PROTOCOLS"  /**< This property specifies a comma separated list of excluded SSL protocol(s). Valid SSL protocols are 'SSLv3', 'TLSv1', 'TLSv1.1', 'TLSv1.2'. Default: ::SOLCLIENT_SESSION_PROP_DEFAULT_SSL_EXCLUDED_PROTOCOLS. */
-#define SOLCLIENT_SESSION_PROP_SSL_VALIDATE_CERTIFICATE      "SESSION_SSL_VALIDATE_CERTIFICATE"      /**< This property indicates if the certificate validation with certificates in the truststore is enabled. Default: ::SOLCLIENT_SESSION_PROP_DEFAULT_SSL_VALIDATE_CERTIFICATE.<p> See also @ref certificate-validation */
+#define SOLCLIENT_SESSION_PROP_SSL_VALIDATE_CERTIFICATE      "SESSION_SSL_VALIDATE_CERTIFICATE"      /**< This is used to specify whether the API should validate server certificates with certificates in the truststore. When disabled, validation of the certificate date, certificate host, and checking the common name list is also disabled. Default: ::SOLCLIENT_SESSION_PROP_DEFAULT_SSL_VALIDATE_CERTIFICATE.<p> See also @ref certificate-validation */
 #define SOLCLIENT_SESSION_PROP_OPENSSL_SECURITY_LEVEL      "SESSION_OPENSSL_SECURITY_LEVEL"      /**< A number from 0-5 passed to the openSsl library as the security level. Use 0 with caution, it is less secure than the default, which is 1. */
 
 #define SOLCLIENT_SESSION_PROP_SSL_CLIENT_CERTIFICATE_FILE           "SESSION_SSL_CLIENT_CERTIFICATE_FILE"         /**< This property specifies the client certificate file name. */
@@ -2126,7 +2132,7 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
 #define SOLCLIENT_SESSION_PROP_UNBIND_FAIL_ACTION       "SESSION_UNBIND_FAIL_ACTION"    /**< A property to define the behavior if an unbind-response is not received after an unbind-request (::solClient_flow_destroy()) is sent to the Solace Appliance. If this occurs it is possible that the endpoint may be still bound and unavailable until the session is terminated. In this occurrence the session can be configured to retry sending the unbind-request or to fail the session transport. If the sesion transport fails, the session will behave as defined by the ::SOLCLIENT_SESSION_PROP_RECONNECT_RETRIES configuration.  Default: ::SOLCLIENT_SESSION_PROP_DEFAULT_UNBIND_FAIL_ACTION. */
 #define SOLCLIENT_SESSION_PROP_WEB_TRANSPORT_PROTOCOL                     ("SESSION_WEB_TRANSPORT_PROTOCOL")        /**< This property specifies a WEB Transport Protocol in the default WEB Transport Protocol downgrade list to use for the session connection.
                                                                                                                           Valid values are \ref transportProtocol. Default: ::SOLCLIENT_SESSION_PROP_DEFAULT_WEB_TRANSPORT_PROTOCOL 
-                                                                                                                          If the connection fails, the API will try to connect using the next (less efficient) availabe protocol in the list until it finds one that works.
+                                                                                                                          If the connection fails, the API will try to connect using the next (less efficient) available protocol in the list until it finds one that works.
                                                                                                                           If there is none available, then the session connection fails.
                                                                                                                      */
 #define SOLCLIENT_SESSION_PROP_WEB_TRANSPORT_PROTOCOL_IN_USE              ("SESSION_WEB_TRANSPORT_PROTOCOL_IN_USE") /**< Read-only property which returns the WEB Transport Protocol currently in use for web messaging. An empty string is returned when a session
@@ -2159,7 +2165,7 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
  * @anchor transportProtocol
  * @name Session transport protocol types
  * Definition of the valid set of transport protocols when setting ::SOLCLIENT_SESSION_PROP_WEB_TRANSPORT_PROTOCOL, or returned
- * via the read-only session property ::SOLCLIENT_SESSION_WEB_PROP_TRANSPORT_PROTOCOL_IN_USE
+ * via the read-only session property ::SOLCLIENT_SESSION_PROP_WEB_TRANSPORT_PROTOCOL_IN_USE
  * Note: the use of ::SOLCLIENT_SESSION_PROP_GUARANTEED_WITH_WEB_TRANSPORT effects what protocol are available for properties 
  * ::SOLCLIENT_SESSION_PROP_WEB_TRANSPORT_PROTOCOL_LIST and ::SOLCLIENT_SESSION_PROP_WEB_TRANSPORT_PROTOCOL
  */
@@ -2195,11 +2201,11 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
 #define SOLCLIENT_SESSION_PROP_UNBIND_FAIL_ACTION_DISCONNECT        "UNBIND_FAIL_ACTION_DISCONNECT"
 /*@}*/
 
-#define SOLCLIENT_SESSION_PROP_SSL_VALIDATE_CERTIFICATE_DATE    "SESSION_SSL_VALIDATE_CERTIFICATE_DATE"  /**< This property indicates if the session connection should fail when a certificate with an invalid date is received. This property only applies when ::SOLCLIENT_SESSION_PROP_SSL_VALIDATE_CERTIFICATE is enabled.<p>Default: ::SOLCLIENT_SESSION_PROP_DEFAULT_SSL_VALIDATE_CERTIFICATE_DATE.<p> See also @ref certificate-validation */
+#define SOLCLIENT_SESSION_PROP_SSL_VALIDATE_CERTIFICATE_DATE    "SESSION_SSL_VALIDATE_CERTIFICATE_DATE"  /**< This property indicates if the session connection should fail when a certificate with an invalid date (current date before valid date, or current date after expiry)  is received. This property only applies when ::SOLCLIENT_SESSION_PROP_SSL_VALIDATE_CERTIFICATE is enabled.<p>Default: ::SOLCLIENT_SESSION_PROP_DEFAULT_SSL_VALIDATE_CERTIFICATE_DATE.<p> See also @ref certificate-validation */
 #define SOLCLIENT_SESSION_PROP_SSL_VALIDATE_CERTIFICATE_HOST    "SESSION_SSL_VALIDATE_CERTIFICATE_HOST"  /**< This property indicates if the session connection should fail when a certificate with an invalid host is received. When enabled, and connecting to a named host, the certificate Subject Alternative Name must contain a DNS entry that matches the host string. When enabled, and connecting to a host by IP address, the certificate Subject Alternative Name must contain an IP Address that matches.  If there is no Subject Alternate Name the certificate common name (CN) must match the named host.  This property only applies when ::SOLCLIENT_SESSION_PROP_SSL_VALIDATE_CERTIFICATE is enabled.<p> Default: ::SOLCLIENT_SESSION_PROP_DEFAULT_SSL_VALIDATE_CERTIFICATE_HOST.<p> See also @ref certificate-validation */
 #define SOLCLIENT_SESSION_PROP_SSL_CIPHER_SUITES      "SESSION_SSL_CIPHER_SUITES"    /**< This property specifies a comma separated list of the cipher suites. Allowed cipher suites are: 'ECDHE-RSA-AES256-GCM-SHA384', 'ECDHE-RSA-AES256-SHA384', 'ECDHE-RSA-AES256-SHA', 'AES256-GCM-SHA384', 'AES256-SHA256', 'AES256-SHA', 'ECDHE-RSA-DES-CBC3-SHA', 'DES-CBC3-SHA', 'ECDHE-RSA-AES128-GCM-SHA256', 'ECDHE-RSA-AES128-SHA256', 'ECDHE-RSA-AES128-SHA', 'AES128-GCM-SHA256', 'AES128-SHA256', 'AES128-SHA', 'RC4-SHA', 'RC4-MD5', 'TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384', 'TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384', 'TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA', 'TLS_RSA_WITH_AES_256_GCM_SHA384', 'TLS_RSA_WITH_AES_256_CBC_SHA256', 'TLS_RSA_WITH_AES_256_CBC_SHA', 'TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA', 'SSL_RSA_WITH_3DES_EDE_CBC_SHA', 'TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256', 'TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256', 'TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA', 'TLS_RSA_WITH_AES_128_GCM_SHA256', 'TLS_RSA_WITH_AES_128_CBC_SHA256', 'TLS_RSA_WITH_AES_128_CBC_SHA', 'SSL_RSA_WITH_RC4_128_SHA', 'SSL_RSA_WITH_RC4_128_MD5'. Default: ::SOLCLIENT_SESSION_PROP_DEFAULT_SSL_CIPHER_SUITES. */
 #define SOLCLIENT_SESSION_PROP_SSL_TRUST_STORE_DIR    "SESSION_SSL_TRUST_STORE_DIR"        /**< This property specifies the directory where the trusted certificates are. A maximum of 64 certificate files are allowed in the trust store directory. The maximum depth for the certificate chain verification that shall be allowed is 3. */
-#define SOLCLIENT_SESSION_PROP_SSL_TRUSTED_COMMON_NAME_LIST  "SESSION_SSL_TRUSTED_COMMON_NAME_LIST"    /**< <b>NOT RECOMMENDED</b>. Per RFC-6125 section 6.4.4, the Common Name (CN) of a certificate should not be used to validate the certificate.  Instead ::SOLCLIENT_SESSION_PROP_SSL_VALIDATE_CERTIFICATE_HOST (enabled by default) indicates that the server certificate must contain a Subject Alternate Name (SAN) that matches the host name (::SOLCLIENT_SESSION_PROP_HOST). <p>This property is only used if ::SOLCLIENT_SESSION_PROP_SSL_VALIDATE_CERTIFICATE_HOST is disabled. This property specifies a comma separated list of acceptable common names in certificate validation. The number of common names specified by an applications is limited to 16. Leading and trailing whitespaces are considered to be part of the common names and are not ignored. If the application does not provide any common names, there is no common name verification. */
+#define SOLCLIENT_SESSION_PROP_SSL_TRUSTED_COMMON_NAME_LIST  "SESSION_SSL_TRUSTED_COMMON_NAME_LIST"    /**< <b>NOT RECOMMENDED</b>. Per RFC-6125 section 6.4.4, the Common Name (CN) of a certificate should not be used to validate the certificate.  Instead ::SOLCLIENT_SESSION_PROP_SSL_VALIDATE_CERTIFICATE_HOST (enabled by default) indicates that the server certificate must contain a Subject Alternate Name (SAN) that matches the host name (::SOLCLIENT_SESSION_PROP_HOST). <p>This property is only valid if ::SOLCLIENT_SESSION_PROP_SSL_VALIDATE_CERTIFICATE_HOST is disabled. This property specifies a comma separated list of acceptable common names in certificate validation. The number of common names specified by an applications is limited to 16. Leading and trailing whitespaces are considered to be part of the common names and are not ignored. If the application does not provide any common names, there is no common name verification.<p><b>NOTE:</b> When ::SOLCLIENT_SESSION_PROP_SSL_VALIDATE_CERTIFICATE_HOST is enabled (default), this property should be set to an empty list.  Failure to do so may cause the API to reject an otherwise valid certificate. */
 /*@}*/
 
 /**
@@ -2458,7 +2464,7 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
 * A value of 0 configures the endpoint to act as a Last-Value-Queue (LVQ), where the appliance enforces a Queue depth of one, and only the most current message is spooled by the endpoint. When a new message is received, the current queued message is automatically deleted from the endpoint and the new message is spooled.*/
 #define SOLCLIENT_ENDPOINT_PROP_MAXMSG_SIZE     "ENDPOINT_MAXMSG_SIZE"    /**< Maximum size (in bytes) for any one message stored in the endpoint. */
 #define SOLCLIENT_ENDPOINT_PROP_RESPECTS_MSG_TTL "ENDPOINT_RESPECTS_MSG_TTL"  /**< The endpoint observes message Time-to-Live (TTL) values and can remove expired messages. Default: ::SOLCLIENT_ENDPOINT_PROP_DEFAULT_RESPECTS_MSG_TTL */
-#define SOLCLIENT_ENDPOINT_PROP_DISCARD_BEHAVIOR "ENDPOINT_DISCARD_BEHAVIOR" /**< When a message cannot be added to an endpoint (for example, maximum quota (::ENDPOINT_QUOTA_MB) exceeded), this property controls the action the appliance will perform towards the publisher. */
+#define SOLCLIENT_ENDPOINT_PROP_DISCARD_BEHAVIOR "ENDPOINT_DISCARD_BEHAVIOR" /**< When a message cannot be added to an endpoint (for example, maximum quota (::SOLCLIENT_ENDPOINT_PROP_QUOTA_MB) exceeded), this property controls the action the appliance will perform towards the publisher. */
 #define SOLCLIENT_ENDPOINT_PROP_MAXMSG_REDELIVERY "ENDPOINT_MAXMSG_REDELIVERY" /**< Defines how many message redelivery retries before discarding or moving the message to the DMQ. The valid ranges is {0..255} where 0 means retry forever. Default: 0 */
 /*@}*/
 
@@ -2721,8 +2727,8 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
 * callback for a Session. A structure is used so that new fields
 * can be added in the future without affecting existing applications.
 * For a sessionEvent of ::SOLCLIENT_SESSION_EVENT_ACKNOWLEDGEMENT, info_p
-* will be the pointer or value specified in the
-* ::SOLCLIENT_BUFINFO_CORRELATION_TAG_PART of the message that is being
+* will be the pointer or value set by ::solClient_msg_setCorrelationTag() 
+* or ::solClient_msg_setCorrelationTagPtr() in the message that is being
 * acknowledged. This is used to correlate a published message to
 * the acknowledgment received from
 * the appliance. In all other events info_p is a pointer to a NULL-terminated 
@@ -3167,19 +3173,10 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
 * Function information for Flow creation. This is set on a per-Flow basis.
 * The application must set the eventInfo callback information. All Flows must have an event callback registered.
 *
-* The application must set one, and only one, message callback information. The other message callback interface must be
-* set to NULL. If the application uses the <i>rxInfo</i> callback interface, then the application callback will have the
-* interface (see ::solClient_flow_rxCallbackFunc_t):
+* The application must set the <i>rxMsgInfo</i> callback interface.  The <i>rxInfo</i> interface is deprecated it the pointer
+* must be set to NULL.
 *
-* <code style="font-size:90%">
-  void 
-  applicationRxDataCallback (solClient_opaqueFlow_pt            opaqueFlow_p, 
-                             solClient_bufInfo_pt               bufInfo_p,
-                             solClient_flow_rxCallbackInfo_pt   rxInfo_p,
-                             void                              *user_p);
-* </code>
-*
-* Typically, applications will prefer to use the <i>rxMsgInfo</i> callback interface. The application has available to it a
+* Applications will use the <i>rxMsgInfo</i> callback interface. The application has available to it a
 * ::solClient_opaqueMsg_pt, which can be kept for later processing and provides a structured interface for accessing elements of the 
 * received message. The application callback routine then has the signature (see ::solClient_flow_rxMsgCallbackFunc_t):
 *
@@ -3789,7 +3786,6 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
 * @param funcInfoSize    The size (in bytes) of the passed-in funcInfo structure to allow the structure to grow in the future.
 * @return ::SOLCLIENT_OK, ::SOLCLIENT_FAIL
 * @subcodes
-* @li ::SOLCLIENT_SUBCODE_OUT_OF_RESOURCES - The maximum number of Sessions already created for Context (refer to ::SOLCLIENT_CONTEXT_PROP_MAX_SESSIONS).
 * @see ::solClient_subCode for a description of all subcodes.
 */
   solClient_dllExport solClient_returnCode_t
@@ -4048,7 +4044,7 @@ solClient_session_isCapable(
 * New applications should not call this function, and they should not rely on 
 * the associated Session events ::SOLCLIENT_SESSION_EVENT_ASSURED_PUBLISHING_UP
 * and ::SOLCLIENT_SESSION_EVENT_ASSURED_CONNECT_FAILED. To maintain backwards
-* compatability with existing applications, if 
+* compatibility with existing applications, if 
 * solClient_session_startAssuredPublishing() is called
 * (which is only allowed when the Session is in an established state), the
 * application gets one of the following events: ::SOLCLIENT_SESSION_EVENT_ASSURED_PUBLISHING_UP,
@@ -4147,8 +4143,7 @@ solClient_session_isCapable(
 * @li ::SOLCLIENT_SUBCODE_SESSION_NOT_ESTABLISHED - An attempt was made to send a Direct (that is, a non-Guaranteed) message on a non-established
 * Session.
 * @li ::SOLCLIENT_SUBCODE_INSUFFICIENT_SPACE - The message was too large to be buffered.
-* @li ::SOLCLIENT_SUBCODE_INVALID_SMF - The buffer does not contain a validly formatted SMF message.
-* @li ::SOLCLIENT_SUBCODE_INVALID_SMF_MESSAGE - The buffer contains a valid SMF message, but it is not a Direct message. Only Direct messages can be sent.
+* @li ::SOLCLIENT_SUBCODE_INVALID_SMF_MESSAGE - The buffer does not contain a validly formatted SMF messagem or the buffer contains a valid SMF message, but it is not a Direct message. Only Direct messages can be sent.
 * @li ::SOLCLIENT_SUBCODE_TIMEOUT - Timed-out trying to write a message to socket,
 *     waiting for Session to be established (only for blocking sends; refer to ::SOLCLIENT_SESSION_PROP_SEND_BLOCKING) 
 * @li ::SOLCLIENT_SUBCODE_COMMUNICATION_ERROR - The underlying connection failed.
@@ -4216,8 +4211,7 @@ solClient_session_isCapable(
  * @li ::SOLCLIENT_SUBCODE_SESSION_NOT_ESTABLISHED - An attempt was made to send a Direct (that is, non-Guaranteed) message on a non-established
  * Session.
  * @li ::SOLCLIENT_SUBCODE_INSUFFICIENT_SPACE - The message was too large to be buffered.
- * @li ::SOLCLIENT_SUBCODE_INVALID_SMF - The buffer does not contain a validly formatted SMF message.
- * @li ::SOLCLIENT_SUBCODE_INVALID_SMF_MESSAGE - The buffer contains a valid SMF message, but is not a direct (reliable) message suitable for replay.
+ * @li ::SOLCLIENT_SUBCODE_INVALID_SMF_MESSAGE - The buffer does not contain a validly formatted SMF messagem or the buffer contains a valid SMF message, but it is not a Direct message. Only Direct messages can be sent.
  * @li ::SOLCLIENT_SUBCODE_TIMEOUT - Timed-out trying to write a message to socket,
  *     waiting for Session to be established (only for blocking sends; refer to ::SOLCLIENT_SESSION_PROP_SEND_BLOCKING). 
  * @li ::SOLCLIENT_SUBCODE_COMMUNICATION_ERROR - The underlying connection failed.
@@ -4797,7 +4791,7 @@ solClient_session_sendReply (solClient_opaqueSession_pt opaqueSession_p,
 *                         For publishing to a queue, the current recommended practice is to use
 *                         solClient_destination_t where the destType is set to SOLCLIENT_QUEUE_DESTINATION and
 *                         dest is set to the queue name.
-* @param qnnSize          As with queueNetworkName, this is a deprecated paramter.  When passing NULL as the
+* @param qnnSize          As with queueNetworkName, this is a deprecated parameter.  When passing NULL as the
 *                         queueNetworkName, pass 0 as qnnSize.  When queueNetworkName is not null, qnnSize is the
 *                         maximum length of the Queue Network Name string that can be returned.
 * @return ::SOLCLIENT_OK, ::SOLCLIENT_FAIL, ::SOLCLIENT_NOT_READY, ::SOLCLIENT_IN_PROGRESS, ::SOLCLIENT_WOULD_BLOCK
@@ -4953,7 +4947,7 @@ solClient_session_sendReply (solClient_opaqueSession_pt opaqueSession_p,
 * solClient_session_createFlow() returns. For non-blocking mode, the timing is undefined (that is,
 * it could occur before or after the call returns, but it will typically be after).
 * A Flow connection timer, controlled by the Flow property
-* ::SOLCLIENT_SESSION_PROP_BIND_TIMEOUT_MS, controls the maximum amount of
+* ::SOLCLIENT_FLOW_PROP_BIND_TIMEOUT_MS, controls the maximum amount of
 * time a Flow connect attempt lasts for. Upon expiry of this time,
 * a ::SOLCLIENT_FLOW_EVENT_BIND_FAILED_ERROR event is issued for the Session.
 * If there is an error when solClient_session_createFlow() is invoked, then ::SOLCLIENT_FAIL
@@ -5301,7 +5295,10 @@ solClient_session_sendReply (solClient_opaqueSession_pt opaqueSession_p,
 * @see @ref flow-topic-dispatch
 *
 * @param opaqueFlow_p The opaque Flow returned when the Flow was created.
-* @param flags \ref subscribeflags "Flags" to control the operation. Not currently used. Set to zero to ensure future compatibility.
+* @param flags \ref subscribeflags "Flags" to control the operation. Valid flags for this operation are:
+* @li ::SOLCLIENT_SUBSCRIBE_FLAGS_WAITFORCONFIRM
+* @li ::SOLCLIENT_SUBSCRIBE_FLAGS_REQUEST_CONFIRM
+* @li ::SOLCLIENT_SUBSCRIBE_FLAGS_LOCAL_DISPATCH_ONLY
 * @param topicSubscription_p The Topic subscription string (a NULL-terminated UTF-8 string).
 * @param funcInfo_p         The message receive callback information. See structure solClient_flow_rxMsgDispatchFuncInfo.
 * @param correlationTag     A correlationTag pointer that is returned as is in the confirm or fail sessionEvent for the

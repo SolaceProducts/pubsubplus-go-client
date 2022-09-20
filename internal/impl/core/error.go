@@ -56,7 +56,8 @@ func ToNativeError(err ErrorInfo, args ...string) error {
 		subcode.ReplayLogModified,
 		subcode.MismatchedEndpointErrorID,
 		subcode.OutOfReplayResources,
-		subcode.ReplayStartMessageUnavailable:
+		subcode.ReplayStartMessageUnavailable,
+		subcode.ReplayAnonymousNotSupported:
 		return solace.NewError(&solace.MessageReplayError{}, err.GetMessageAsString(), nativeError)
 	default:
 		return nativeError

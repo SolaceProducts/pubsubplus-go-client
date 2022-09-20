@@ -1,7 +1,7 @@
 /**
 * @file solClientMsg.h include file for Solace Corporation Messaging Buffer Management
 *
-* Copyright 2008-2021 Solace Corporation. All rights reserved.
+* Copyright 2008-2022 Solace Corporation. All rights reserved.
 */
 /** @page msgbuffer Solace Message Buffers
 * 
@@ -43,7 +43,7 @@
 * @li ReplyTo - a ReplyTo destination.
 * @li SenderId - a Sender Identification. This field can be automatically generated when 
 *                the session property 
-*                ::SOLCLIENT_SESSION_PROP_GENERATE_SESSION_ID is enabled. When
+*                ::SOLCLIENT_SESSION_PROP_GENERATE_SENDER_ID is enabled. When
 *                this property is enabled, and the SenderId is not explicitly
 *                set, the session ClientName is used as the SenderId.<br>
 *                The SenderID is user-defined, carried end-to-end, and can also be matched
@@ -234,7 +234,7 @@ typedef enum solClient_cacheStatus
 
 /** @name Number of Message Size Quanta
 * The number of message size quanta available.
-* @see ::SOLCLIENT_GLOBAL_PROP_DBQUANTASIZE_0 through ::SOLCLIENT_GLOBAL_PROP_DBQUANTASIZE_5
+* @see ::SOLCLIENT_GLOBAL_PROP_DBQUANTASIZE_0 through ::SOLCLIENT_GLOBAL_PROP_DBQUANTASIZE_4
 */
 /*@{*/
 #define SOLCLIENT_MSG_NUMDBQUANTA               (5)  /**< The number of message size quanta available */
@@ -348,7 +348,7 @@ solClient_msg_reset(solClient_opaqueMsg_pt msg_p);
 /**
  * Given a msg_p, retrieve the user property Map from binary metadata.
  * The returned map is a multimap, in which more than one value may be associated 
- * with a given field name. A call to ::solClient_container_addXyz() does not
+ * with a given field name. A call to <i>solClient_container_addXyz()</i> does not
  * overwrite an existing one, instead it adds a new field. To overwrite an existing
  * field, the field has to been deleted and then added with a new value. To get all
  * values associated with a given field name, a linear search is required.
@@ -398,7 +398,7 @@ solClient_msg_getBinaryAttachmentStream(solClient_opaqueMsg_pt msg_p,
 /**
  * Given a msg_p, retrieve the contents of a binary attachment part as a map. 
  * The returned map is a multimap in which more than one value may be associated 
- * with a given field name. A call to ::solClient_container_addXyz() does not
+ * with a given field name. A call to <i>solClient_container_addXyz()</i> does not
  * overwrite an existing one, but adds a new one instead. To overwrite an existing
  * field, the field has to been deleted and then added with a new value. To get all
  * values associated with a given field name, a linear search is required.
@@ -1725,6 +1725,7 @@ solClient_msg_isReplyMsg(solClient_opaqueMsg_pt msg_p);
  * Given a msg_p, set the Dead Message Queue (DMQ) eligible property on a message. When this
  * option is set, messages that expire in the network, are saved on a appliance dead message 
  * queue. Otherwise expired messages are discarded.
+ * By default the property is set to false on newly created messages.
  *
  * @param msg_p    A solClient_opaqueMsg_pt that is returned from a previous call
  *                 to solClient_msg_alloc() or received in a receive
@@ -1874,7 +1875,7 @@ solClient_msg_isElidingEligible(solClient_opaqueMsg_pt msg_p);
 /**
  * Create a map container in the binary attachment of the message.
  * The map is a multimap in which more than one value may be associated 
- * with a given field name. A call to ::solClient_container_addXyz() does not
+ * with a given field name. A call to <i>solClient_container_addXyz()</i> does not
  * overwrite an existing one, but adds a new one instead. To overwrite an existing
  * field, the field has to been deleted and then added with a new value. To get all
  * values associated with a given field name, a linear search is required.
@@ -1951,7 +1952,7 @@ solClient_msg_createBinaryAttachmentStream(solClient_opaqueMsg_pt   msg_p,
 /**
  * Create a User Property map in the binary metadata header.
  * The map is a multimap in which more than one value may be associated 
- * with a given field name. A call to ::solClient_container_addXyz() does not
+ * with a given field name. A call to <i>solClient_container_addXyz()</i> does not
  * overwrite an existing one, but adds a new one instead. To overwrite an existing
  * field, the field has to been deleted and then added with a new value. To get all
  * values associated with a given field name, a linear search is required.
@@ -2263,7 +2264,7 @@ solClient_msg_deleteHttpContentEncoding(solClient_opaqueMsg_pt msg_p);
  * SOLCLIENT_SUBCODE_INSUFFICIENT_SPACE.
  * The map is a multimap in which more than one value may be associated with a given field
  * name. 
- * A call to ::solClient_container_addXyz() does not
+ * A call to <i>solClient_container_addXyz()</i> does not
  * overwrite an existing field, instead it adds a new one. To overwrite an existing
  * field, the field has to been deleted and then added with a new value. To get all
  * values associated with a given field name, a linear search is required.
