@@ -245,7 +245,7 @@ func SolClientMessageSetCorrelationID(messageP SolClientMessagePt, correlationID
 func SolClientMessageGetApplicationMessageID(messageP SolClientMessagePt) (string, *SolClientErrorInfoWrapper) {
 	var cChar *C.char
 	errorInfo := handleCcsmpError(func() SolClientReturnCode {
-		return C.solClient_msg_getApplicationMsgType(messageP, &cChar)
+		return C.solClient_msg_getApplicationMessageId(messageP, &cChar)
 	})
 	return C.GoString(cChar), errorInfo
 }
@@ -255,7 +255,7 @@ func SolClientMessageSetApplicationMessageID(messageP SolClientMessagePt, msgID 
 	cStr := C.CString(msgID)
 	defer C.free(unsafe.Pointer(cStr))
 	errorInfo := handleCcsmpError(func() SolClientReturnCode {
-		return C.solClient_msg_setApplicationMsgType(messageP, cStr)
+		return C.solClient_msg_setApplicationMessageId(messageP, cStr)
 	})
 	return errorInfo
 }
