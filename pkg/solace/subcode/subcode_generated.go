@@ -62,7 +62,7 @@ const (
 	InvalidVirtualAddress Code = 20
 	// ClientDeleteInProgress: The client login not currently possible as previous instance of same client still being deleted.
 	ClientDeleteInProgress Code = 21
-	// TooManyClients: The client login not currently possible becuase the maximum number of active clients on appliance has already been reached.
+	// TooManyClients: The client login not currently possible because the maximum number of active clients on appliance has already been reached.
 	TooManyClients Code = 22
 	// SubscriptionAlreadyPresent: The client attempted to add a subscription which already exists. This subcode is only returned if the Session property SOLCLIENT_SESSION_PROP_IGNORE_DUP_SUBSCRIPTION_ERROR is not enabled.
 	SubscriptionAlreadyPresent Code = 23
@@ -300,7 +300,7 @@ const (
 	UnknownStartLocationType Code = 139
 	// ReplayMessageUnavailable: A replay in progress on a flow failed because messages to be replayed were trimmed from the replay log.
 	ReplayMessageUnavailable Code = 140
-	// ReplayStarted: A replay was started on the queue/topic endpoint, either by another client or by an adminstrator on the message router.
+	// ReplayStarted: A replay was started on the queue/topic endpoint, either by another client or by an administrator on the message router.
 	ReplayStarted Code = 141
 	// ReplayCancelled: A replay in progress on a flow was administratively cancelled, causing the flow to be unbound.
 	ReplayCancelled Code = 142
@@ -334,4 +334,6 @@ const (
 	ReplayStartMessageUnavailable Code = 156
 	// MessageIDNotComparable: Replication Group Message Id are not comparable. Messages must be published to the same broker or HA pair for their Replicaton Group Message Id to be comparable.
 	MessageIDNotComparable Code = 157
+	// ReplayAnonymousNotSupported: The client attempted to start replay on a flow bound to an anonymous queue.
+	ReplayAnonymousNotSupported Code = 158
 )

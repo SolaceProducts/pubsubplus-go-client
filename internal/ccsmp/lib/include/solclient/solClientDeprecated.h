@@ -4,7 +4,7 @@
 *
 * @file solClientDeprecated.h include file for the Solace Corporation Messaging API for C
 *
-* Copyright 2007-2021 Solace Corporation. All rights reserved.
+* Copyright 2007-2022 Solace Corporation. All rights reserved.
 *
 * This include file provides the deprecated public constants and API calls for clients
 * connecting to a Solace messaging appliance.  This file is provided for backwards 
@@ -672,7 +672,7 @@ static const solClient_consumerId_t SOLCLIENT_NULL_CONSUMER_ID = 0xffffffff; /**
 
   /**
    * Creates a Queue network name.  This function has been deprecated and exists for backwards
-   * compatiblity.
+   * compatibility.
    *
    * This string may be passed as the Queue name to
    * ::solClient_session_createFlow() when connecting with a Queue
@@ -712,7 +712,7 @@ static const solClient_consumerId_t SOLCLIENT_NULL_CONSUMER_ID = 0xffffffff; /**
 	
 /**
  * Create a temporary Queue name. This function has been deprecated and exists for backwards
- * compatiblity.
+ * compatibility.
  *
  * The string returned by this function may be passed as the Queue name to
  * ::solClient_session_createFlow() when connecting with a non-durable Queue
@@ -753,7 +753,7 @@ solClient_session_createTemporaryQueueName(solClient_opaqueSession_pt opaqueSess
  *
  * By default, all Guaranteed messages are stored in the Solace messaging appliance before being forwarded
  * (::SOLCLIENT_FLOW_PROP_FORWARDING_MODE_STORE_AND_FORWARD). In this manner, when publishers receive a Guaranteed delivery
- * acknowledgment, it is assured that all matching endpoint subscribers can eventually receive the message. Similiarly subscribers currently 
+ * acknowledgment, it is assured that all matching endpoint subscribers can eventually receive the message. Similarly subscribers currently 
  * unbound from the topic-endpoint or queue, will receive the Guaranteed message after the next bind.
  *
  * Beginning with release 5.3 of the Solace messaging appliance, it is possible to configure an endpoint connection as 

@@ -42,6 +42,11 @@ var libraryEnvironmentMapping = map[string]string{
 // ccsmp initialization, calls solClient_initialize
 func init() {
 	propertyMap := make(map[string]string)
+	if ccsmp.SolClientRunningOnAlpine {
+		// SOL-78608 we need to use the full library names to pick up the default alpine SSL libs
+		propertyMap[ccsmp.SolClientGlobalPropCryptoLib] = "libcrypto.so.1.1"
+		propertyMap[ccsmp.SolClientGlobalPropSslLib] = "libssl.so.1.1"
+	}
 	for _, env := range supportedKeys {
 		if val, ok := os.LookupEnv(env); ok {
 			var key string
