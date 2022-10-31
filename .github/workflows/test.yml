@@ -17,7 +17,7 @@ jobs:
       - name: Setup Go environment
         uses: actions/setup-go@v2.1.3
         with:
-          go-version: '1.18'
+          go-version: '1.19'
       - name: Compiles
         run: go build ./...
 
@@ -35,7 +35,7 @@ jobs:
         if: ${{ success() }}
         run: |
           mkdir reports
-          go install github.com/onsi/ginkgo/v2/ginkgo@latest
+          go install github.com/onsi/ginkgo/v2/ginkgo@v2.1.3
           ginkgo --junit-report=./reports/report.xml -coverprofile ./reports/coverage.out -coverpkg solace.dev/go/messaging/internal/...,solace.dev/go/messaging/pkg/... -tags enable_debug_logging
         working-directory: ./test
 

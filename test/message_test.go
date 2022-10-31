@@ -509,6 +509,20 @@ var _ = Describe("Local MessageBuilder Tests", func() {
 		for builderName, builderFuncRef := range buildFunctions {
 			builderFunc := builderFuncRef
 			Context("using build "+builderName, func() {
+				It("can set and retrieve all message options", func() {
+					for _, configProvider := range fromConfigProviderTestCases {
+						messageBuilder.FromConfigurationProvider(config.MessagePropertyMap{configProvider.key: configProvider.value})
+					}
+					msg, err := builderFunc(messageBuilder)
+					Expect(err).ToNot(HaveOccurred())
+					for _, configProvider := range fromConfigProviderTestCases {
+						retrieved, ok := configProvider.getter(msg)
+						Expect(ok).To(BeTrue())
+						Expect(retrieved).To(BeEquivalentTo(configProvider.value))
+					}
+					msg.Dispose()
+				})
+
 				for _, testCase := range fromConfigProviderTestCases {
 					key := testCase.key
 					value := testCase.value
