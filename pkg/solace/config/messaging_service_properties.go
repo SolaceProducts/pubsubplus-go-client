@@ -87,7 +87,7 @@ func (servicePropertyMap ServicePropertyMap) String() string {
 }
 
 const (
-	/* AuthenticaionProperties */
+	/* AuthenticationProperties */
 
 	// AuthenticationPropertyScheme defines the keys for the authentication scheme type.
 	// Possible values for configuration of authentication scheme are defined in

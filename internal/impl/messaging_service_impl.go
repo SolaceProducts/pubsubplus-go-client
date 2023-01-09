@@ -33,6 +33,7 @@ import (
 	"solace.dev/go/messaging/internal/impl/publisher"
 	"solace.dev/go/messaging/pkg/solace"
 	"solace.dev/go/messaging/pkg/solace/metrics"
+        "solace.dev/go/messaging/pkg/solace/config"
 )
 
 // the main service lifecycle state
@@ -64,11 +65,11 @@ const (
 	messagingServiceSubStateDown         messagingServiceSubState = iota
 )
 
-// var mmessagingServiceSubStateNames = map[messagingServiceSubState]string{
-// 	messagingServiceSubStateUp:           "Up",
-// 	messagingServiceSubStateReconnecting: "Reconnecting",
-// 	messagingServiceSubStateDown:         "Down",
-// }
+// This map contains the list of modifiable service properties
+var modifiableProperties = [...]config.ServiceProperty{
+        config.AuthenticationPropertySchemeOAuth2AccessToken,
+        config.AuthenticationPropertySchemeOAuth2OIDCIDToken,
+}
 
 type messagingServiceImpl struct {
 	transport        core.Transport
@@ -155,6 +156,38 @@ func (service *messagingServiceImpl) Connect() (ret error) {
 	atomic.StoreInt32(&service.state, messagingServiceStateConnected)
 	service.connectFuture.Complete(nil)
 	return nil
+}
+
+func (service *messagingServiceImpl) UpdateProperty(property config.ServiceProperty, value interface{}) (ret error) {
+        // Verify the service is in the correct state for this operation
+        var state = service.getState()
+        if !(state == messagingServiceStateConnected || state == messagingServiceStateNotConnected || state == messagingServiceStateConnecting) {
+                // If the service is not connected or connecting, then the service is not in a valid state for
+                // updating service properties, so we return an error.
+                return solace.NewError(&solace.IllegalStateError{}, fmt.Sprintf(constants.UnableToModifyPropertyOfDisconnectedService), nil)
+        }
+
+
+        // Verify that the passed property is a valid property
+        var propertyIsModifiable = false
+        for _, modifiableProperty := range modifiableProperties {
+                if property == modifiableProperty {
+                        propertyIsModifiable = true
+                        break
+                }
+        }
+        if !propertyIsModifiable {
+                return solace.NewError(&solace.IllegalArgumentError{}, fmt.Sprintf(constants.UnableToModifyNonModifiableGivenServiceProperty, property), nil)
+        }
+
+
+        // All checks passed, proceed with property update
+        ccsmpProperty := servicePropertyToCCSMPMap[property]
+        propertyList := []string{} // The size of this array will need to be updated in the future if more properties are accepted by this method.
+        propertyList = append(propertyList, ccsmpProperty.solClientPropertyName)
+        propertyList = append(propertyList, ccsmpProperty.converter(value))
+
+        return service.transport.ModifySessionProperties(propertyList)
 }
 
 func (service *messagingServiceImpl) downEventHandler(sessionEventInfo core.SessionEventInfo) {

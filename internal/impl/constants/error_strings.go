@@ -19,6 +19,12 @@ package constants
 // Constants used for various error messages should go here
 // Note that errors in golang by convention start with a lowercase letter and do not end in punctuation
 
+// UnableToModifyPropertyOfDisconnectedService error string
+const UnableToModifyPropertyOfDisconnectedService = "unable to modify a property of a service that is disconnected"
+
+// UnableToModifyNonModifiableGivenServiceProperty error string
+const UnableToModifyNonModifiableGivenServiceProperty = "unable to modify the non-modifiable given service property: %s"
+
 // UnableToConnectAlreadyDisconnectedService error string
 const UnableToConnectAlreadyDisconnectedService = "unable to connect messaging service in state %s"
 

@@ -41,6 +41,7 @@ type Transport interface {
 	Events() Events
 	ID() string
 	Host() string
+        ModifySessionProperties([]string) error
 }
 
 // NewTransport function
@@ -94,6 +95,14 @@ type ccsmpTransport struct {
 	events *ccsmpBackedEvents
 
 	host, id string
+}
+
+func (transport *ccsmpTransport) ModifySessionProperties(properties []string) error {
+        err := transport.session.SolClientModifySessionProperties(properties)
+        if err != nil {
+            return ToNativeError(err, "an error occurred while modifying session properties.")
+        }
+        return nil
 }
 
 func (transport *ccsmpTransport) Connect() error {

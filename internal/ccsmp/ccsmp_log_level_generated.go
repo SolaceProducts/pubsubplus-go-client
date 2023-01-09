@@ -34,9 +34,9 @@ const (
 	SolClientLogLevelError SolClientLogLevel = C.SOLCLIENT_LOG_ERROR
 	// SolClientLogLevelWarning: An unexpected condition within the API that is not expected to affect its operation.
 	SolClientLogLevelWarning SolClientLogLevel = C.SOLCLIENT_LOG_WARNING
-	// SolClientLogLevelNotice: Significant informational messages about the normal operation of the API. These messages are never output in the normal process of sending or receiving a message from the appliance.
+	// SolClientLogLevelNotice: Significant informational messages about the normal operation of the API. These messages are never output in the normal process of sending or receiving a message from the broker.
 	SolClientLogLevelNotice SolClientLogLevel = C.SOLCLIENT_LOG_NOTICE
-	// SolClientLogLevelInfo: Informational messages about the normal operation of the API. These might include information related to sending or receiving messages from the appliance.
+	// SolClientLogLevelInfo: Informational messages about the normal operation of the API. These might include information related to sending or receiving messages from the broker.
 	SolClientLogLevelInfo SolClientLogLevel = C.SOLCLIENT_LOG_INFO
 	// SolClientLogLevelDebug: Debugging information generally useful to API developers (very verbose).
 	SolClientLogLevelDebug SolClientLogLevel = C.SOLCLIENT_LOG_DEBUG

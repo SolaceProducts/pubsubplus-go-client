@@ -372,6 +372,13 @@ func (transport *solClientTransportMock) Host() string {
 	return ""
 }
 
+func (transport *solClientTransportMock) ModifySessionProperties(_ []string) error {
+        // FFC: This function is added to pass a check during building. Currently it
+        // is not used, so there is no implementation. The implementation will need
+        // to be added as a part of future work.
+        return nil
+}
+
 type solClientTransportEventsMock struct {
 }
 

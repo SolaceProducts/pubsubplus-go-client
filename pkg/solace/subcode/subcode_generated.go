@@ -34,7 +34,7 @@ const (
 	InternalError Code = 6
 	// OutOfMemory: An API call failed due to inability to allocate memory.
 	OutOfMemory Code = 7
-	// ProtocolError: An API call failed due to a protocol error with the appliance (not an application fault).
+	// ProtocolError: An API call failed due to a protocol error with the broker (not an application fault).
 	ProtocolError Code = 8
 	// InitNotCalled: An API call failed due to solClient_initialize() not being called first.
 	InitNotCalled Code = 9
@@ -54,15 +54,15 @@ const (
 	TopicTooLarge Code = 16
 	// InvalidTopicSyntax: An attempt was made to use a Topic that has a syntax which is not supported.
 	InvalidTopicSyntax Code = 17
-	// XmlParseError: The appliance could not parse an XML message.
+	// XmlParseError: The broker could not parse an XML message.
 	XmlParseError Code = 18
-	// LoginFailure: The client could not log into the appliance (bad username or password).
+	// LoginFailure: The client could not log into the broker (bad username or password).
 	LoginFailure Code = 19
-	// InvalidVirtualAddress: An attempt was made to connect to the wrong IP address on the appliance (must use CVRID if configured) or the appliance CVRID has changed and this was detected on reconnect.
+	// InvalidVirtualAddress: An attempt was made to connect to the wrong IP address on the broker (must use CVRID if configured) or the broker CVRID has changed and this was detected on reconnect.
 	InvalidVirtualAddress Code = 20
 	// ClientDeleteInProgress: The client login not currently possible as previous instance of same client still being deleted.
 	ClientDeleteInProgress Code = 21
-	// TooManyClients: The client login not currently possible because the maximum number of active clients on appliance has already been reached.
+	// TooManyClients: The client login not currently possible because the maximum number of active clients on broker has already been reached.
 	TooManyClients Code = 22
 	// SubscriptionAlreadyPresent: The client attempted to add a subscription which already exists. This subcode is only returned if the Session property SOLCLIENT_SESSION_PROP_IGNORE_DUP_SUBSCRIPTION_ERROR is not enabled.
 	SubscriptionAlreadyPresent Code = 23
@@ -70,15 +70,15 @@ const (
 	SubscriptionNotFound Code = 24
 	// SubscriptionInvalid: The client attempted to add/remove a subscription that is not valid.
 	SubscriptionInvalid Code = 25
-	// SubscriptionOther: The appliance rejected a subscription add or remove request for a reason not separately enumerated.
+	// SubscriptionOther: The broker rejected a subscription add or remove request for a reason not separately enumerated.
 	SubscriptionOther Code = 26
-	// ControlOther: The appliance rejected a control message for another reason not separately enumerated.
+	// ControlOther: The broker rejected a control message for another reason not separately enumerated.
 	ControlOther Code = 27
-	// DataOther: The appliance rejected a data message for another reason not separately enumerated.
+	// DataOther: The broker rejected a data message for another reason not separately enumerated.
 	DataOther Code = 28
 	// LogFileError: Could not open the log file name specified by the application for writing (Deprecated - ::SOLCLIENT_SUBCODE_OS_ERROR is used).
 	LogFileError Code = 29
-	// MessageTooLarge: The client attempted to send a message larger than that supported by the appliance.
+	// MessageTooLarge: The client attempted to send a message larger than that supported by the broker.
 	MessageTooLarge Code = 30
 	// SubscriptionTooMany: The client attempted to add a subscription that exceeded the maximum number allowed.
 	SubscriptionTooMany Code = 31
@@ -110,15 +110,15 @@ const (
 	CannotModifyWhileNotIdle Code = 44
 	// MsgVpnNotAllowed: The Message VPN name configured for the session does not exist.
 	MsgVpnNotAllowed Code = 45
-	// ClientNameInvalid: The client name chosen has been rejected as invalid by the appliance.
+	// ClientNameInvalid: The client name chosen has been rejected as invalid by the broker.
 	ClientNameInvalid Code = 46
-	// MsgVpnUnavailable: The Message VPN name set for the Session (or the default Message VPN, if none was set) is currently shutdown on the appliance.
+	// MsgVpnUnavailable: The Message VPN name set for the Session (or the default Message VPN, if none was set) is currently shutdown on the broker.
 	MsgVpnUnavailable Code = 47
-	// ClientUsernameIsShutdown: The username for the client is administratively shutdown on the appliance.
+	// ClientUsernameIsShutdown: The username for the client is administratively shutdown on the broker.
 	ClientUsernameIsShutdown Code = 48
 	// DynamicClientsNotAllowed: The username for the Session has not been set and dynamic clients are not allowed.
 	DynamicClientsNotAllowed Code = 49
-	// ClientNameAlreadyInUse: The Session is attempting to use a client, publisher name, or subscriber name that is in use by another client, publisher, or subscriber, and the appliance is configured to reject the new Session. When Message VPNs are in use, the conflicting client name must be in the same Message VPN.
+	// ClientNameAlreadyInUse: The Session is attempting to use a client, publisher name, or subscriber name that is in use by another client, publisher, or subscriber, and the broker is configured to reject the new Session. When Message VPNs are in use, the conflicting client name must be in the same Message VPN.
 	ClientNameAlreadyInUse Code = 50
 	// CacheNoData: When the cache request returns ::SOLCLIENT_INCOMPLETE, this subcode indicates there is no cached data in the designated cache.
 	CacheNoData Code = 51
@@ -140,19 +140,19 @@ const (
 	CannotBindToQueue Code = 59
 	// InvalidTopicNameForTe: An attempt was made to bind to a Topic Endpoint with an invalid topic.
 	InvalidTopicNameForTe Code = 60
-	// UnknownQueueName: An attempt was made to bind to an unknown Queue name (for example, not configured on appliance).
+	// UnknownQueueName: An attempt was made to bind to an unknown Queue name (for example, not configured on broker).
 	UnknownQueueName Code = 61
-	// UnknownTeName: An attempt was made to bind to an unknown Topic Endpoint name (for example, not configured on appliance).
+	// UnknownTeName: An attempt was made to bind to an unknown Topic Endpoint name (for example, not configured on broker).
 	UnknownTeName Code = 62
 	// MaxClientsForQueue: An attempt was made to bind to a Queue that already has a maximum number of clients.
 	MaxClientsForQueue Code = 63
 	// MaxClientsForTe: An attempt was made to bind to a Topic Endpoint that already has a maximum number of clients.
 	MaxClientsForTe Code = 64
-	// UnexpectedUnbind: An unexpected unbind response was received for a Queue or Topic Endpoint (for example, the Queue or Topic Endpoint was deleted from the appliance).
+	// UnexpectedUnbind: An unexpected unbind response was received for a Queue or Topic Endpoint (for example, the Queue or Topic Endpoint was deleted from the broker).
 	UnexpectedUnbind Code = 65
 	// QueueNotFound: The specified Queue was not found when publishing a message.
 	QueueNotFound Code = 66
-	// ClientAclDenied: The client login to the appliance was denied because the IP address/netmask combination used for the client is designated in the ACL (Access Control List) as a deny connection for the given Message VPN and username.
+	// ClientAclDenied: The client login to the broker was denied because the IP address/netmask combination used for the client is designated in the ACL (Access Control List) as a deny connection for the given Message VPN and username.
 	ClientAclDenied Code = 67
 	// SubscriptionAclDenied: Adding a subscription was denied because it matched a subscription that was defined on the ACL (Access Control List).
 	SubscriptionAclDenied Code = 68
@@ -166,7 +166,7 @@ const (
 	QueueShutdown Code = 72
 	// TeShutdown: An attempt was made to bind to a shutdown Topic Endpoint.
 	TeShutdown Code = 73
-	// NoMoreNonDurableQueueOrTe: An attempt was made to bind to a non-durable Queue or Topic Endpoint, and the appliance is out of resources.
+	// NoMoreNonDurableQueueOrTe: An attempt was made to bind to a non-durable Queue or Topic Endpoint, and the broker is out of resources.
 	NoMoreNonDurableQueueOrTe Code = 74
 	// EndpointAlreadyExists: An attempt was made to create a Queue or Topic Endpoint that already exists. This subcode is only returned if the provision flag SOLCLIENT_PROVISION_FLAGS_IGNORE_EXIST_ERRORS is not set.
 	EndpointAlreadyExists Code = 75
@@ -180,7 +180,7 @@ const (
 	EndpointPropertyMismatch Code = 79
 	// SubscriptionManagerDenied: An attempt was made to add a subscription to another client when Session does not have subscription manager privileges.
 	SubscriptionManagerDenied Code = 80
-	// UnknownClientName: An attempt was made to add a subscription to another client that is unknown on the appliance.
+	// UnknownClientName: An attempt was made to add a subscription to another client that is unknown on the broker.
 	UnknownClientName Code = 81
 	// QuotaOutOfRange: An attempt was made to provision an endpoint with a quota that is out of range.
 	QuotaOutOfRange Code = 82
@@ -188,13 +188,13 @@ const (
 	SubscriptionAttributesConflict Code = 83
 	// InvalidSmfMessage: The client attempted to send a Solace Message Format (SMF) message using solClient_session_sendSmf() or solClient_session_sendMultipleSmf(), but the buffer did not contain a Direct message.
 	InvalidSmfMessage Code = 84
-	// NoLocalNotSupported: The client attempted to establish a Session or Flow with No Local enabled and the capability is not supported by the appliance.
+	// NoLocalNotSupported: The client attempted to establish a Session or Flow with No Local enabled and the capability is not supported by the broker.
 	NoLocalNotSupported Code = 85
 	// UnsubscribeNotAllowedClientsBound: The client attempted to unsubscribe a Topic from a Topic Endpoint while there were still Flows bound to the endpoint.
 	UnsubscribeNotAllowedClientsBound Code = 86
 	// CannotBlockInContext: An API function was invoked in the Context thread that would have blocked otherwise. For an example, a call may have been made to send a message when the Session is configured with ::SOLCLIENT_SESSION_PROP_SEND_BLOCKING enabled and the transport (socket or IPC) channel is full. All application callback functions are executed in the Context thread.
 	CannotBlockInContext Code = 87
-	// FlowActiveFlowIndicationUnsupported: The client attempted to establish a Flow with Active Flow Indication (SOLCLIENT_FLOW_PROP_ACTIVE_FLOW_IND) enabled and the capability is not supported by the appliance
+	// FlowActiveFlowIndicationUnsupported: The client attempted to establish a Flow with Active Flow Indication (SOLCLIENT_FLOW_PROP_ACTIVE_FLOW_IND) enabled and the capability is not supported by the broker
 	FlowActiveFlowIndicationUnsupported Code = 88
 	// UnresolvedHost: The client failed to connect because the host name could not be resolved.
 	UnresolvedHost Code = 89
@@ -210,27 +210,27 @@ const (
 	UnknownFlowName Code = 94
 	// ReplicationIsStandby: An attempt to perform an operation using a VPN that is configured to be STANDBY for replication.
 	ReplicationIsStandby Code = 95
-	// LowPriorityMsgCongestion: The message was rejected by the appliance as one or more matching endpoints exceeded the reject-low-priority-msg-limit.
+	// LowPriorityMsgCongestion: The message was rejected by the broker as one or more matching endpoints exceeded the reject-low-priority-msg-limit.
 	LowPriorityMsgCongestion Code = 96
 	// LibraryNotLoaded: The client failed to find the library or symbol.
 	LibraryNotLoaded Code = 97
 	// FailedLoadingTruststore: The client failed to load the trust store.
 	FailedLoadingTruststore Code = 98
-	// UntrustedCertificate: The client attempted to connect to an appliance that has a suspect certficate.
+	// UntrustedCertificate: The client attempted to connect to an broker that has a suspect certficate.
 	UntrustedCertificate Code = 99
-	// UntrustedCommonname: The client attempted to connect to an appliance that has a suspect common name.
+	// UntrustedCommonname: The client attempted to connect to an broker that has a suspect common name.
 	UntrustedCommonname Code = 100
-	// CertificateDateInvalid: The client attempted to connect to an appliance that does not have a valid certificate date.
+	// CertificateDateInvalid: The client attempted to connect to an broker that does not have a valid certificate date.
 	CertificateDateInvalid Code = 101
 	// FailedLoadingCertificateAndKey: The client failed to load certificate and/or private key files.
 	FailedLoadingCertificateAndKey Code = 102
-	// BasicAuthenticationIsShutdown:  The client attempted to connect to an appliance that has the basic authentication shutdown.
+	// BasicAuthenticationIsShutdown:  The client attempted to connect to an broker that has the basic authentication shutdown.
 	BasicAuthenticationIsShutdown Code = 103
-	// ClientCertificateAuthenticationIsShutdown:  The client attempted to connect to an appliance that has the client certificate authentication shutdown.
+	// ClientCertificateAuthenticationIsShutdown:  The client attempted to connect to an broker that has the client certificate authentication shutdown.
 	ClientCertificateAuthenticationIsShutdown Code = 104
-	// UntrustedClientCertificate: The client failed to connect to an appliance as it has a suspect client certificate.
+	// UntrustedClientCertificate: The client failed to connect to an broker as it has a suspect client certificate.
 	UntrustedClientCertificate Code = 105
-	// ClientCertificateDateInvalid: The client failed to connect to an appliance as it does not have a valid client certificate date.
+	// ClientCertificateDateInvalid: The client failed to connect to an broker as it does not have a valid client certificate date.
 	ClientCertificateDateInvalid Code = 106
 	// CacheRequestCancelled: The cache request has been cancelled by the client.
 	CacheRequestCancelled Code = 107
@@ -248,7 +248,7 @@ const (
 	MaxTransactedSessionsExceeded Code = 113
 	// TransactedSessionNameInUse: The client failed to open a Transacted Session as the Transacted Session name provided is being used by another opened session.
 	TransactedSessionNameInUse Code = 114
-	// ServiceUnavailable: Guaranteed Delivery services are not enabled on the appliance.
+	// ServiceUnavailable: Guaranteed Delivery services are not enabled on the broker.
 	ServiceUnavailable Code = 115
 	// NoTransactionStarted: The client attempted to commit an unknown transaction.
 	NoTransactionStarted Code = 116
@@ -264,7 +264,7 @@ const (
 	EndpointModified Code = 121
 	// InvalidConnectionOwner: The client attempted to commit a transaction with an unknown connection ID.
 	InvalidConnectionOwner Code = 122
-	// KerberosAuthenticationIsShutdown: The client attempted to connect to an appliance that has the Kerberos authentication shutdown.
+	// KerberosAuthenticationIsShutdown: The client attempted to connect to an broker that has the Kerberos authentication shutdown.
 	KerberosAuthenticationIsShutdown Code = 123
 	// CommitOrRollbackInProgress: The client attempted to send/receive a message or commit/rollback a transaction when a transaction commit/rollback is in progress.
 	CommitOrRollbackInProgress Code = 124
@@ -318,9 +318,9 @@ const (
 	TopicOrSelectorModifiedOnDurableTopicEndpoint Code = 148
 	// ReplayFailed: A replay in progress on a flow failed.
 	ReplayFailed Code = 149
-	// CompressedSslNotSupported: The client attempted to establish a Session or Flow with ssl and compression, but the capability is not supported by the appliance.
+	// CompressedSslNotSupported: The client attempted to establish a Session or Flow with ssl and compression, but the capability is not supported by the broker.
 	CompressedSslNotSupported Code = 150
-	// SharedSubscriptionsNotSupported: The client attempted to add a shared subscription, but the capability is not supported by the appliance.
+	// SharedSubscriptionsNotSupported: The client attempted to add a shared subscription, but the capability is not supported by the broker.
 	SharedSubscriptionsNotSupported Code = 151
 	// SharedSubscriptionsNotAllowed: The client attempted to add a shared subscription on a client that is not permitted to use shared subscriptions.
 	SharedSubscriptionsNotAllowed Code = 152

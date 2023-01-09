@@ -78,7 +78,7 @@ const (
 	SolClientStatsRXCachemsg SolClientStatsRX = C.SOLCLIENT_STATS_RX_CACHEMSG
 	// SolClientStatsRXFoundCtsync: Deprecated - Not Supported - On a cut-through Flow, the number of times the Flow entered cut-through delivery mode.
 	SolClientStatsRXFoundCtsync SolClientStatsRX = C.SOLCLIENT_STATS_RX_FOUND_CTSYNC
-	// SolClientStatsRXLostCtsync: Deprecated - Not Supported - On a cut-through Flow, the number of times the Flow left cut-through delivery mode to resynchronize with the Guaranteed message storage on the appliance
+	// SolClientStatsRXLostCtsync: Deprecated - Not Supported - On a cut-through Flow, the number of times the Flow left cut-through delivery mode to resynchronize with the Guaranteed message storage on the broker
 	SolClientStatsRXLostCtsync SolClientStatsRX = C.SOLCLIENT_STATS_RX_LOST_CTSYNC
 	// SolClientStatsRXLostCtsyncGm: Deprecated - Not Supported - On a cut-through Flow, the number of times the Flow left cut-through delivery mode to resynchronize with the Guaranteed message storage due to receiving a Guaranteed message that was not previously received as Direct.
 	SolClientStatsRXLostCtsyncGm SolClientStatsRX = C.SOLCLIENT_STATS_RX_LOST_CTSYNC_GM
