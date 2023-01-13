@@ -19,6 +19,7 @@ package publisher
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"solace.dev/go/messaging/internal/impl/constants"
@@ -52,8 +53,9 @@ type directMessagePublisherImpl struct {
 	// the parameters for backpressure
 	backpressureConfiguration backpressureConfiguration
 	// buffers for backpressure
-	buffer     chan *publishable
-	taskBuffer buffer.PublisherTaskBuffer
+	buffer            chan *publishable
+	taskBuffer        buffer.PublisherTaskBuffer
+	bufferPublishLock sync.Mutex
 
 	terminateWaitInterrupt chan struct{}
 }
@@ -465,6 +467,8 @@ func (publisher *directMessagePublisherImpl) publish(msg *message.OutboundMessag
 				}
 			}
 		}()
+		publisher.bufferPublishLock.Lock()
+		defer publisher.bufferPublishLock.Unlock()
 		pub := &publishable{msg, dest}
 		if publisher.backpressureConfiguration == backpressureConfigurationReject {
 			select {

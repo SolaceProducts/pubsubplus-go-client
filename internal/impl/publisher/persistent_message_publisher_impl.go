@@ -54,6 +54,7 @@ type persistentMessagePublisherImpl struct {
 	backpressureConfiguration backpressureConfiguration
 	buffer                    chan *persistentPublishable
 	taskBuffer                buffer.PublisherTaskBuffer
+	bufferPublishLock         sync.Mutex
 
 	terminateWaitInterrupt chan struct{}
 
@@ -647,6 +648,8 @@ func (publisher *persistentMessagePublisherImpl) publish(msg *message.OutboundMe
 				}
 			}
 		}()
+		publisher.bufferPublishLock.Lock()
+		defer publisher.bufferPublishLock.Unlock()
 		pub := &persistentPublishable{msg, dest, ctx}
 		if publisher.backpressureConfiguration == backpressureConfigurationReject {
 			select {
