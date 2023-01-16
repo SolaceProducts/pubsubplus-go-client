@@ -57,6 +57,7 @@
  */
 #define SOLCLIENT_SESSION_PROP_MAX_HOST_LEN        (128) /**< The maximum length of a single host entry in the Session host property, not including the NULL terminator. */
 #define SOLCLIENT_MAX_SELECTOR_SIZE          (1023)        /**< The maximum length of a selector on solClient_session_createFlow(). */
+#define SOLCLIENT_BUFINFO_MAX_DURABLE_QUEUENAME_SIZE (200) /**< The maximum size allowed for a durable Queue name (not including the terminating NULL). */
 /**
 * @typedef solClient_bufInfo_ap
 * An array of solClient_bufInfo_t is used to represent a message. The 

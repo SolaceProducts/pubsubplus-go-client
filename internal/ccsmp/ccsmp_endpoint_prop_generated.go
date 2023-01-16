@@ -40,7 +40,7 @@ const (
 	SolClientEndpointPropMaxmsgSize = C.SOLCLIENT_ENDPOINT_PROP_MAXMSG_SIZE
 	// SolClientEndpointPropRespectsMsgTTL: The endpoint observes message Time-to-Live (TTL) values and can remove expired messages. Default: ::SOLCLIENT_ENDPOINT_PROP_DEFAULT_RESPECTS_MSG_TTL
 	SolClientEndpointPropRespectsMsgTTL = C.SOLCLIENT_ENDPOINT_PROP_RESPECTS_MSG_TTL
-	// SolClientEndpointPropDiscardBehavior: When a message cannot be added to an endpoint (for example, maximum quota (::ENDPOINT_QUOTA_MB) exceeded), this property controls the action the appliance will perform towards the publisher.
+	// SolClientEndpointPropDiscardBehavior: When a message cannot be added to an endpoint (for example, maximum quota (::SOLCLIENT_ENDPOINT_PROP_QUOTA_MB) exceeded), this property controls the action the broker will perform towards the publisher.
 	SolClientEndpointPropDiscardBehavior = C.SOLCLIENT_ENDPOINT_PROP_DISCARD_BEHAVIOR
 	// SolClientEndpointPropMaxmsgRedelivery: Defines how many message redelivery retries before discarding or moving the message to the DMQ. The valid ranges is {0..255} where 0 means retry forever. Default: 0
 	SolClientEndpointPropMaxmsgRedelivery = C.SOLCLIENT_ENDPOINT_PROP_MAXMSG_REDELIVERY

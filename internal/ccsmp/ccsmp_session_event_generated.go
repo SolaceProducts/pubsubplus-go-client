@@ -30,9 +30,9 @@ const (
 	SolClientSessionEventDownError SolClientSessionEvent = C.SOLCLIENT_SESSION_EVENT_DOWN_ERROR
 	// SolClientSessionEventConnectFailedError: The Session attempted to connect but was unsuccessful.
 	SolClientSessionEventConnectFailedError SolClientSessionEvent = C.SOLCLIENT_SESSION_EVENT_CONNECT_FAILED_ERROR
-	// SolClientSessionEventRejectedMsgError: The appliance rejected a published message.
+	// SolClientSessionEventRejectedMsgError: The broker rejected a published message.
 	SolClientSessionEventRejectedMsgError SolClientSessionEvent = C.SOLCLIENT_SESSION_EVENT_REJECTED_MSG_ERROR
-	// SolClientSessionEventSubscriptionError: The appliance rejected a subscription (add or remove).
+	// SolClientSessionEventSubscriptionError: The broker rejected a subscription (add or remove).
 	SolClientSessionEventSubscriptionError SolClientSessionEvent = C.SOLCLIENT_SESSION_EVENT_SUBSCRIPTION_ERROR
 	// SolClientSessionEventRxMsgTooBigError: The API discarded a received message that exceeded the Session buffer size.
 	SolClientSessionEventRxMsgTooBigError SolClientSessionEvent = C.SOLCLIENT_SESSION_EVENT_RX_MSG_TOO_BIG_ERROR
@@ -40,9 +40,9 @@ const (
 	SolClientSessionEventAcknowledgement SolClientSessionEvent = C.SOLCLIENT_SESSION_EVENT_ACKNOWLEDGEMENT
 	// SolClientSessionEventAssuredPublishingUp: Deprecated -- see notes in solClient_session_startAssuredPublishing. The AD Handshake (that is, Guaranteed Delivery handshake) has completed for the publisher and Guaranteed messages can be sent.
 	SolClientSessionEventAssuredPublishingUp SolClientSessionEvent = C.SOLCLIENT_SESSION_EVENT_ASSURED_PUBLISHING_UP
-	// SolClientSessionEventAssuredConnectFailed: Deprecated -- see notes in solClient_session_startAssuredPublishing. The appliance rejected the AD Handshake to start Guaranteed publishing. Use ::SOLCLIENT_SESSION_EVENT_ASSURED_DELIVERY_DOWN instead.
+	// SolClientSessionEventAssuredConnectFailed: Deprecated -- see notes in solClient_session_startAssuredPublishing. The broker rejected the AD Handshake to start Guaranteed publishing. Use ::SOLCLIENT_SESSION_EVENT_ASSURED_DELIVERY_DOWN instead.
 	SolClientSessionEventAssuredConnectFailed SolClientSessionEvent = C.SOLCLIENT_SESSION_EVENT_ASSURED_CONNECT_FAILED
-	// SolClientSessionEventAssuredDeliveryDown: Guaranteed Delivery publishing is not available. The guaranteed delivery capability on the session has been disabled by some action on the appliance.
+	// SolClientSessionEventAssuredDeliveryDown: Guaranteed Delivery publishing is not available. The guaranteed delivery capability on the session has been disabled by some action on the broker.
 	SolClientSessionEventAssuredDeliveryDown SolClientSessionEvent = C.SOLCLIENT_SESSION_EVENT_ASSURED_DELIVERY_DOWN
 	// SolClientSessionEventTeUnsubscribeError: The Topic Endpoint unsubscribe command failed.
 	SolClientSessionEventTeUnsubscribeError SolClientSessionEvent = C.SOLCLIENT_SESSION_EVENT_TE_UNSUBSCRIBE_ERROR
@@ -60,7 +60,7 @@ const (
 	SolClientSessionEventProvisionOk SolClientSessionEvent = C.SOLCLIENT_SESSION_EVENT_PROVISION_OK
 	// SolClientSessionEventSubscriptionOk: The subscribe or unsubscribe operation has succeeded.
 	SolClientSessionEventSubscriptionOk SolClientSessionEvent = C.SOLCLIENT_SESSION_EVENT_SUBSCRIPTION_OK
-	// SolClientSessionEventVirtualRouterNameChanged: The appliance's Virtual Router Name changed during a reconnect operation. This could render existing queues or temporary topics invalid.
+	// SolClientSessionEventVirtualRouterNameChanged: The broker's Virtual Router Name changed during a reconnect operation. This could render existing queues or temporary topics invalid.
 	SolClientSessionEventVirtualRouterNameChanged SolClientSessionEvent = C.SOLCLIENT_SESSION_EVENT_VIRTUAL_ROUTER_NAME_CHANGED
 	// SolClientSessionEventModifypropOk: The session property modification completed.
 	SolClientSessionEventModifypropOk SolClientSessionEvent = C.SOLCLIENT_SESSION_EVENT_MODIFYPROP_OK
