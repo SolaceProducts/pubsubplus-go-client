@@ -17,8 +17,8 @@
 package test
 
 import (
-	"fmt"
 	"time"
+    "fmt"
     "strconv"
 
 	"solace.dev/go/messaging"
@@ -29,8 +29,8 @@ import (
 	//"solace.dev/go/messaging/pkg/solace/subcode"
 	"solace.dev/go/messaging/test/helpers"
 	"solace.dev/go/messaging/test/testcontext"
-
 	"solace.dev/go/messaging/pkg/solace/message"
+
 	sempconfig "solace.dev/go/messaging/test/sempclient/config"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -96,6 +96,10 @@ var _ = Describe("Partitioned Queue Tests", func() {
             }
             
             publisher.Terminate(5 * time.Second)
+            
+            messageHandler := func(message message.InboundMessage) {
+                fmt.Println("message received")
+            }
 
             receiverOne.ReceiveAsync(messageHandler)
             receiverTwo.ReceiveAsync(messageHandler)
