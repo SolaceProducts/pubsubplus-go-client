@@ -17,6 +17,9 @@
 // Package sempclient contains generated SEMPv2 code
 package sempclient
 
-//go:generate docker run --rm -v "$PWD/spec:/schema" -v "$PWD:/output" swaggerapi/swagger-codegen-cli-v3:3.0.27 generate -l go -i /schema/spec_action.json -o /output/action --type-mappings boolean=*bool --additional-properties packageName=action
-//go:generate docker run --rm -v "$PWD/spec:/schema" -v "$PWD:/output" swaggerapi/swagger-codegen-cli-v3:3.0.27 generate -l go -i /schema/spec_config.json -o /output/config --type-mappings boolean=*bool --additional-properties packageName=config
-//go:generate docker run --rm -v "$PWD/spec:/schema" -v "$PWD:/output" swaggerapi/swagger-codegen-cli-v3:3.0.27 generate -l go -i /schema/spec_monitor.json -o /output/monitor --type-mappings boolean=*bool --additional-properties packageName=monitor
+// create docker image based off of swaggerapi/swagger-codegen-cli-v3
+//go:generate docker build -f Dockerfile -t solace-semp-swagger-codegen-cli:3.0.40 --build-arg SWAGGER_VER=3.0.40 $PWD
+//go:generate docker run --rm -v "$PWD/spec:/schema" -v "$PWD:/output" solace-semp-swagger-codegen-cli:3.0.40 generate -l go -i /schema/spec_action.json -o /output/action --type-mappings boolean=*bool --additional-properties packageName=action
+//go:generate docker run --rm -v "$PWD/spec:/schema" -v "$PWD:/output" solace-semp-swagger-codegen-cli:3.0.40 generate -l go -i /schema/spec_config.json -o /output/config --type-mappings boolean=*bool --additional-properties packageName=config
+//go:generate docker run --rm -v "$PWD/spec:/schema" -v "$PWD:/output" solace-semp-swagger-codegen-cli:3.0.40 generate -l go -i /schema/spec_monitor.json -o /output/monitor --type-mappings boolean=*bool --additional-properties packageName=monitor
+
