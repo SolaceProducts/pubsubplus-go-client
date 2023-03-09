@@ -34,7 +34,7 @@ services:
       - server_passphrase
 
   toxiproxy:
-    image: shopify/toxiproxy
+    image: ghcr.io/shopify/toxiproxy
     container_name: toxiproxy
     hostname: "$TOXIPROXY_HOSTNAME"
     ports:
