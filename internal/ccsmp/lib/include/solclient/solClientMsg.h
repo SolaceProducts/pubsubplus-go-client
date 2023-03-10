@@ -1,7 +1,7 @@
 /**
 * @file solClientMsg.h include file for Solace Corporation Messaging Buffer Management
 *
-* Copyright 2008-2022 Solace Corporation. All rights reserved.
+* Copyright 2008-2023 Solace Corporation. All rights reserved.
 */
 /** @page msgbuffer Solace Message Buffers
 * 
