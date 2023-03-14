@@ -715,7 +715,7 @@ var _ = Describe("MessagingService Lifecycle", func() {
 								constants.ValidCertificateKeyPassword,
 							))
 							helpers.TestFailedConnectMessagingService(builder, func(err error) {
-								Expect(err.Error()).To(ContainSubstring("Certificate Error"))
+								Expect(err.Error()).To(ContainSubstring("Untrusted Certificate"))
 							})
 						})
 					}) // Invalid Client Cert end

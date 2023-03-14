@@ -1433,7 +1433,7 @@ var _ = Describe("PersistentReceiver", func() {
 						helpers.ValidateError(err, &solace.MessageReplayError{})
 						var wrapped *solace.NativeError
 						Expect(errors.As(err, &wrapped)).To(BeTrue())
-						helpers.ValidateNativeError(wrapped, subcode.ReplayTemporaryNotSupported)
+						helpers.ValidateNativeError(wrapped, subcode.ReplayTemporaryNotSupported, subcode.ReplayAnonymousNotSupported)
 					})
 
 				})

@@ -1,1 +1,8 @@
-{}
+{
+    "messaging": {
+        "host": "localhost"
+    },
+    "semp": {
+        "host": "localhost"
+    }
+}
