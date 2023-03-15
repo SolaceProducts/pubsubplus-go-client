@@ -93,7 +93,7 @@ type testContext interface {
 	// ToxiProxy will not be available in certain test contexts and should always be checked for presence before executing.
 	// For example, when targeting an environment based broker such as an appliance, no toxi proxi will be available.
 	ToxiProxy() ToxiProxy
-  // OAuth returns the OAuth config
+	// OAuth returns the OAuth config
 	OAuth() *OAuthConfig
 }
 

@@ -47,8 +47,15 @@ type TestContainersConfig struct {
 
 // OAuthConfig represents OAuth's config
 type OAuthConfig struct {
-	Hostname string `json:"hostname,omitempty" env:"PUBSUB_OAUTHSERVER_HOSTNAME"`
-	Image    string `env:"OAUTH_TEST_IMAGE"`
+	Hostname  string               `json:"hostname,omitempty" env:"PUBSUB_OAUTHSERVER_HOSTNAME"`
+	Endpoints *OAuthEndpointConfig `json:"endpoints,omitempty"`
+	Image     string               `env:"OAUTH_TEST_IMAGE"`
+}
+
+// OAuthEndpointConfig
+type OAuthEndpointConfig struct {
+	JwksEndpoint     string `json:"jwks,omitempty" env:"PUBSUB_OAUTHSERVER_JWKS_ENDPOINT"`
+	UserInfoEndpoint string `json:"user_info,omitempty" env:"PUBSUB_OAUTHSERVER_USERINFO_ENDPOINT"`
 }
 
 // KerberosConfig represents Kerberos's config
