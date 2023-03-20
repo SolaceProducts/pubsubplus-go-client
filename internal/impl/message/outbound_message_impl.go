@@ -86,9 +86,9 @@ func freeOutboundMessage(message *OutboundMessageImpl) {
 // DuplicateOutboundMessage will duplicate the message and return a new Message copying the original
 func DuplicateOutboundMessage(message *OutboundMessageImpl) (*OutboundMessageImpl, error) {
 	msgP, err := ccsmp.SolClientMessageDup(message.messagePointer)
-    // Ensure that the finalizer for `message` does not run before this point, so that we can be certain
-    // SolClientMessageDup will complete before `message` is freed by the gc.
-    runtime.KeepAlive(message)
+	// Ensure that the finalizer for `message` does not run before this point, so that we can be certain
+	// SolClientMessageDup will complete before `message` is freed by the gc.
+	runtime.KeepAlive(message)
 	if err != nil {
 		return nil, core.ToNativeError(err, "error duplicating message: ")
 	}
