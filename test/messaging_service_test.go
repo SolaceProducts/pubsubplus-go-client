@@ -481,7 +481,7 @@ var _ = Describe("MessagingService Lifecycle", func() {
 						Expect(err).ToNot(HaveOccurred())
 						// sometimes this SEMP command fails on Git Actions. Retry
 						for i := 0; i < 5; i++ {
-							_, _, err = testcontext.SEMP().Config().CertAuthorityApi.CreateCertAuthority(testcontext.SEMP().ConfigCtx(), sempconfig.CertAuthority{
+							_, _, err = testcontext.SEMP().Config().ClientCertAuthorityApi.CreateClientCertAuthority(testcontext.SEMP().ConfigCtx(), sempconfig.ClientCertAuthority{
 								CertAuthorityName:           certificateAuthorityName,
 								CertContent:                 string(certContent),
 								CrlDayList:                  "daily",
@@ -503,7 +503,7 @@ var _ = Describe("MessagingService Lifecycle", func() {
 						_, _, err := testcontext.SEMP().Config().MsgVpnApi.UpdateMsgVpn(testcontext.SEMP().ConfigCtx(),
 							sempconfig.MsgVpn{AuthenticationClientCertEnabled: helpers.False}, testcontext.Messaging().VPN, nil)
 						Expect(err).ToNot(HaveOccurred())
-						_, _, err = testcontext.SEMP().Config().CertAuthorityApi.DeleteCertAuthority(testcontext.SEMP().ConfigCtx(), certificateAuthorityName)
+						_, _, err = testcontext.SEMP().Config().ClientCertAuthorityApi.DeleteClientCertAuthority(testcontext.SEMP().ConfigCtx(), certificateAuthorityName)
 						Expect(err).ToNot(HaveOccurred())
 					})
 					It("should be able to connect to the broker configured via properties", func() {
@@ -688,7 +688,7 @@ var _ = Describe("MessagingService Lifecycle", func() {
 							Expect(err).ToNot(HaveOccurred())
 							certContent, err := ioutil.ReadFile(constants.InvalidClientCertificatePEM)
 							Expect(err).ToNot(HaveOccurred())
-							_, _, err = testcontext.SEMP().Config().CertAuthorityApi.CreateCertAuthority(testcontext.SEMP().ConfigCtx(), sempconfig.CertAuthority{
+							_, _, err = testcontext.SEMP().Config().ClientCertAuthorityApi.CreateClientCertAuthority(testcontext.SEMP().ConfigCtx(), sempconfig.ClientCertAuthority{
 								CertAuthorityName:           certificateAuthorityName,
 								CertContent:                 string(certContent),
 								CrlDayList:                  "daily",
@@ -705,7 +705,7 @@ var _ = Describe("MessagingService Lifecycle", func() {
 							_, _, err := testcontext.SEMP().Config().MsgVpnApi.UpdateMsgVpn(testcontext.SEMP().ConfigCtx(),
 								sempconfig.MsgVpn{AuthenticationClientCertEnabled: helpers.False}, testcontext.Messaging().VPN, nil)
 							Expect(err).ToNot(HaveOccurred())
-							_, _, err = testcontext.SEMP().Config().CertAuthorityApi.DeleteCertAuthority(testcontext.SEMP().ConfigCtx(), certificateAuthorityName)
+							_, _, err = testcontext.SEMP().Config().ClientCertAuthorityApi.DeleteClientCertAuthority(testcontext.SEMP().ConfigCtx(), certificateAuthorityName)
 							Expect(err).ToNot(HaveOccurred())
 						})
 						It("fails to connect with client certificate authentication", func() {

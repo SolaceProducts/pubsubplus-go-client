@@ -75,6 +75,11 @@ func OAuth() *OAuthConfig {
 	return instance.OAuth()
 }
 
+// function to wait for semp serivces
+func WaitForSEMPReachable() error {
+	return instance.WaitForSEMPReachable()
+}
+
 // testContext represents a test context
 type testContext interface {
 	// Setup is a blocking call to set up the test context. For example, docker compose based
@@ -95,6 +100,8 @@ type testContext interface {
 	ToxiProxy() ToxiProxy
 	// OAuth returns the OAuth config
 	OAuth() *OAuthConfig
+	// waits for semp service to be reachable
+	WaitForSEMPReachable() error
 }
 
 type testContextCommon struct {
@@ -165,6 +172,10 @@ func (context *testContextCommon) setupCommon(configPath string) error {
 	return nil
 }
 
+func (context *testContextCommon) WaitForSEMPReachable() error {
+	return context.waitForSEMP()
+}
+
 func (context *testContextCommon) waitForToxiProxy() error {
 	err := waitForEndpoint(fmt.Sprintf("http://%s:%d", context.config.ToxiProxy.Host, context.config.ToxiProxy.Port), 404)
 	if err != nil {
@@ -195,25 +206,28 @@ func (context *testContextCommon) waitForMessaging() error {
 }
 
 func waitForEndpoint(endpoint string, expectedCode int) error {
-	pollInterval := 1000 * time.Millisecond
+	maxPollInterval := 500 * time.Millisecond
+	pollInterval := 1 * time.Millisecond
 	timeout := 300 * time.Second
 	timeoutChannel := time.After(timeout)
+
 	for {
+		if pollInterval < maxPollInterval {
+			pollInterval = pollInterval * 2
+		} else {
+			pollInterval = maxPollInterval
+		}
+		resp, err := http.Get(endpoint)
+		if err == nil {
+			if err := resp.Body.Close(); resp.StatusCode == expectedCode && err == nil {
+				return nil
+			}
+		}
 		select {
 		case <-timeoutChannel:
 			return fmt.Errorf("timed out waiting for %s", endpoint)
 		case <-time.After(pollInterval):
-			resp, err := http.Get(endpoint)
-			if err != nil {
-				continue
-			}
-			if resp.StatusCode != expectedCode {
-				continue
-			}
-			if err := resp.Body.Close(); err != nil {
-				continue
-			}
-			return nil
+			continue
 		}
 	}
 }
