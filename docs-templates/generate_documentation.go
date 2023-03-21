@@ -26,7 +26,7 @@ import (
 )
 
 const destination = "./docs/"
-const siteNameTemplate = "Solace PubSub+ Messaging API for Go v%s"
+const siteNameTemplate = "PubSub+ Messaging API for Go v%s"
 const siteFooter = "Copyright 2021-2023 Solace Corporation. All rights reserved."
 
 const siteDescription = `The Solace PubSub+ Messaging API for Go allows developers to create client-based messaging applications that
