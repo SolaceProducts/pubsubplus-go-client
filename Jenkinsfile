@@ -13,6 +13,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+// The following is an internal infrastructure file for building 
 properties([
     buildDiscarder(logRotator(daysToKeepStr: '30', numToKeepStr: '10')),
 ])
