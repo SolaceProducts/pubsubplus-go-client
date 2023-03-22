@@ -36,7 +36,7 @@ function cleanup() {
     local gen_root_dir=${BASEDIR}
     local gen_dirs=" action config monitor "
     local sub_gen_dirs=".swagger-codegen* docs api"
-    local gen_files=" *.go *.sh *.md *.yml .gitignore "
+    local gen_files=" *.go *.sh *.md *.yml .gitignore .*.yml"
 
     for topdir in $gen_dirs ; do
         local cur_dir=$gen_root_dir/$topdir
