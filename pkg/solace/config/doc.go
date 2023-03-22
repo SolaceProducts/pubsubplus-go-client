@@ -29,14 +29,13 @@
 // For the various maps, such as a ServicePropertyMap, the configuration may be loaded
 // as JSON as shown:
 //
-//  import "encoding/json"
+//	import "encoding/json"
 //
-//  ...
+//	...
 //
-//  var myJsonConfig []byte := []byte(`{"solace":{"messaging":{"transport":{"host":"10.10.10.10"}}}}`)
-//  var myServicePropertyMap config.ServicePropertyMap
-//  json.Unmarshal(myJsonConfig, &myServicePropertyMap)
-//  messaging.NewMessagingServiceBuilder().FromConfigurationProvider(myServicePropertyMap)
-//  ...
-//
+//	var myJsonConfig []byte := []byte(`{"solace":{"messaging":{"transport":{"host":"10.10.10.10"}}}}`)
+//	var myServicePropertyMap config.ServicePropertyMap
+//	json.Unmarshal(myJsonConfig, &myServicePropertyMap)
+//	messaging.NewMessagingServiceBuilder().FromConfigurationProvider(myServicePropertyMap)
+//	...
 package config

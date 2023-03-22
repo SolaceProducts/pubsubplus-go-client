@@ -122,26 +122,26 @@ type MessagingService interface {
 	// Info returns the API Info for this MessagingService instance.
 	Info() metrics.APIInfo
 
-        // Updates the value of a modifiable service property once the service has been created.
-        // Modifiable service properties include:
-        //     - solace/config.AuthenticationPropertySchemeOAuth2AccessToken,
-        //       whose update will be applied during the next reconnection attempt.
-        //     - solace/config.AuthenticationPropertySchemeOAuth2OIDCIDToken,
-        //       whose update will be applied during the next reconnection attempt.
-        //
-        // Modification of a service property may occur instantly, or may occur during the next
-        // service reconnection.
-        // Modification of a service property during an ongoing service reconnection may apply
-        // to the next reconnection attempt.
-        // property (ServiceProperty): The name of the property to modify.
-        // value (interface{}): The new value of the property.
-        //
-        // - solace/errors.*IllegalArgumentError: If the specified property cannot
-        // -   be modified.
-        // - solace/errors.*IllegalStateError: If the specified property cannot
-        //     be modified in the current service state.
-        // - solace/errors.*NativeError: If other transport or communication related errors occur.
-        UpdateProperty(property config.ServiceProperty, value interface{}) error
+	// Updates the value of a modifiable service property once the service has been created.
+	// Modifiable service properties include:
+	//     - solace/config.AuthenticationPropertySchemeOAuth2AccessToken,
+	//       whose update will be applied during the next reconnection attempt.
+	//     - solace/config.AuthenticationPropertySchemeOAuth2OIDCIDToken,
+	//       whose update will be applied during the next reconnection attempt.
+	//
+	// Modification of a service property may occur instantly, or may occur during the next
+	// service reconnection.
+	// Modification of a service property during an ongoing service reconnection may apply
+	// to the next reconnection attempt.
+	// property (ServiceProperty): The name of the property to modify.
+	// value (interface{}): The new value of the property.
+	//
+	// - solace/errors.*IllegalArgumentError: If the specified property cannot
+	// -   be modified.
+	// - solace/errors.*IllegalStateError: If the specified property cannot
+	//     be modified in the current service state.
+	// - solace/errors.*NativeError: If other transport or communication related errors occur.
+	UpdateProperty(property config.ServiceProperty, value interface{}) error
 }
 
 // MessagingServiceBuilder is used to configure and build MessagingService instances.

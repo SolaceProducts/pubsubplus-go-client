@@ -89,14 +89,16 @@ func OAuth2Authentication(accessToken, oidcIDToken, issuerIdentifier string) Aut
 //
 // To implement Kerberos authentication for clients connecting to a broker, the following
 // configuration is required the broker:
-//  - A Kerberos Keytab must be loaded on the  broker. See "Event Broker File Management" for more information
-//    on the Solace documentation website.
-//  - Kerberos authentication must be configured and enabled for any Message VPNs that
-//    Kerberos-authenticated clients will connect to.
-//  - Optional: On an appliance, a Kerberos Service Principal Name (SPN) can be assigned to the IP address
-//    for the message backbone VRF Kerberos‑authenticated clients will use.
+//   - A Kerberos Keytab must be loaded on the  broker. See "Event Broker File Management" for more information
+//     on the Solace documentation website.
+//   - Kerberos authentication must be configured and enabled for any Message VPNs that
+//     Kerberos-authenticated clients will connect to.
+//   - Optional: On an appliance, a Kerberos Service Principal Name (SPN) can be assigned to the IP address
+//     for the message backbone VRF Kerberos‑authenticated clients will use.
+//
 // Further reference can be found at
-// 	https://docs.solace.com/Configuring-and-Managing/Configuring-Client-Authentication.htm#Config-Kerberos
+//
+//	https://docs.solace.com/Configuring-and-Managing/Configuring-Client-Authentication.htm#Config-Kerberos
 func KerberosAuthentication(serviceName string) AuthenticationStrategy {
 	authenticationStrategy := AuthenticationStrategy{make(ServicePropertyMap)}
 	authenticationStrategy.config[AuthenticationPropertyScheme] = AuthenticationSchemeKerberos
@@ -237,6 +239,7 @@ func (tss TransportSecurityStrategy) WithCertificateValidation(
 
 // WithCipherSuites configures cipher suites to use. The cipher suites value is a comma-separated
 // list of cipher suites and must be from the following table:
+//
 //	+-----------------+-------------------------------+--------------------+
 //	| 'AES256-SHA'    | 'ECDHE-RSA-AES256-SHA'        | 'AES256-GCM-SHA384'|
 //	+-----------------+-------------------------------+--------------------+

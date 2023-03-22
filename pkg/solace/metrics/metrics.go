@@ -20,6 +20,7 @@ package metrics
 
 // Metric represents the various metrics retrievable from a MessagingService's APIMetrics instance.
 type Metric int
+
 // The various metrics available.
 const (
 	// BrokerDiscardNotificationsReceived is the number of received messages

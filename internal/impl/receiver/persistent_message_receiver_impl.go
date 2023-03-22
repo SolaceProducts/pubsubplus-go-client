@@ -1342,7 +1342,8 @@ func (builder *persistentMessageReceiverBuilderImpl) WithSubscriptions(topics ..
 
 // FromConfigurationProvider will configure the persistent receiver with the given properties.
 // Built in ReceiverPropertiesConfigurationProvider implementations include:
-//   ReceiverPropertyMap, a map of ReceiverProperty keys to values
+//
+//	ReceiverPropertyMap, a map of ReceiverProperty keys to values
 func (builder *persistentMessageReceiverBuilderImpl) FromConfigurationProvider(provider config.ReceiverPropertiesConfigurationProvider) solace.PersistentMessageReceiverBuilder {
 	if provider == nil {
 		return builder
