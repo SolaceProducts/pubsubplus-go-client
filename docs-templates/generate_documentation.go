@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2022 Solace Corporation. All rights reserved.
+// Copyright 2021-2023 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,8 +26,8 @@ import (
 )
 
 const destination = "./docs/"
-const siteNameTemplate = "Solace PubSub+ Messaging API for Go v%s"
-const siteFooter = "Copyright 2021-2022 Solace Corporation. All rights reserved."
+const siteNameTemplate = "PubSub+ Messaging API for Go v%s"
+const siteFooter = "Copyright 2021-2023 Solace Corporation. All rights reserved."
 
 const siteDescription = `The Solace PubSub+ Messaging API for Go allows developers to create client-based messaging applications that
 connect and subscribe to in order to publish/consume messages from PubSub+ event brokers.

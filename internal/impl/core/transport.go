@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2022 Solace Corporation. All rights reserved.
+// Copyright 2021-2023 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ type Transport interface {
 	Events() Events
 	ID() string
 	Host() string
-        ModifySessionProperties([]string) error
+	ModifySessionProperties([]string) error
 }
 
 // NewTransport function
@@ -98,11 +98,11 @@ type ccsmpTransport struct {
 }
 
 func (transport *ccsmpTransport) ModifySessionProperties(properties []string) error {
-        err := transport.session.SolClientModifySessionProperties(properties)
-        if err != nil {
-            return ToNativeError(err, "an error occurred while modifying session properties.")
-        }
-        return nil
+	err := transport.session.SolClientModifySessionProperties(properties)
+	if err != nil {
+		return ToNativeError(err, "an error occurred while modifying session properties.")
+	}
+	return nil
 }
 
 func (transport *ccsmpTransport) Connect() error {

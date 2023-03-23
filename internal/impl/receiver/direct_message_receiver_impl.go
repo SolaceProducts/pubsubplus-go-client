@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2022 Solace Corporation. All rights reserved.
+// Copyright 2021-2023 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -958,7 +958,8 @@ func (builder *directMessageReceiverBuilderImpl) WithSubscriptions(topics ...res
 
 // FromConfigurationProvider will configure the direct receiver with the given properties.
 // Built in ReceiverPropertiesConfigurationProvider implementations include:
-//   ReceiverPropertyMap, a map of ReceiverProperty keys to values
+//
+//	ReceiverPropertyMap, a map of ReceiverProperty keys to values
 func (builder *directMessageReceiverBuilderImpl) FromConfigurationProvider(provider config.ReceiverPropertiesConfigurationProvider) solace.DirectMessageReceiverBuilder {
 	if provider == nil {
 		return builder

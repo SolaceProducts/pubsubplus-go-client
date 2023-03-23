@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2022 Solace Corporation. All rights reserved.
+// Copyright 2021-2023 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -373,10 +373,10 @@ func (transport *solClientTransportMock) Host() string {
 }
 
 func (transport *solClientTransportMock) ModifySessionProperties(_ []string) error {
-        // FFC: This function is added to pass a check during building. Currently it
-        // is not used, so there is no implementation. The implementation will need
-        // to be added as a part of future work.
-        return nil
+	// FFC: This function is added to pass a check during building. Currently it
+	// is not used, so there is no implementation. The implementation will need
+	// to be added as a part of future work.
+	return nil
 }
 
 type solClientTransportEventsMock struct {
