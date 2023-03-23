@@ -958,7 +958,8 @@ func (builder *directMessageReceiverBuilderImpl) WithSubscriptions(topics ...res
 
 // FromConfigurationProvider will configure the direct receiver with the given properties.
 // Built in ReceiverPropertiesConfigurationProvider implementations include:
-//   ReceiverPropertyMap, a map of ReceiverProperty keys to values
+//
+//	ReceiverPropertyMap, a map of ReceiverProperty keys to values
 func (builder *directMessageReceiverBuilderImpl) FromConfigurationProvider(provider config.ReceiverPropertiesConfigurationProvider) solace.DirectMessageReceiverBuilder {
 	if provider == nil {
 		return builder

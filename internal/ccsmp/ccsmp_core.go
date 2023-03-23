@@ -118,7 +118,7 @@ func goEventCallback(sessionP SolClientSessionPt, eventInfoP SolClientSessionEve
 
 // Logging
 
-//LogInfo structure
+// LogInfo structure
 type LogInfo struct {
 	Message string
 	Level   SolClientLogLevel
@@ -480,16 +480,16 @@ func handleCcsmpError(f func() SolClientReturnCode) *SolClientErrorInfoWrapper {
 }
 
 func (session *SolClientSession) SolClientModifySessionProperties(properties []string) *SolClientErrorInfoWrapper {
-        sessionPropsP, sessionPropertiesFreeFunction := ToCArray(properties, true)
-        defer sessionPropertiesFreeFunction()
-        
-        solClientErrorInfo := handleCcsmpError(func() SolClientReturnCode {
-                return C.solClient_session_modifyProperties(session.pointer, sessionPropsP)
-        })
-        // If there was an error, return the error
-        if solClientErrorInfo != nil {
-                return solClientErrorInfo
-        }
-        // If there was no error, return nil
-        return nil
+	sessionPropsP, sessionPropertiesFreeFunction := ToCArray(properties, true)
+	defer sessionPropertiesFreeFunction()
+
+	solClientErrorInfo := handleCcsmpError(func() SolClientReturnCode {
+		return C.solClient_session_modifyProperties(session.pointer, sessionPropsP)
+	})
+	// If there was an error, return the error
+	if solClientErrorInfo != nil {
+		return solClientErrorInfo
+	}
+	// If there was no error, return nil
+	return nil
 }

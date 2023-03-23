@@ -92,24 +92,24 @@ type FailedPublishEvent interface {
 
 // DirectMessagePublisherBuilder allows for configuration of direct message publisher instances.
 type DirectMessagePublisherBuilder interface {
-	
-    // Build creates a new DirectMessagePublisher instance based on the configured properties.
+
+	// Build creates a new DirectMessagePublisher instance based on the configured properties.
 	// Returns solace/errors.*InvalidConfigurationError if an invalid configuration is provided.
 	Build() (messagePublisher DirectMessagePublisher, err error)
-	
+
 	// OnBackPressureReject sets the publisher back pressure strategy to reject
 	// where publish attempts will be rejected once the bufferSize, in number of messages, is reached.
 	// If bufferSize is 0, an error will be thrown when the transport is full when publishing.
 	// A buffer of the given size will be statically allocated when the publisher is built.
 	// Valid bufferSize is >= 0.
 	OnBackPressureReject(bufferSize uint) DirectMessagePublisherBuilder
-	
+
 	// OnBackPressureWait sets the publisher back pressure strategy to wait where publish
 	// attempts may block until there is space in the buffer of size bufferSize in number of messages.
 	// A buffer of the given size will be statically allocated when the publisher is built.
 	// Valid bufferSize is >= 1.
 	OnBackPressureWait(bufferSize uint) DirectMessagePublisherBuilder
-	
+
 	// FromConfigurationProvider configures the direct publisher with the specified properties.
 	// The built-in PublisherPropertiesConfigurationProvider implementations include:
 	// - PublisherPropertyMap - A map of PublisherProperty keys to values.

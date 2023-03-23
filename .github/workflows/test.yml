@@ -17,10 +17,19 @@ jobs:
       - name: Setup Go environment
         uses: actions/setup-go@v2.1.3
         with:
-          go-version: '1.19'
+          go-version: '1.20'
       - name: Compiles
         run: go build ./...
 
+      - name: Runs go fmt
+        if: ${{ success() }}
+        run: |
+          OUTPUT=$(go fmt ./... 2>&1)
+          if [ ! -z "$OUTPUT" ]; then
+            echo "go fmt failed on the following files:"
+            echo "$OUTPUT"
+            exit 1
+          fi
       - name: Runs unit tests
         if: ${{ success() }}
         run: go test -coverprofile ./unitcoverage.out ./...

@@ -819,8 +819,9 @@ func (builder *persistentMessagePublisherBuilderImpl) OnBackPressureWait(bufferS
 
 // FromConfigurationProvider will configure the persistent publisher with the given properties.
 // Built in PublisherPropertiesConfigurationProvider implementations include:
-//   PublisherPropertyMap, a map of PublisherProperty keys to values
-//   for loading of properties from a string configuration (files or other configuration source)
+//
+//	PublisherPropertyMap, a map of PublisherProperty keys to values
+//	for loading of properties from a string configuration (files or other configuration source)
 func (builder *persistentMessagePublisherBuilderImpl) FromConfigurationProvider(provider config.PublisherPropertiesConfigurationProvider) solace.PersistentMessagePublisherBuilder {
 	if provider == nil {
 		return builder

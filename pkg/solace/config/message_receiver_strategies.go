@@ -69,7 +69,9 @@ func ReplayStrategyTimeBased(replayDate time.Time) ReplayStrategy {
 // received at or after the specified messageID. Returns the constructed
 // ReplayStrategy.
 // Valid Replication Group Message IDs take the form
+//
 //	rmid1:xxxxx-xxxxxxxxxxx-xxxxxxxx-xxxxxxxx
+//
 // where x is a valid hexadecimal digit.
 func ReplayStrategyReplicationGroupMessageID(replicationGroupMessageID rgmid.ReplicationGroupMessageID) ReplayStrategy {
 	return ReplayStrategy{
