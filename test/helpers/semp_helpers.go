@@ -19,6 +19,7 @@ package helpers
 import (
 	"solace.dev/go/messaging/test/sempclient/config"
 	"solace.dev/go/messaging/test/testcontext"
+	"time"
 )
 
 // Our generated SEMPv2 client has **bool as the datatype for booleans to be able to differentiate between "missing" and "false"
@@ -113,4 +114,109 @@ func RemovePublishTopicException(topicString string) {
 		"smf",
 		topicString,
 	)
+}
+
+// HasDomainCertAuthority function
+func HasDomainCertAuthority(certAuthName string) (bool, error) {
+	var found bool
+	var err error
+	var certAuthResp config.DomainCertAuthoritiesResponse
+	// determine if DomainCertAuhtority exists
+	certAuthResp, _, err = testcontext.SEMP().Config().DomainCertAuthorityApi.GetDomainCertAuthorities(
+		testcontext.SEMP().ConfigCtx(),
+		nil,
+	)
+	if err != nil {
+		return false, err
+	}
+	if domainCertAuths := certAuthResp.Data; domainCertAuths != nil {
+		for _, domainCertAuth := range domainCertAuths {
+			if domainCertAuth.CertAuthorityName == certAuthName {
+				found = true
+				break
+			}
+		}
+		return found, err
+	}
+	return false, err
+}
+
+// EnsureCreateDomainCertAuthority function
+func EnsureCreateDomainCertAuthority(certAuthName string, certContent string) error {
+	var err error
+	var found bool
+	found, err = HasDomainCertAuthority(certAuthName)
+	if err != nil {
+		return err
+	}
+	// repeat the create http request until the broker has the certificate authority
+	for !found {
+		_, _, err = testcontext.SEMP().Config().DomainCertAuthorityApi.CreateDomainCertAuthority(
+			testcontext.SEMP().ConfigCtx(), config.DomainCertAuthority{
+				CertAuthorityName: certAuthName,
+				CertContent:       certContent,
+			}, nil)
+		if err != nil {
+			return err
+		}
+		// wait for base semp service to reload
+		err = testcontext.WaitForSEMPReachable()
+		if err != nil {
+			return err
+		}
+		// ensure domain certification authority exists on the broker
+		// wait up to 30 secs after the service is back is overkill however to have an exit condition to prevent hung tests
+		for i := 0; i < 30; i++ {
+			found, err = HasDomainCertAuthority(certAuthName)
+
+			if err != nil {
+				// the broker can sometimes fail to have semp up after cert auth change
+				time.Sleep(1 * time.Second)
+			} else {
+				break
+			}
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// EnsureDeleteCertAuthrity function
+func EnsureDeleteDomainCertAuthority(certAuthName string) error {
+	var found bool
+	var err error
+	found, err = HasDomainCertAuthority(certAuthName)
+	if err != nil {
+		return err
+	}
+	for found {
+		_, _, err = testcontext.SEMP().Config().DomainCertAuthorityApi.DeleteDomainCertAuthority(
+			testcontext.SEMP().ConfigCtx(),
+			certAuthName,
+		)
+		if err != nil {
+			return err
+		}
+		err = testcontext.WaitForSEMPReachable()
+		if err != nil {
+			return err
+		}
+		// ensure domain certification authority does not exist on the broker
+		// wait up to 30 secs after the service is back is overkill however to have an exit condition to prevent hung tests
+		for i := 0; i < 30; i++ {
+			found, err = HasDomainCertAuthority(certAuthName)
+			if err != nil {
+				// the broker can sometimes fail to have semp up after cert auth change
+				time.Sleep(1 * time.Second)
+			} else {
+				break
+			}
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

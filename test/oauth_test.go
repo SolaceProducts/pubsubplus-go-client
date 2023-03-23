@@ -72,14 +72,8 @@ var _ = Describe("OAuth Strategy", func() {
 			var err error
 			certContent, err := ioutil.ReadFile(constants.ValidClientCertificatePEM)
 			Expect(err).ToNot(HaveOccurred())
-			_, _, err = testcontext.SEMP().Config().DomainCertAuthorityApi.CreateDomainCertAuthority(testcontext.SEMP().ConfigCtx(), sempconfig.DomainCertAuthority{
-				CertAuthorityName: rootAuthorityName,
-				CertContent:       string(certContent),
-			}, nil)
+			err = helpers.EnsureCreateDomainCertAuthority(rootAuthorityName, string(certContent))
 			Expect(err).ToNot(HaveOccurred())
-			err = testcontext.WaitForSEMPReachable()
-			Expect(err).ToNot(HaveOccurred())
-
 			_, _, err = testcontext.SEMP().Config().MsgVpnApi.UpdateMsgVpn(
 				testcontext.SEMP().ConfigCtx(),
 				sempconfig.MsgVpn{
@@ -205,15 +199,8 @@ var _ = Describe("OAuth Strategy", func() {
 				"solclient_oauth",
 			)
 			Expect(err).ToNot(HaveOccurred())
-
-			_, _, err = testcontext.SEMP().Config().DomainCertAuthorityApi.DeleteDomainCertAuthority(
-				testcontext.SEMP().ConfigCtx(),
-				rootAuthorityName,
-			)
+			err = helpers.EnsureDeleteDomainCertAuthority(rootAuthorityName)
 			Expect(err).ToNot(HaveOccurred())
-			err = testcontext.WaitForSEMPReachable()
-			Expect(err).ToNot(HaveOccurred())
-
 			if messagingService.IsConnected() {
 				helpers.DisconnectMessagingService(messagingService)
 			}
