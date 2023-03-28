@@ -8,6 +8,7 @@
 # lib/*/include*
 
 test/reports
+test/diagnostics.tgz
 
 test/sempclient/action/*
 !test/sempclient/action/go.mod
