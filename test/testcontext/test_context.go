@@ -172,10 +172,11 @@ func (context *testContextCommon) setupCommon(configPath string) error {
 	return nil
 }
 
-// function to poll for a msgvpn status where True means "UP" and False means "DOWN"
-func (context *testContextCommon) waitForVPNStatus(status bool) error {
+// function to poll for a msgvpn state where expected values are "up", "down", or "standby"
+// note state will be convert to lower case
+func (context *testContextCommon) waitForVPNState(state string) error {
 	//resp, httpResp, err := context.semp.Monitor().MsgVpnApi.GetMsgVpn(context.semp.MonitorCtx(), context.config.Messaging.VPN, nil)
-	// resp.Data.ServiceSmfPlainTextUp == True
+	// resp.Data.State contains a string for operational state of the message vpn values are: "up", "down", or "standby"
 	maxPollInterval := 500 * time.Millisecond
 	pollInterval := 1 * time.Millisecond
 	timeout := 300 * time.Second
@@ -189,7 +190,7 @@ func (context *testContextCommon) waitForVPNStatus(status bool) error {
 		}
 		resp, _, err := context.semp.Monitor().MsgVpnApi.GetMsgVpn(context.semp.MonitorCtx(), context.config.Messaging.VPN, nil)
 		if err == nil && resp.Data != nil {
-			if remoteStatus := *(*resp.Data.ServiceSmfPlainTextUp) && *(*resp.Data.ServiceSmfTlsUp); remoteStatus == status {
+			if remoteState := strings.ToLower(resp.Data.State); remoteState == strings.ToLower(state) {
 				return nil
 			}
 		}
