@@ -172,6 +172,36 @@ func (context *testContextCommon) setupCommon(configPath string) error {
 	return nil
 }
 
+// function to poll for a msgvpn status where True means "UP" and False means "DOWN"
+func (context *testContextCommon) waitForVPNStatus(status bool) error {
+	//resp, httpResp, err := context.semp.Monitor().MsgVpnApi.GetMsgVpn(context.semp.MonitorCtx(), context.config.Messaging.VPN, nil)
+	// resp.Data.ServiceSmfPlainTextUp == True
+	maxPollInterval := 500 * time.Millisecond
+	pollInterval := 1 * time.Millisecond
+	timeout := 300 * time.Second
+	timeoutChannel := time.After(timeout)
+
+	for {
+		if pollInterval < maxPollInterval {
+			pollInterval = pollInterval * 2
+		} else {
+			pollInterval = maxPollInterval
+		}
+		resp, _, err := context.semp.Monitor().MsgVpnApi.GetMsgVpn(context.semp.MonitorCtx(), context.config.Messaging.VPN, nil)
+		if err == nil && resp.Data != nil {
+			if remoteStatus := *(*resp.Data.ServiceSmfPlainTextUp) && *(*resp.Data.ServiceSmfTlsUp); remoteStatus == status {
+				return nil
+			}
+		}
+		select {
+		case <-timeoutChannel:
+			return fmt.Errorf("timed out waiting for vpn status", context.config.Messaging.VPN)
+		case <-time.After(pollInterval):
+			continue
+		}
+	}
+}
+
 func (context *testContextCommon) WaitForSEMPReachable() error {
 	return context.waitForSEMP()
 }

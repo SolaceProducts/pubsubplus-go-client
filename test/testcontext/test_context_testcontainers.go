@@ -123,6 +123,12 @@ func (context *testContainersTestContext) Setup() error {
 		}
 	}
 
+	fmt.Println("Waiting for MsgVPN " + context.config.Messaging.VPN + " to be up")
+	err = context.waitForVPNStatus(true)
+	if err != nil {
+		return err
+	}
+
 	fmt.Println("-- TESTCONTAINERS SETUP COMPLETE --")
 	fmt.Println()
 	return nil
