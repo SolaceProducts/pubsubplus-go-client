@@ -359,6 +359,8 @@ var _ = Describe("MessagingService Lifecycle", func() {
 						time.Sleep(100 * time.Millisecond)
 					}
 					Expect(err).ToNot(HaveOccurred())
+					err = testcontext.WaitForSEMPReachable()
+					Expect(err).ToNot(HaveOccurred())
 				})
 				AfterEach(func() {
 					certContent, err := ioutil.ReadFile(constants.ValidServerCertificate)
@@ -374,6 +376,8 @@ var _ = Describe("MessagingService Lifecycle", func() {
 						}
 						time.Sleep(100 * time.Millisecond)
 					}
+					Expect(err).ToNot(HaveOccurred())
+					err = testcontext.WaitForSEMPReachable()
 					Expect(err).ToNot(HaveOccurred())
 				})
 
