@@ -56,4 +56,5 @@ jobs:
             ./unitcoverage.out
             ./test/reports/report.xml
             ./test/reports/coverage.out
+            ./test/diagnostics.tgz
 

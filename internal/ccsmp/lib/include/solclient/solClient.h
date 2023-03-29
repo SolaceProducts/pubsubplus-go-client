@@ -1533,6 +1533,16 @@ typedef struct solClient_field {
 *     <td width="300"> The client attempted to start replay on a flow bound to an anonymous queue. </td>
 *     <td width="300"> 403 Replay Not Supported on Anonymous Queue </td>
 * </tr>
+* <tr>
+*     <td width="300"> SOLCLIENT_SUBCODE_BROWSING_NOT_SUPPORTED_ON_PARTITIONED_QUEUE </td>
+*     <td width="300"> Browser flows to Partitioned Queues are not permitted. </td>
+*     <td width="300"> 403 Browsing Not Supported on Partitioned Queue </td>
+* </tr>
+* <tr>
+*     <td width="300"> SOLCLIENT_SUBCODE_SELECTORS_NOT_SUPPORTED_ON_PARTITIONED_QUEUE </td>
+*     <td width="300"> Egress selectors are not permitted when binding to a Partitioned Queue. </td>
+*     <td width="300"> 403 Selectors Not Supported on Partititoned Queue </td>
+* </tr>
 * </table>
 */
   typedef enum solClient_subCode
@@ -1699,7 +1709,9 @@ typedef struct solClient_field {
     SOLCLIENT_SUBCODE_DELIVERY_COUNT_NOT_SUPPORTED                   = 155, /**< The message was received from endpoint that does not support delivery count */
     SOLCLIENT_SUBCODE_REPLAY_START_MESSAGE_UNAVAILABLE               = 156, /**< A replay was requested but the requested start message is not available in the replay log. */
     SOLCLIENT_SUBCODE_MESSAGE_ID_NOT_COMPARABLE                      = 157, /**< Replication Group Message Id are not comparable. Messages must be published to the same broker or HA pair for their Replicaton Group Message Id to be comparable. */
-    SOLCLIENT_SUBCODE_REPLAY_ANONYMOUS_NOT_SUPPORTED                  = 158  /**< The client attempted to start replay on a flow bound to an anonymous queue. */
+    SOLCLIENT_SUBCODE_REPLAY_ANONYMOUS_NOT_SUPPORTED                  = 158,  /**< The client attempted to start replay on a flow bound to an anonymous queue. */
+    SOLCLIENT_SUBCODE_BROWSING_NOT_SUPPORTED_ON_PARTITIONED_QUEUE       = 159,  /**< Browser flows to Partitioned Queues are not permitted. */
+    SOLCLIENT_SUBCODE_SELECTORS_NOT_SUPPORTED_ON_PARTITIONED_QUEUE      = 160  /**< Egress selectors are not permitted when binding to a Partitioned Queue. */
     /*
      * ADDING NEW SUBCODES: When adding a new subcode always add a new entry to the HTML table in 
      * the comment above this enumeration 
@@ -2584,6 +2596,14 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
 #define SOLCLIENT_TRANSACTEDSESSION_PROP_DEFAULT_CREATE_MESSAGE_DISPATCHER SOLCLIENT_PROP_DISABLE_VAL /**<By default, the default Context-bound Message Dispatcher is used for asynchronous message delivery within a transacted session. */
 #define SOLCLIENT_TRANSACTEDSESSION_PROP_DEFAULT_REQUESTREPLY_TIMEOUT_MS  "10000" /**<The default Transacted Session request timer in milliseconds. */
 #define SOLCLIENT_TRANSACTEDSESSION_PROP_DEFAULT_PUB_WINDOW_SIZE "255" /**<The default transacted publisher window size. */
+/*@}*/
+
+/*@}*/
+
+/** @name UserProps
+ *  */
+/*@{*/
+#define SOLCLIENT_MESSAGE_USER_PROP_QUEUE_PARTITION_KEY "JMSXGroupID" /**<Key for getting or setting partition key for a queue where the message should/is published to when supported by a PubSub+ messaging broker. This property should be a  part of User Property map. Expected value is UTF-8 encoded up to 255 bytes long string. */
 /*@}*/
 
 /**
@@ -5094,7 +5114,7 @@ solClient_session_sendReply (solClient_opaqueSession_pt opaqueSession_p,
 * expect that the receive message callback can be called even after calling 
 * solClient_flow_stop(). The maximum number of messages that may be 
 * in transit at any one time is controlled by ::SOLCLIENT_FLOW_PROP_WINDOWSIZE 
-* and ::SOLCLIENT_FLOW_PROP_MAX_UNACKED_MESSAGES (see solClient_flow_setMaxUnAcked()).
+* and ::SOLCLIENT_FLOW_PROP_MAX_UNACKED_MESSAGES (see solClient_flow_setMaxUnacked()).
 *
 * A Flow can be created with the window closed by setting the Flow property ::SOLCLIENT_FLOW_PROP_START_STATE 
 * to ::SOLCLIENT_PROP_DISABLE_VAL. When a Flow is created in this way, messages will not be received
