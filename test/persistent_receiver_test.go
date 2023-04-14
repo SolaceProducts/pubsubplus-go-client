@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2022 Solace Corporation. All rights reserved.
+// Copyright 2021-2023 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -1433,7 +1433,7 @@ var _ = Describe("PersistentReceiver", func() {
 						helpers.ValidateError(err, &solace.MessageReplayError{})
 						var wrapped *solace.NativeError
 						Expect(errors.As(err, &wrapped)).To(BeTrue())
-						helpers.ValidateNativeError(wrapped, subcode.ReplayTemporaryNotSupported)
+						helpers.ValidateNativeError(wrapped, subcode.ReplayTemporaryNotSupported, subcode.ReplayAnonymousNotSupported)
 					})
 
 				})

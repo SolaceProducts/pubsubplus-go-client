@@ -14,7 +14,7 @@ services:
     hostname: $PUBSUB_OAUTHSERVER_HOSTNAME
     container_name: $PUBSUB_OAUTHSERVER_HOSTNAME
     ports:
-      - "4400-4410:4400-4410"
+      - "30000-30010:30000-30010"
     command: supervisord -n -c /etc/supervisord.conf
     environment:
       - KEYSTORE=/run/secrets/keystore.ks

@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2022 Solace Corporation. All rights reserved.
+// Copyright 2021-2023 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -48,7 +48,7 @@ const (
 	SolClientEndpointPropQueue = C.SOLCLIENT_ENDPOINT_PROP_QUEUE
 	// SolClientEndpointPropTe: Request is for a Topic Endpoint.
 	SolClientEndpointPropTe = C.SOLCLIENT_ENDPOINT_PROP_TE
-	// SolClientEndpointPropClientName: Request is for a Client name  (solClient_session_endpointTopicSubscribe() / solClient_session_endpointTopicUnsubscribe() only.)
+	// SolClientEndpointPropClientName: Request is for a Client name  (solClient_session_endpointTopicSubscribe() / solClient_session_endpointTopicUnsubscribe()) only.
 	SolClientEndpointPropClientName = C.SOLCLIENT_ENDPOINT_PROP_CLIENT_NAME
 	// SolClientEndpointPropAccesstypeNonexclusive: A non-exclusive (shared) Queue. Each client to bind receives messages in a round robin fashion.
 	SolClientEndpointPropAccesstypeNonexclusive = C.SOLCLIENT_ENDPOINT_PROP_ACCESSTYPE_NONEXCLUSIVE

@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2022 Solace Corporation. All rights reserved.
+// Copyright 2021-2023 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -336,4 +336,8 @@ const (
 	MessageIDNotComparable Code = 157
 	// ReplayAnonymousNotSupported: The client attempted to start replay on a flow bound to an anonymous queue.
 	ReplayAnonymousNotSupported Code = 158
+	// BrowsingNotSupportedOnPartitionedQueue: Browser flows to Partitioned Queues are not permitted.
+	BrowsingNotSupportedOnPartitionedQueue Code = 159
+	// SelectorsNotSupportedOnPartitionedQueue: Egress selectors are not permitted when binding to a Partitioned Queue.
+	SelectorsNotSupportedOnPartitionedQueue Code = 160
 )

@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2022 Solace Corporation. All rights reserved.
+// Copyright 2021-2023 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,35 +27,47 @@
 //
 // MessageServiceBuilder is retrieved through
 // the messaging package as follows.
-//  package main
 //
-//  import solace.dev/go/messaging
-//  import solace.dev/go/messaging/pkg/solace
+//	package main
 //
-//  func main() {
-//  	var messagingServiceBuilder solace.MessagingServiceBuilder
-//  	messagingServiceBuilder = messaging.NewMessagingServiceBuilder()
-//  	messagingService, err := messagingServiceBuilder.Build()
-//  	...
-//  }
+//	import solace.dev/go/messaging
+//	import solace.dev/go/messaging/pkg/solace
+//
+//	func main() {
+//		var messagingServiceBuilder solace.MessagingServiceBuilder
+//		messagingServiceBuilder = messaging.NewMessagingServiceBuilder()
+//		messagingService, err := messagingServiceBuilder.Build()
+//		...
+//	}
 //
 // Before the MessagingService is created, global properties can be set by environment variable. The
 // following environment variables are recognized and handled during API initialization:
-//  - SOLCLIENT_GLOBAL_PROP_GSS_KRB_LIB: GSS (Kerberos) library name. If not set the default value is OS specific
+//
+//   - SOLCLIENT_GLOBAL_PROP_GSS_KRB_LIB: GSS (Kerberos) library name. If not set the default value is OS specific
+//
 //   - Linux/MacOS: libgssapi_krb5.so.2
+//
 //   - Windows: secur32.dll
 //
-//  - SOLCLIENT_GLOBAL_PROP_SSL_LIB: TLS Protocol library name. If not set the default value is OS specific:
+//   - SOLCLIENT_GLOBAL_PROP_SSL_LIB: TLS Protocol library name. If not set the default value is OS specific:
+//
 //   - Linux: libssl.so
+//
 //   - MacOS: libssl.dylib
+//
 //   - Windows: libssl-1_1.dll
 //
-//  - SOLCLIENT_GLOBAL_PROP_CRYPTO_LIB: TLS Cryptography library name.  If not set the default value is OS specific:
+//   - SOLCLIENT_GLOBAL_PROP_CRYPTO_LIB: TLS Cryptography library name.  If not set the default value is OS specific:
+//
 //   - Linux: libcrypto.so
+//
 //   - MacOS: libcrypto.dylib
+//
 //   - Windows: libcrypto-1_1.dll-
 //
-//  - GLOBAL_GSS_KRB_LIB: Alternate name for SOLCLIENT_GLOBAL_PROP_GSS_KRB_LIB
-//  - GLOBAL_SSL_LIB: Alternate name for SOLCLIENT_GLOBAL_PROP_SSL_LIB
-//  - GLOBAL_CRYPTO_LIB: Alternate name for SOLCLIENT_GLOBAL_PROP_CRYPTO_LIB
+//   - GLOBAL_GSS_KRB_LIB: Alternate name for SOLCLIENT_GLOBAL_PROP_GSS_KRB_LIB
+//
+//   - GLOBAL_SSL_LIB: Alternate name for SOLCLIENT_GLOBAL_PROP_SSL_LIB
+//
+//   - GLOBAL_CRYPTO_LIB: Alternate name for SOLCLIENT_GLOBAL_PROP_CRYPTO_LIB
 package solace
