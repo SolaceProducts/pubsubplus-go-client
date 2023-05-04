@@ -19,6 +19,7 @@ To get started using the Solace PubSub+ API for Go, simply include it as a requi
 
 The Solace PubSub+ API for Go is a wrapper around the high performance Solace C API via Cgo and has support for the following operating systems:
 - Linux (x86/x86_64) variants with Linux 2.6 or later (compatible with glibc (desktop/server) and musl-c (Alpine Linux))
+- Linux (arm64) variants compatible with glibc (desktop/server)
 - Windows WSL 2.0
 - macOS 10.15 and later (x86_64 versions)
 
