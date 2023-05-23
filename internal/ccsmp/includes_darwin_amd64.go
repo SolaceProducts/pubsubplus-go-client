@@ -21,6 +21,5 @@ package ccsmp
 #cgo CFLAGS: -I${SRCDIR}/lib/include
 #cgo LDFLAGS: -L/usr/local/opt/openssl@1.1/lib ${SRCDIR}/lib/darwin/libsolclient.a -lssl -lcrypto -framework Kerberos
 */
-import "C"
 
-var SolClientRunningOnAlpine bool = false
+import "C"

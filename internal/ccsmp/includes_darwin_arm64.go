@@ -23,4 +23,3 @@ package ccsmp
 */
 import "C"
 
-var SolClientRunningOnAlpine bool = false
