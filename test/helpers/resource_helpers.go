@@ -72,6 +72,7 @@ func CreatePartitionedQueue(queueName string, partitionCount int32, partitionReb
         EgressEnabled:  True,
         PartitionCount: partitionCount,
         PartitionRebalanceDelay: partitionRebalanceDelay,
+		Owner:          "default",
     }, testcontext.Messaging().VPN, nil)
     ExpectWithOffset(1, err).ToNot(HaveOccurred(), "Failed to create queue with name "+queueName) 
 	for _, topic := range topics {
