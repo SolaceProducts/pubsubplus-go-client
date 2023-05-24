@@ -2495,7 +2495,7 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
 /*@{*/
 #define SOLCLIENT_ENDPOINT_PROP_QUEUE           "2"     /**< Request is for a Queue. */
 #define SOLCLIENT_ENDPOINT_PROP_TE              "3"     /**< Request is for a Topic Endpoint. */
-#define SOLCLIENT_ENDPOINT_PROP_CLIENT_NAME     "4"     /**< Request is for a Client name  (solClient_session_endpointTopicSubscribe() / solClient_session_endpointTopicUnsubscribe() only.) */
+#define SOLCLIENT_ENDPOINT_PROP_CLIENT_NAME     "4"     /**< Request is for a Client name  (solClient_session_endpointTopicSubscribe() / solClient_session_endpointTopicUnsubscribe()) only. */
 /*@}*/
 
 /** @name Endpoint Naming Entities, used as values for ENDPOINT properties in solClient_session_endpointProvision().
@@ -2510,10 +2510,10 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
  */
 /*@(*/
 #define SOLCLIENT_ENDPOINT_PERM_NONE           "n"     /**< No permissions for other clients */
-#define SOLCLIENT_ENDPOINT_PERM_READ_ONLY      "r"     /**< Read-only permission — other clients may not consume messages. */
-#define SOLCLIENT_ENDPOINT_PERM_CONSUME        "c"     /**< Consumer permission — other clients may read and consume messages. */
-#define SOLCLIENT_ENDPOINT_PERM_MODIFY_TOPIC   "m"     /**< Modify Topic permission — other clients may read and consume messages, and modify Topic on a Topic Endpoint. */
-#define SOLCLIENT_ENDPOINT_PERM_DELETE         "d"     /**< Delete permission — other clients may read and consume messages, modify the Topic on a Topic Endpoint, and delete the endpoint.  */
+#define SOLCLIENT_ENDPOINT_PERM_READ_ONLY      "r"     /**< Read-only permission other clients may not consume messages. */
+#define SOLCLIENT_ENDPOINT_PERM_CONSUME        "c"     /**< Consumer permission other clients may read and consume messages. */
+#define SOLCLIENT_ENDPOINT_PERM_MODIFY_TOPIC   "m"     /**< Modify Topic permission other clients may read and consume messages, and modify Topic on a Topic Endpoint. */
+#define SOLCLIENT_ENDPOINT_PERM_DELETE         "d"     /**< Delete permission other clients may read and consume messages, modify the Topic on a Topic Endpoint, and delete the endpoint.  */
 /*@}*/
 
 /** @name Endpoint Discard Msg Behavior */

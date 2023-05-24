@@ -15,7 +15,7 @@
     },
     "testcontainers": {
         "broker_hostname": "solbroker",
-        "broker_tag": "9.13",
+        "broker_tag": "10.3",
         "broker_repo": "solace/solace-pubsub",
         "broker_edition": "standard",
         "toxiproxy_hostname": "toxiproxy",
@@ -28,6 +28,10 @@
         "password": "localtest"
     },
     "oauth": {
-        "hostname": "solaceOAuth"
+        "hostname": "solaceOAuth",
+        "endpoints": {
+            "jwks": "https://solaceOAuth:30000/",
+            "user_info": "https://solaceOAuth:30001/"
+        }
     }
 }

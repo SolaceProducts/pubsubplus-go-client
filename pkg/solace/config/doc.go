@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2022 Solace Corporation. All rights reserved.
+// Copyright 2021-2023 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,14 +29,13 @@
 // For the various maps, such as a ServicePropertyMap, the configuration may be loaded
 // as JSON as shown:
 //
-//  import "encoding/json"
+//	import "encoding/json"
 //
-//  ...
+//	...
 //
-//  var myJsonConfig []byte := []byte(`{"solace":{"messaging":{"transport":{"host":"10.10.10.10"}}}}`)
-//  var myServicePropertyMap config.ServicePropertyMap
-//  json.Unmarshal(myJsonConfig, &myServicePropertyMap)
-//  messaging.NewMessagingServiceBuilder().FromConfigurationProvider(myServicePropertyMap)
-//  ...
-//
+//	var myJsonConfig []byte := []byte(`{"solace":{"messaging":{"transport":{"host":"10.10.10.10"}}}}`)
+//	var myServicePropertyMap config.ServicePropertyMap
+//	json.Unmarshal(myJsonConfig, &myServicePropertyMap)
+//	messaging.NewMessagingServiceBuilder().FromConfigurationProvider(myServicePropertyMap)
+//	...
 package config

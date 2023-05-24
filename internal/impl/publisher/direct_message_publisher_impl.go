@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2022 Solace Corporation. All rights reserved.
+// Copyright 2021-2023 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -618,8 +618,9 @@ func (builder *directMessagePublisherBuilderImpl) OnBackPressureWait(bufferSize 
 
 // FromConfigurationProvider will configure the direct publisher with the given properties.
 // Built in PublisherPropertiesConfigurationProvider implementations include:
-//   PublisherPropertyMap, a map of PublisherProperty keys to values
-//   for loading of properties from a string configuration (files or other configuration source)
+//
+//	PublisherPropertyMap, a map of PublisherProperty keys to values
+//	for loading of properties from a string configuration (files or other configuration source)
 func (builder *directMessagePublisherBuilderImpl) FromConfigurationProvider(provider config.PublisherPropertiesConfigurationProvider) solace.DirectMessagePublisherBuilder {
 	if provider == nil {
 		return builder

@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2022 Solace Corporation. All rights reserved.
+// Copyright 2021-2023 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
-
 	"solace.dev/go/messaging/test/sempclient/action"
 	"solace.dev/go/messaging/test/sempclient/config"
 	"solace.dev/go/messaging/test/sempclient/monitor"
@@ -29,11 +28,12 @@ import (
 
 // SEMPConfig structure
 type SEMPConfig struct {
-	Port     int    `json:"port" env:"PUBSUB_SEMP_PORT"`
-	Secure   int    `json:"secure" env:"PUBSUB_SECURE_SEMP_PORT"`
-	Host     string `json:"host" env:"PUBSUB_MANAGEMENT_HOST"`
-	Username string `json:"username" env:"PUBSUB_MANAGEMENT_USER"`
-	Password string `json:"password" env:"PUBSUB_MANAGEMENT_PASSWORD"`
+	Port       int    `json:"port" env:"PUBSUB_SEMP_PORT"`
+	Secure     int    `json:"secure" env:"PUBSUB_SECURE_SEMP_PORT"`
+	Host       string `json:"host" env:"PUBSUB_MANAGEMENT_HOST"`
+	Username   string `json:"username" env:"PUBSUB_MANAGEMENT_USER"`
+	Password   string `json:"password" env:"PUBSUB_MANAGEMENT_PASSWORD"`
+	ForcePlain bool   `json:"force_plain,omitempty" env:"PUBSUB_SEMP_FORCE_PLAIN"`
 }
 
 // SEMPv2 allows access to various SEMPv2 clients as well as their authentication parameters
@@ -74,11 +74,15 @@ func newSempV2(config *SEMPConfig) *sempV2Impl {
 func (semp *sempV2Impl) setup() error {
 	// Create a new HTTP client to use with SEMP that skips validation
 	// This lets us use SEMP over TLS allowing for server certificate configuration
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	httpClient := http.DefaultClient
+	url := fmt.Sprintf("http://%s:%d/SEMP/v2/", semp.config.Host, semp.config.Port)
+	if !semp.config.ForcePlain {
+		tr := &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
+		httpClient = &http.Client{Transport: tr}
+		url = fmt.Sprintf("https://%s:%d/SEMP/v2/", semp.config.Host, semp.config.Secure)
 	}
-	httpClient := &http.Client{Transport: tr}
-	url := fmt.Sprintf("https://%s:%d/SEMP/v2/", semp.config.Host, semp.config.Secure)
 	semp.actionCtx = context.WithValue(context.Background(), action.ContextBasicAuth, action.BasicAuth{
 		UserName: semp.config.Username,
 		Password: semp.config.Password,

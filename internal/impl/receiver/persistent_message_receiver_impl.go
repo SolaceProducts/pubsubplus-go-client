@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2022 Solace Corporation. All rights reserved.
+// Copyright 2021-2023 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -1342,7 +1342,8 @@ func (builder *persistentMessageReceiverBuilderImpl) WithSubscriptions(topics ..
 
 // FromConfigurationProvider will configure the persistent receiver with the given properties.
 // Built in ReceiverPropertiesConfigurationProvider implementations include:
-//   ReceiverPropertyMap, a map of ReceiverProperty keys to values
+//
+//	ReceiverPropertyMap, a map of ReceiverProperty keys to values
 func (builder *persistentMessageReceiverBuilderImpl) FromConfigurationProvider(provider config.ReceiverPropertiesConfigurationProvider) solace.PersistentMessageReceiverBuilder {
 	if provider == nil {
 		return builder

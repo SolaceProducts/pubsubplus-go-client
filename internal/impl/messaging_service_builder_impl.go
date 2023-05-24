@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2022 Solace Corporation. All rights reserved.
+// Copyright 2021-2023 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -179,10 +179,14 @@ func (builder *messagingServiceBuilderImpl) BuildWithApplicationID(applicationID
 
 // FromConfigurationProvider sets the configuration based on the given confniguration provider.
 // The following are built in configuration providers:
-//   ServicePropertyMap: can be used to set a ServiceProperty to a value programatically
+//
+//	ServicePropertyMap: can be used to set a ServiceProperty to a value programatically
+//
 // The ServicePropertiesConfigurationProvider interface can also be implemented by a type
 // to have it act as a configuration factory by implementing
-//   func (type MyType) GetConfiguration() ServicePropertyMap {...}
+//
+//	func (type MyType) GetConfiguration() ServicePropertyMap {...}
+//
 // Any properties provided by the configuration provider will be layered overtop of any
 // previously set properties, including those set by specifying various strategies.
 func (builder *messagingServiceBuilderImpl) FromConfigurationProvider(provider config.ServicePropertiesConfigurationProvider) solace.MessagingServiceBuilder {

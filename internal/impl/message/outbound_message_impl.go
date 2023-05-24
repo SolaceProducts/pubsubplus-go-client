@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2022 Solace Corporation. All rights reserved.
+// Copyright 2021-2023 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -86,6 +86,9 @@ func freeOutboundMessage(message *OutboundMessageImpl) {
 // DuplicateOutboundMessage will duplicate the message and return a new Message copying the original
 func DuplicateOutboundMessage(message *OutboundMessageImpl) (*OutboundMessageImpl, error) {
 	msgP, err := ccsmp.SolClientMessageDup(message.messagePointer)
+	// Ensure that the finalizer for `message` does not run before this point, so that we can be certain
+	// SolClientMessageDup will complete before `message` is freed by the gc.
+	runtime.KeepAlive(message)
 	if err != nil {
 		return nil, core.ToNativeError(err, "error duplicating message: ")
 	}

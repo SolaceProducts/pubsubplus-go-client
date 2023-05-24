@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2022 Solace Corporation. All rights reserved.
+// Copyright 2021-2023 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -66,6 +66,7 @@ type Stream []Data
 //	SOLCLIENT_UNKNOWN       []byte
 //
 // On outbound messages, the following additional types are supported with the following mappings:
+//
 //	byte      SOLCLIENT_INT8
 //	int      SOLCLIENT_INT64
 //	uint      SOLCLIENT_UINT64
@@ -113,8 +114,11 @@ type Stream []Data
 // converts strings of length 1 into a WChar. All other strings are rejected.
 //
 // In addition, the following one-to-one conversions are used:
+//
 //	sdt.Map, sdt.Stream
+//
 // Lastly, Destination is mapped with these getters:
+//
 //	GetQueue, GetTopic, and GetDestination
 type Data interface{}
 
