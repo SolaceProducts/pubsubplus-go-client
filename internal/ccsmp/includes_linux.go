@@ -32,4 +32,3 @@ import "C"
 func funcToLinkAgainstLibdl() {
 	C.dlerror()
 }
-
