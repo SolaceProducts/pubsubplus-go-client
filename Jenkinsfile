@@ -20,7 +20,7 @@ properties([
 ])
 currentBuild.rawBuild.getParent().setQuietPeriod(0)
 
-library 'jenkins-pipeline-library@main'
+library 'jenkins-pipeline-library@CRE-938'
 
 stage('Build') {
   builder.goapi()
