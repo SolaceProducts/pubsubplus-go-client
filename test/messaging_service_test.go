@@ -453,23 +453,32 @@ var _ = Describe("MessagingService Lifecycle", func() {
 						Expect(client.TlsCipherDescription).To(HavePrefix("AES128-SHA"))
 					})
 				})
-				// We need to explicitly enable TLS1.1 to test a few cases
-				Context("when allowing TLS1.1 connections", func() {
+                // Originially this explicitly test tls1.1 
+                // on systems with new openssl (3.0 or later) tls1.1 is no longer supported from the client
+                // As a result this is adapted to explicitly verify tls1.2 in anticipation for tls1.3
+                // once openssl 1.1 support is deprecated this maybe 
+				// We need to explicitly enable TLS1.2 to test a few cases
+				Context("when allowing TLS1.2 connections", func() {
 					BeforeEach(func() {
-						testcontext.SEMP().Config().AllApi.UpdateBroker(testcontext.SEMP().ConfigCtx(), sempconfig.Broker{
-							TlsBlockVersion11Enabled: helpers.False,
-						}, nil)
+                        // semp configuration for tls version support
+                        // revist for enabling support for tls 1.2 in the future
+						//testcontext.SEMP().Config().AllApi.UpdateBroker(testcontext.SEMP().ConfigCtx(), sempconfig.Broker{
+						//	TlsBlockVersion11Enabled: helpers.False,
+						//}, nil)
+                        
 					})
 					AfterEach(func() {
-						testcontext.SEMP().Config().AllApi.UpdateBroker(testcontext.SEMP().ConfigCtx(), sempconfig.Broker{
-							TlsBlockVersion11Enabled: helpers.True,
-						}, nil)
+                        // semp configuration for tls version support
+                        // revist for disabling support for tls 1.2 in the future
+						//testcontext.SEMP().Config().AllApi.UpdateBroker(testcontext.SEMP().ConfigCtx(), sempconfig.Broker{
+						//	TlsBlockVersion11Enabled: helpers.True,
+						//}, nil)
 					})
 					It("should be able to connect with excluded protocols", func() {
 						builder.WithTransportSecurityStrategy(config.NewTransportSecurityStrategy().
-							WithExcludedProtocols(config.TransportSecurityProtocolTLSv1_2))
+							WithExcludedProtocols(config.TransportSecurityProtocolSSLv3, config.TransportSecurityProtocolTLSv1, config.TransportSecurityProtocolTLSv1_1))
 						helpers.TestConnectDisconnectMessagingServiceClientValidation(builder, func(client *monitor.MsgVpnClient) {
-							Expect(client.TlsVersion).To(BeEquivalentTo(config.TransportSecurityProtocolTLSv1_1))
+							Expect(client.TlsVersion).To(BeEquivalentTo(config.TransportSecurityProtocolTLSv1_2))
 						})
 					})
 				})
