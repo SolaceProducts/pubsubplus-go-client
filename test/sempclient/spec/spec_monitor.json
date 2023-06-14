@@ -12321,7 +12321,7 @@
     "MsgVpnQueue": {
       "properties": {
         "accessType": {
-          "description": "The access type for delivering messages to consumer flows bound to the Queue. The allowed values and their meaning are:\n\n<pre>\n\"exclusive\" - Exclusive delivery of messages to the first bound consumer flow.\n\"non-exclusive\" - Non-exclusive delivery of messages to all bound consumer flows in a round-robin fashion.\n</pre>\n",
+          "description": "The access type for delivering messages to consumer flows bound to the Queue. The allowed values and their meaning are:\n\n<pre>\n\"exclusive\" - Exclusive delivery of messages to the first bound consumer flow.\n\"non-exclusive\" - Non-exclusive delivery of messages to bound consumer flows in a round-robin (if partition count is zero) or partitioned (if partition count is non-zero) fashion.\n</pre>\n",
           "enum": [
             "exclusive",
             "non-exclusive"
@@ -12624,6 +12624,51 @@
           "description": "The Client Username that owns the Queue and has permission equivalent to `\"delete\"`.",
           "type": "string"
         },
+        "partitionClientName": {
+          "description": "The name of the client assigned to the partition if the client is currently bound to the queue. Only relevant for queues implementing an individual partition. Available since (will be released in next SEMP version).",
+          "type": "string"
+        },
+        "partitionCount": {
+          "description": "The count of partitions of the queue. Only relevant for queues with an access type of non-exclusive. When zero, bound clients receive messages round-robin. Otherwise, bound clients receive messages from individually assigned partitions. Available since (will be released in next SEMP version).",
+          "format": "int32",
+          "type": "integer"
+        },
+        "partitionNumber": {
+          "description": "The partition number. Only relevant for queues implementing an individual partition. Available since (will be released in next SEMP version).",
+          "format": "int32",
+          "type": "integer"
+        },
+        "partitionOperationalCount": {
+          "description": "The operational count of partitions of the queue. Only relevant for queues with an access type of non-exclusive. This may not match the configured count while scaling is underway. Available since (will be released in next SEMP version).",
+          "format": "int32",
+          "type": "integer"
+        },
+        "partitionQueueName": {
+          "description": "The name of our partitioned queue. Only relevant for queues implementing an individual partition. Available since (will be released in next SEMP version).",
+          "type": "string"
+        },
+        "partitionRebalanceDelay": {
+          "description": "The delay (in seconds) before a partition rebalance is started once needed. Available since (will be released in next SEMP version).",
+          "format": "int64",
+          "type": "integer"
+        },
+        "partitionRebalanceMaxHandoffTime": {
+          "description": "The maximum time (in seconds) to wait before handing off a partition while rebalancing. Available since (will be released in next SEMP version).",
+          "format": "int64",
+          "type": "integer"
+        },
+        "partitionRebalanceStatus": {
+          "description": "The rebalance status of the partitioned queue. Only relevant for queues with an access type of non-exclusive and at least 1 partition. The allowed values and their meaning are:\n\n<pre>\n\"ready\" - Rebalancing is complete.\n\"holddown\" - Rebalancing will start after delay.\n\"rebalancing\" - Rebalancing is underway.\n</pre>\n Available since (will be released in next SEMP version).",
+          "type": "string"
+        },
+        "partitionScaleStatus": {
+          "description": "The scale status of the partitioned queue. Only relevant for queues with an access type of non-exclusive and at least 1 partition. The allowed values and their meaning are:\n\n<pre>\n\"invalid-exclusive\" - Exclusive queues have no partitions.\n\"ready\" - Partition scaling is complete.\n\"scaling-up\" - Partitions are being added.\n\"scaling-down\" - Partitions are being removed.\n\"max-partitioned-queues-exceeded\" - Maximum number of partitioned queues has been exceeded.\n\"max-partitions-exceeded\" - Maximum number of partitions has been exceeded for this partitioned queue.\n</pre>\n Available since (will be released in next SEMP version).",
+          "type": "string"
+        },
+        "partitionStatus": {
+          "description": "The status of the partition of the partitioned queue. Only relevant for queues implementing an individual partition. The allowed values and their meaning are:\n\n<pre>\n\"unassigned\" - Partition is not assigned to a client.\n\"ready\" - Partition is assigned to a client.\n\"paused\" - Partition is being handed off to another client.\n\"unbound\" - Assigned client is not bound.\n</pre>\n Available since (will be released in next SEMP version).",
+          "type": "string"
+        },
         "permission": {
           "description": "The permission level for all consumers of the Queue, excluding the owner. The allowed values and their meaning are:\n\n<pre>\n\"no-access\" - Disallows all access.\n\"read-only\" - Read-only access to the messages.\n\"consume\" - Consume (read and remove) messages.\n\"modify-topic\" - Consume messages or modify the topic/selector.\n\"delete\" - Consume messages, modify the topic/selector or delete the Client created endpoint altogether.\n</pre>\n",
           "enum": [
@@ -12789,6 +12834,11 @@
         "virtualRouter": {
           "description": "The virtual router of the Queue. The allowed values and their meaning are:\n\n<pre>\n\"primary\" - The endpoint belongs to the primary virtual router.\n\"backup\" - The endpoint belongs to the backup virtual router.\n</pre>\n Deprecated since 2.31. This attribute has been deprecated. When Guaranteed Messaging is active, this value is always the virtual router for which Guaranteed Messaging is enabled. Otherwise, this value should be ignored.",
           "type": "string"
+        },
+        "xaTransactionNotSupportedDiscardedMsgCount": {
+          "description": "The number of guaranteed messages discarded by the Queue due to XA Transactions not being supported. Available since (will be released in next SEMP version).",
+          "format": "int64",
+          "type": "integer"
         }
       },
       "type": "object"
@@ -12909,6 +12959,15 @@
         "msgVpnName": {
           "description": "The name of the Message VPN.",
           "type": "string"
+        },
+        "partitionKey": {
+          "description": "The partition key of the Message. Available since (will be released in next SEMP version).",
+          "type": "string"
+        },
+        "partitionKeyHash": {
+          "description": "The partition key hash of the Message. Available since (will be released in next SEMP version).",
+          "format": "int32",
+          "type": "integer"
         },
         "priority": {
           "description": "The priority level of the Message, from 9 (highest) to 0 (lowest).",
@@ -13212,7 +13271,7 @@
     "MsgVpnQueueTemplate": {
       "properties": {
         "accessType": {
-          "description": "The access type for delivering messages to consumer flows. The allowed values and their meaning are:\n\n<pre>\n\"exclusive\" - Exclusive delivery of messages to the first bound consumer flow.\n\"non-exclusive\" - Non-exclusive delivery of messages to all bound consumer flows in a round-robin fashion.\n</pre>\n",
+          "description": "The access type for delivering messages to consumer flows. The allowed values and their meaning are:\n\n<pre>\n\"exclusive\" - Exclusive delivery of messages to the first bound consumer flow.\n\"non-exclusive\" - Non-exclusive delivery of messages to bound consumer flows in a round-robin (if partition count is zero) or partitioned (if partition count is non-zero) fashion.\n</pre>\n",
           "enum": [
             "exclusive",
             "non-exclusive"
@@ -15668,7 +15727,7 @@
     "MsgVpnTopicEndpoint": {
       "properties": {
         "accessType": {
-          "description": "The access type for delivering messages to consumer flows bound to the Topic Endpoint. The allowed values and their meaning are:\n\n<pre>\n\"exclusive\" - Exclusive delivery of messages to the first bound consumer flow.\n\"non-exclusive\" - Non-exclusive delivery of messages to all bound consumer flows in a round-robin fashion.\n</pre>\n",
+          "description": "The access type for delivering messages to consumer flows bound to the Topic Endpoint. The allowed values and their meaning are:\n\n<pre>\n\"exclusive\" - Exclusive delivery of messages to the first bound consumer flow.\n\"non-exclusive\" - Non-exclusive delivery of messages to bound consumer flows in a round-robin (if partition count is zero) or partitioned (if partition count is non-zero) fashion.\n</pre>\n",
           "enum": [
             "exclusive",
             "non-exclusive"
@@ -16492,7 +16551,7 @@
     "MsgVpnTopicEndpointTemplate": {
       "properties": {
         "accessType": {
-          "description": "The access type for delivering messages to consumer flows. The allowed values and their meaning are:\n\n<pre>\n\"exclusive\" - Exclusive delivery of messages to the first bound consumer flow.\n\"non-exclusive\" - Non-exclusive delivery of messages to all bound consumer flows in a round-robin fashion.\n</pre>\n",
+          "description": "The access type for delivering messages to consumer flows. The allowed values and their meaning are:\n\n<pre>\n\"exclusive\" - Exclusive delivery of messages to the first bound consumer flow.\n\"non-exclusive\" - Non-exclusive delivery of messages to bound consumer flows in a round-robin (if partition count is zero) or partitioned (if partition count is non-zero) fashion.\n</pre>\n",
           "enum": [
             "exclusive",
             "non-exclusive"

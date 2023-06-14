@@ -23,12 +23,6 @@ package ccsmp
 
 #include <dlfcn.h>
 
-#include <features.h>
-#ifdef __GLIBC__
-#define SOLCLIENT_USING_MUSL 0
-#else
-#define SOLCLIENT_USING_MUSL 1
-#endif
 */
 import "C"
 
@@ -38,5 +32,3 @@ import "C"
 func funcToLinkAgainstLibdl() {
 	C.dlerror()
 }
-
-var SolClientRunningOnAlpine bool = C.SOLCLIENT_USING_MUSL == 1
