@@ -25,5 +25,6 @@ package ccsmp
 import (
 	_ "solace.dev/go/messaging/internal/ccsmp/lib/darwin"
 	_ "solace.dev/go/messaging/internal/ccsmp/lib/include/solclient"
-	_ "solace.dev/go/messaging/internal/ccsmp/lib/linux"
+	_ "solace.dev/go/messaging/internal/ccsmp/lib/linux_amd64"
+	_ "solace.dev/go/messaging/internal/ccsmp/lib/linux_arm64"
 )
