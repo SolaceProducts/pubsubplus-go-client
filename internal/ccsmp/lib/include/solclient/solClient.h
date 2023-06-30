@@ -27,6 +27,7 @@ extern "C"
 {
 #endif                          /* _cplusplus */
 
+
 /**
      @mainpage
 
@@ -1101,7 +1102,7 @@ typedef struct solClient_field {
 * <tr>
 *     <td width="300"> SOLCLIENT_SUBCODE_TE_SHUTDOWN</td>
 *     <td width="300"> An attempt was made to operate on a shutdown Guaranteed Delivery Topic Endpoint.</td>
-*     <td width="300"> 503 Durable Topic Endpoint Shutdown, 503 TE Shutdown, 503 Endpoint Shutdown                        </td> 
+*     <td width="300"> 503 Durable Topic Endpoint Shutdown, 503 TE Shutdown </td> 
 * </tr>
 * <tr>
 *     <td width="300"> SOLCLIENT_SUBCODE_NO_MORE_NON_DURABLE_QUEUE_OR_TE</td>
@@ -1543,6 +1544,16 @@ typedef struct solClient_field {
 *     <td width="300"> Egress selectors are not permitted when binding to a Partitioned Queue. </td>
 *     <td width="300"> 403 Selectors Not Supported on Partititoned Queue </td>
 * </tr>
+* <tr>
+*     <td width="300"> SOLCLIENT_SUBCODE_SYNC_REPLICATION_INELIGIBLE </td>
+*     <td width="300"> A guaranteed message was rejected because the broker has been configured to reject messages when sync replication mode is ineligible. A transaction commit failed because replication became ineligible during the transaction. </td>
+*     <td width="300"> 503 Sync Replication Ineligible </td>
+* </tr>
+* <tr>
+*     <td width="300"> SOLCLIENT_SUBCODE_ENDPOINT_SHUTDOWN </td>
+*     <td width="300"> The client has attempted to publish to a topic that matched a queue or topic endpoint subscription which has its ingress flow shutdown. </td>
+*     <td width="300"> 503 Endpoint Shutdown </td>
+* </tr>
 * </table>
 */
   typedef enum solClient_subCode
@@ -1711,7 +1722,9 @@ typedef struct solClient_field {
     SOLCLIENT_SUBCODE_MESSAGE_ID_NOT_COMPARABLE                      = 157, /**< Replication Group Message Id are not comparable. Messages must be published to the same broker or HA pair for their Replicaton Group Message Id to be comparable. */
     SOLCLIENT_SUBCODE_REPLAY_ANONYMOUS_NOT_SUPPORTED                  = 158,  /**< The client attempted to start replay on a flow bound to an anonymous queue. */
     SOLCLIENT_SUBCODE_BROWSING_NOT_SUPPORTED_ON_PARTITIONED_QUEUE       = 159,  /**< Browser flows to Partitioned Queues are not permitted. */
-    SOLCLIENT_SUBCODE_SELECTORS_NOT_SUPPORTED_ON_PARTITIONED_QUEUE      = 160  /**< Egress selectors are not permitted when binding to a Partitioned Queue. */
+    SOLCLIENT_SUBCODE_SELECTORS_NOT_SUPPORTED_ON_PARTITIONED_QUEUE      = 160,  /**< Egress selectors are not permitted when binding to a Partitioned Queue. */
+    SOLCLIENT_SUBCODE_SYNC_REPLICATION_INELIGIBLE                    = 161, /**< A guaranteed message was rejected because the broker has been configured to reject messages when sync replication mode is ineligible. A transaction commit failed because replication became ineligible during the transaction. */
+    SOLCLIENT_SUBCODE_ENDPOINT_SHUTDOWN                              = 162, /**< The client has attempted to publish to a topic that matched a queue or topic endpoint subscription which has its ingress flow shutdown. */
     /*
      * ADDING NEW SUBCODES: When adding a new subcode always add a new entry to the HTML table in 
      * the comment above this enumeration 
@@ -2575,6 +2588,7 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
 #define SOLCLIENT_SESSION_CAPABILITY_LONG_SELECTORS                 "SESSION_CAPABILITY_LONG_SELECTORS" /**< Boolean - The peer can support selectors longer than 1023 bytes */
 #define SOLCLIENT_SESSION_CAPABILITY_SHARED_SUBSCRIPTIONS           "SESSION_CAPABILITY_SHARED_SUBSCRIPTIONS" /**< Boolean - The peer can support \#shared and \#noexport subscriptions */
 #define SOLCLIENT_SESSION_CAPABILITY_BR_REPLAY_ERRORID              "SESSION_CAPABILITY_BR_REPLAY_ERRORID" /**< Boolean - The peer can support the endpoint error id parameter on the flow bind response during message replay */
+#define SOLCLIENT_SESSION_CAPABILITY_VAR_LEN_EXT_PARAM              "SESSION_CAPABILITY_VAR_LEN_EXT_PARAM" /**< Boolean - The peer can support variable length extended parameters. */
 #define SOLCLIENT_SESSION_CAPABILITY_ADCTRL_VERSION_MIN             "SESSION_CAPABILITY_ADCTRL_VERSION_MIN"   /**< Uint32 - Lowest AdCtrl version supported by the broker. */
 #define SOLCLIENT_SESSION_CAPABILITY_ADCTRL_VERSION_MAX             "SESSION_CAPABILITY_ADCTRL_VERSION_MAX"   /**< Uint32 - Highest AdCtrl version supported by the broker. */
 /*@}*/
@@ -5602,6 +5616,8 @@ solClient_dllExport solClient_returnCode_t
 solClient_dllExport solClient_returnCode_t
 solClient_flow_getTransactedSession(solClient_opaqueFlow_pt               flow_p,
                                     solClient_opaqueTransactedSession_pt  *transactedSession_p);
+
+
 
 #ifndef SOLCLIENT_EXCLUDE_DEPRECATED
 #include "solClientDeprecated.h"

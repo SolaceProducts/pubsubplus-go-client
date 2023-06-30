@@ -340,4 +340,8 @@ const (
 	BrowsingNotSupportedOnPartitionedQueue Code = 159
 	// SelectorsNotSupportedOnPartitionedQueue: Egress selectors are not permitted when binding to a Partitioned Queue.
 	SelectorsNotSupportedOnPartitionedQueue Code = 160
+	// SyncReplicationIneligible: A guaranteed message was rejected because the broker has been configured to reject messages when sync replication mode is ineligible. A transaction commit failed because replication became ineligible during the transaction.
+	SyncReplicationIneligible Code = 161
+	// EndpointShutdown: The client has attempted to publish to a topic that matched a queue or topic endpoint subscription which has its ingress flow shutdown.
+	EndpointShutdown Code = 162
 )

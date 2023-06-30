@@ -6219,6 +6219,21 @@
           "description": "The Client Username that owns the Queue and has permission equivalent to `\"delete\"`. Modifying this attribute while the object (or the relevant part of the object) is administratively enabled may be service impacting as egressEnabled will be temporarily set to false to apply the change. Changes to this attribute are synchronized to HA mates and replication sites via config-sync. The default value is `\"\"`.",
           "type": "string"
         },
+        "partitionCount": {
+          "description": "The count of partitions of the queue. Only relevant for queues with an access type of non-exclusive. When zero, bound clients receive messages round-robin. Otherwise, bound clients receive messages from individually assigned partitions. Changes to this attribute are synchronized to HA mates and replication sites via config-sync. The default value is `0`. Available since (will be released in next SEMP version).",
+          "format": "int32",
+          "type": "integer"
+        },
+        "partitionRebalanceDelay": {
+          "description": "The delay (in seconds) before a partition rebalance is started once needed. Changes to this attribute are synchronized to HA mates and replication sites via config-sync. The default value is `5`. Available since (will be released in next SEMP version).",
+          "format": "int64",
+          "type": "integer"
+        },
+        "partitionRebalanceMaxHandoffTime": {
+          "description": "The maximum time (in seconds) to wait before handing off a partition while rebalancing. Changes to this attribute are synchronized to HA mates and replication sites via config-sync. The default value is `3`. Available since (will be released in next SEMP version).",
+          "format": "int64",
+          "type": "integer"
+        },
         "permission": {
           "description": "The permission level for all consumers of the Queue, excluding the owner. Modifying this attribute while the object (or the relevant part of the object) is administratively enabled may be service impacting as egressEnabled will be temporarily set to false to apply the change. Changes to this attribute are synchronized to HA mates and replication sites via config-sync. The default value is `\"no-access\"`. The allowed values and their meaning are:\n\n<pre>\n\"no-access\" - Disallows all access.\n\"read-only\" - Read-only access to the messages.\n\"consume\" - Consume (read and remove) messages.\n\"modify-topic\" - Consume messages or modify the topic/selector.\n\"delete\" - Consume messages, modify the topic/selector or delete the Client created endpoint altogether.\n</pre>\n",
           "enum": [
@@ -6385,7 +6400,7 @@
     "MsgVpnQueueTemplate": {
       "properties": {
         "accessType": {
-          "description": "The access type for delivering messages to consumer flows. Changes to this attribute are synchronized to HA mates and replication sites via config-sync. The default value is `\"exclusive\"`. The allowed values and their meaning are:\n\n<pre>\n\"exclusive\" - Exclusive delivery of messages to the first bound consumer flow.\n\"non-exclusive\" - Non-exclusive delivery of messages to all bound consumer flows in a round-robin fashion.\n</pre>\n",
+          "description": "The access type for delivering messages to consumer flows. Changes to this attribute are synchronized to HA mates and replication sites via config-sync. The default value is `\"exclusive\"`. The allowed values and their meaning are:\n\n<pre>\n\"exclusive\" - Exclusive delivery of messages to the first bound consumer flow.\n\"non-exclusive\" - Non-exclusive delivery of messages to bound consumer flows in a round-robin (if partition count is zero) or partitioned (if partition count is non-zero) fashion.\n</pre>\n",
           "enum": [
             "exclusive",
             "non-exclusive"
@@ -8113,7 +8128,7 @@
     "MsgVpnTopicEndpointTemplate": {
       "properties": {
         "accessType": {
-          "description": "The access type for delivering messages to consumer flows. Changes to this attribute are synchronized to HA mates and replication sites via config-sync. The default value is `\"exclusive\"`. The allowed values and their meaning are:\n\n<pre>\n\"exclusive\" - Exclusive delivery of messages to the first bound consumer flow.\n\"non-exclusive\" - Non-exclusive delivery of messages to all bound consumer flows in a round-robin fashion.\n</pre>\n",
+          "description": "The access type for delivering messages to consumer flows. Changes to this attribute are synchronized to HA mates and replication sites via config-sync. The default value is `\"exclusive\"`. The allowed values and their meaning are:\n\n<pre>\n\"exclusive\" - Exclusive delivery of messages to the first bound consumer flow.\n\"non-exclusive\" - Non-exclusive delivery of messages to bound consumer flows in a round-robin (if partition count is zero) or partitioned (if partition count is non-zero) fashion.\n</pre>\n",
           "enum": [
             "exclusive",
             "non-exclusive"

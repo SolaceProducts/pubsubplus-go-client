@@ -15,7 +15,7 @@
     },
     "testcontainers": {
         "broker_hostname": "solbroker",
-        "broker_tag": "10.3",
+        "broker_tag": "10.4",
         "broker_repo": "solace/solace-pubsub",
         "broker_edition": "standard",
         "toxiproxy_hostname": "toxiproxy",
