@@ -114,6 +114,38 @@ type Message interface {
 	//  2 | COS_3
 	GetClassOfService() (cos int)
 
+	// GetCreationTraceContext will return the trace context metadata used for distributed message tracing message
+	// creation context information across service boundaries.
+	// It allows correlating the producer with the consumers of a message, regardless of intermediary
+	// instrumentation. It must not be altered by intermediaries.
+	// If the content is not accessible, an empty slice will be returned and the ok flag will be false.
+	GetCreationTraceContext() (traceID [16]byte, spanID [8]byte, sampled bool, traceState string, ok bool)
+
+	// SetTraceContext will set creation trace context metadata used for distributed message tracing.
+	// Creation context considered to be immutable, and should not be set multiple times.
+	// If the content could not be set into the message, the ok flag will be false.
+	SetCreationTraceContext(traceID [16]byte, spanID [8]byte, sampled bool, traceState string) (ok bool)
+
+	// GetTransportTraceContext will return the trace context metadata used for distributed message tracing
+	// It allows correlating the producer and the consumer with an intermediary.
+	// It also allows correlating multiple intermediaries among each other.
+	// When no transport context is present it may return a creation context when available as
+	// an initial transport context.
+	// If the content is not accessible, an empty slice will be returned and the ok flag will be false.
+	GetTransportTraceContext() (traceID [16]byte, spanID [8]byte, sampled bool, traceState string, ok bool)
+
+	// SetTraceContext will set transport trace context metadata used for distributed message tracing.
+	// If the content could not be set into the message, the ok flag will be false.
+	SetTransportTraceContext(traceID [16]byte, spanID [8]byte, sampled bool, traceState string) (ok bool)
+
+	// GetBaggage will return the baggage string associated with the message
+	// If the content is not accessible, an empty slice will
+	// be returned and the ok flag will be false.
+	GetBaggage() (baggage string, ok bool)
+
+	// SetBaggage will set the baggage string associated with the message
+	SetBaggage(baggage string) error
+
 	// String implements fmt.Stringer. Prints the message as a string. A truncated response
 	// may be returned when large payloads or properties are attached.
 	String() string
