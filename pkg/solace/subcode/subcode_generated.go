@@ -344,4 +344,8 @@ const (
 	SyncReplicationIneligible Code = 161
 	// EndpointShutdown: The client has attempted to publish to a topic that matched a queue or topic endpoint subscription which has its ingress flow shutdown.
 	EndpointShutdown Code = 162
+	// AdAppAckFailedNotSupported: Fail and Reject message settlement outcomes not supported on the Solace Message Router.
+	AdAppAckFailedNotSupported Code = 163
+	// InvalidDurability: The client has attempted to bind a flow to a durable queue or topic endpoint with SOLCLIENT_FLOW_PROP_BIND_ENTITY_DURABLE disabled.
+	InvalidDurability Code = 164
 )

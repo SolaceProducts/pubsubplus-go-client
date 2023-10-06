@@ -94,6 +94,12 @@ const (
 	SolClientStatsRXDiscardMsgTransactionRollback SolClientStatsRX = C.SOLCLIENT_STATS_RX_DISCARD_MSG_TRANSACTION_ROLLBACK
 	// SolClientStatsRXDiscardTransactionResponse: On a transacted session, the number of transaction responses discarded due to reconnection.
 	SolClientStatsRXDiscardTransactionResponse SolClientStatsRX = C.SOLCLIENT_STATS_RX_DISCARD_TRANSACTION_RESPONSE
+	// SolClientStatsRXSettleAccepted: Number of messages settled with "ACCEPTED" outcome.
+	SolClientStatsRXSettleAccepted SolClientStatsRX = C.SOLCLIENT_STATS_RX_SETTLE_ACCEPTED
+	// SolClientStatsRXSettleFailed: Number of messages settled with "FAILED" outcome.
+	SolClientStatsRXSettleFailed SolClientStatsRX = C.SOLCLIENT_STATS_RX_SETTLE_FAILED
+	// SolClientStatsRXSettleRejected: Number of messages settled with "REJECTED" outcome.
+	SolClientStatsRXSettleRejected SolClientStatsRX = C.SOLCLIENT_STATS_RX_SETTLE_REJECTED
 	// SolClientStatsRXNumStats: The size of receive stats array.
 	SolClientStatsRXNumStats SolClientStatsRX = C.SOLCLIENT_STATS_RX_NUM_STATS
 )
