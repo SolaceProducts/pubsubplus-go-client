@@ -173,7 +173,7 @@ func TestGetCreationTraceContext(t *testing.T) {
 	}
 
 	// test traceState equality
-	if strings.Compare(traceState, traceStateValue) == 0 {
+	if strings.Compare(traceState, traceStateValue) != 0 {
 		t.Error("expected GetCreationTraceContext() traceState from message should be the same as what was set in message")
 	}
 
@@ -289,7 +289,7 @@ func TestGetTransportTraceContext(t *testing.T) {
 	}
 
 	// test traceState equality
-	if strings.Compare(traceState, traceStateValue) == 0 {
+	if strings.Compare(traceState, traceStateValue) != 0 {
 		t.Error("expected GetTransportTraceContext() traceState from message should be the same as what was set in message")
 	}
 
@@ -361,7 +361,7 @@ func TestGetBaggage(t *testing.T) {
 	if baggage == "" {
 		t.Error("expected baggage not to be an empty string")
 	}
-	if strings.Compare(baggage, baggageValue) == 0 {
+	if strings.Compare(baggage, baggageValue) != 0 {
 		t.Error("expected baggage from message should be the same baggage set on the message")
 	}
 

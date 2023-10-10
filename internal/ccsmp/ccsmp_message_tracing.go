@@ -26,6 +26,7 @@ package ccsmp
 */
 import "C"
 import (
+	"bytes"
 	"fmt"
 	"unsafe"
 
@@ -301,7 +302,7 @@ func SolClientMessageGetBaggage(messageP SolClientMessagePt) (string, *SolClient
 	}
 
 	baggageBytes := C.GoBytes(unsafe.Pointer(baggageChar), C.int(baggageSize))
-	return string(baggageBytes), errorInfo
+	return string(bytes.Trim(baggageBytes, "\x00")), errorInfo
 }
 
 // SolClientMessageSetBaggage function
