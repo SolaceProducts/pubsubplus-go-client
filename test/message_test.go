@@ -2017,7 +2017,7 @@ var _ = Describe("Remote Message Tests", func() {
 			select {
 			case message := <-inboundMessageChannel:
 				traceID, spanID, sampled, traceState, ok := message.GetCreationTraceContext()
-				Expect(ok).To(BeFalse())
+				Expect(ok).To(BeTrue())
 				Expect(traceID).To(Equal(creationCtxTraceID16)) // should be equal
 				Expect(spanID).To(Equal(creationCtxSpanID8))    // should be equal
 				Expect(sampled).To(Equal(sampledValue))
@@ -2070,12 +2070,111 @@ var _ = Describe("Remote Message Tests", func() {
 
 			select {
 			case message := <-inboundMessageChannel:
-				traceID, spanID, sampled, traceState, ok := message.GetCreationTraceContext()
-				Expect(ok).To(BeFalse())
+				traceID, spanID, sampled, traceState, ok := message.GetTransportTraceContext()
+				Expect(ok).To(BeTrue())
 				Expect(traceID).To(Equal(transportCtxTraceID16)) // should be equal
 				Expect(spanID).To(Equal(transportCtxSpanID8))    // should be equal
-				Expect(sampled).To(Equal(sampledValue))
+				Expect(sampled).To(BeTrue())
 				Expect(traceState).To(Equal(traceStateValue))
+			case <-time.After(1 * time.Second):
+				Fail("timed out waiting for message to be delivered")
+			}
+		})
+
+		It("should be able to publish/receive a message with a valid creation context and no transport context", func() {
+			message, err := messageBuilder.Build()
+			Expect(err).ToNot(HaveOccurred())
+
+			// set creation context on message
+			creationCtxTraceID, _ := hex.DecodeString("79f90916c9a3dad1eb4b328e00469e45")
+			creationCtxSpanID, _ := hex.DecodeString("3b364712c4e1f17f")
+			sampledValue := true
+			traceStateValue := "sometrace=Example"
+
+			var creationCtxTraceID16, emptyTransportTraceID16 [16]byte
+			var creationCtxSpanID8, emptyTransportSpanID8 [8]byte
+			copy(creationCtxTraceID16[:], creationCtxTraceID)
+			copy(creationCtxSpanID8[:], creationCtxSpanID)
+			ok := message.SetCreationTraceContext(creationCtxTraceID16, creationCtxSpanID8, sampledValue, traceStateValue)
+			Expect(ok).To(BeTrue())
+
+			publisher.Publish(message, resource.TopicOf(topic))
+
+			select {
+			case message := <-inboundMessageChannel:
+				creationTraceID, creationSpanID, creationSampled, creationTraceState, creationOk := message.GetCreationTraceContext()
+				transportTraceID, transportSpanID, transportSampled, transportTraceState, transportOk := message.GetTransportTraceContext()
+
+				Expect(creationOk).To(BeTrue())
+				Expect(creationTraceID).To(Equal(creationCtxTraceID16)) // should be equal
+				Expect(creationSpanID).To(Equal(creationCtxSpanID8))    // should be equal
+				Expect(creationSampled).To(BeTrue())
+				Expect(creationTraceState).To(Equal(traceStateValue))
+
+				Expect(transportOk).To(BeFalse())
+				Expect(transportTraceID).To(Equal(emptyTransportTraceID16)) // empty
+				Expect(transportSpanID).To(Equal(emptyTransportSpanID8))    // empty
+				Expect(transportSampled).To(BeFalse())
+				Expect(transportTraceState).To(Equal(""))
+
+			case <-time.After(1 * time.Second):
+				Fail("timed out waiting for message to be delivered")
+			}
+		})
+
+		It("should be able to publish/receive a message with different creation context and transport context", func() {
+			message, err := messageBuilder.Build()
+			Expect(err).ToNot(HaveOccurred())
+
+			// set creation context on message
+			creationCtxTraceID, _ := hex.DecodeString("79f90916c9a3dad1eb4b328e00469e45")
+			creationCtxSpanID, _ := hex.DecodeString("3b364712c4e1f17f")
+			creationCtxTraceState := "trace1=Sample1"
+
+			// set transport context on message
+			transportCtxTraceID, _ := hex.DecodeString("55d30916c9a3dad1eb4b328e00469e45")
+			transportCtxSpanID, _ := hex.DecodeString("a7164712c4e1f17f")
+			transportCtxTraceState := "trace2=Sample2"
+
+			var creationCtxTraceID16, transportCtxTraceID16, emptyTransportTraceID16 [16]byte
+			var creationCtxSpanID8, transportCtxSpanID8, emptyTransportSpanID8 [8]byte
+			copy(creationCtxTraceID16[:], creationCtxTraceID)
+			copy(creationCtxSpanID8[:], creationCtxSpanID)
+			setCreationCtxOk := message.SetCreationTraceContext(creationCtxTraceID16, creationCtxSpanID8, true, creationCtxTraceState)
+			Expect(setCreationCtxOk).To(BeTrue())
+
+			copy(transportCtxTraceID16[:], transportCtxTraceID)
+			copy(transportCtxSpanID8[:], transportCtxSpanID)
+			setTransportCtxOk := message.SetTransportTraceContext(transportCtxTraceID16, transportCtxSpanID8, true, transportCtxTraceState)
+			Expect(setTransportCtxOk).To(BeTrue())
+
+			publisher.Publish(message, resource.TopicOf(topic))
+
+			select {
+			case message := <-inboundMessageChannel:
+				creationTraceID, creationSpanID, creationSampled, creationTraceState, creationOk := message.GetCreationTraceContext()
+				transportTraceID, transportSpanID, transportSampled, transportTraceState, transportOk := message.GetTransportTraceContext()
+
+				Expect(creationOk).To(BeTrue())
+				Expect(creationTraceID).To(Equal(creationCtxTraceID16)) // should be equal
+				Expect(creationSpanID).To(Equal(creationCtxSpanID8))    // should be equal
+				Expect(creationSampled).To(BeTrue())
+				Expect(creationTraceState).To(Equal(creationCtxTraceState))
+
+				Expect(transportOk).To(BeTrue())
+				Expect(transportTraceID).ToNot(Equal(emptyTransportTraceID16)) // not empty
+				Expect(transportTraceID).To(Equal(transportCtxTraceID16))      // should be equal
+
+				Expect(transportSpanID).ToNot(Equal(emptyTransportSpanID8)) // not empty
+				Expect(transportSpanID).To(Equal(transportCtxSpanID8))      // should be equal
+
+				Expect(transportSampled).To(BeTrue())
+				Expect(transportTraceState).To(Equal(transportCtxTraceState))
+
+				Expect(creationTraceID).ToNot(Equal(transportTraceID))       // should be not be equal
+				Expect(creationSpanID).ToNot(Equal(transportSpanID))         // should be not be equal
+				Expect(creationTraceState).ToNot(Equal(transportTraceState)) // should be not be equal
+
 			case <-time.After(1 * time.Second):
 				Fail("timed out waiting for message to be delivered")
 			}
@@ -2083,15 +2182,16 @@ var _ = Describe("Remote Message Tests", func() {
 
 		It("should be able to publish/receive a message with no baggage", func() {
 			message, err := messageBuilder.Build()
-			message.SetBaggage("") // set empty baggage
+			baggageErr := message.SetBaggage("") // set empty baggage
 			Expect(err).ToNot(HaveOccurred())
+			Expect(baggageErr).To(BeNil())
 
 			publisher.Publish(message, resource.TopicOf(topic))
 
 			select {
 			case message := <-inboundMessageChannel:
 				baggage, ok := message.GetBaggage()
-				Expect(ok).To(BeFalse())
+				Expect(ok).To(BeTrue())
 				Expect(baggage).To(Equal(""))
 			case <-time.After(1 * time.Second):
 				Fail("timed out waiting for message to be delivered")
@@ -2103,7 +2203,7 @@ var _ = Describe("Remote Message Tests", func() {
 			message, err := messageBuilder.Build()
 			baggageErr := message.SetBaggage(baggage) // set a valid baggage string
 			Expect(err).ToNot(HaveOccurred())
-			Expect(baggageErr).ToNot(HaveOccurred())
+			Expect(baggageErr).To(BeNil())
 
 			publisher.Publish(message, resource.TopicOf(topic))
 
