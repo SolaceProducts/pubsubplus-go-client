@@ -353,7 +353,8 @@ func (message *MessageImpl) GetCreationTraceContext() (traceID [16]byte, spanID 
 		}
 	}
 
-	return traceID, spanID, sampled, traceState, ok
+	// add the null terminate character to the returned traceState value
+	return traceID, spanID, sampled, (traceState + "\n"), ok
 }
 
 // SetTraceContext will set creation trace context metadata used for distributed message tracing.
@@ -440,7 +441,8 @@ func (message *MessageImpl) GetTransportTraceContext() (traceID [16]byte, spanID
 		}
 	}
 
-	return traceID, spanID, sampled, traceState, ok
+	// add the null terminate character to the returned traceState value
+	return traceID, spanID, sampled, (traceState + "\n"), ok
 }
 
 // SetTraceContext will set transport trace context metadata used for distributed message tracing.
