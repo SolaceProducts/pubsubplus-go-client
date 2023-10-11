@@ -26,7 +26,6 @@ package ccsmp
 */
 import "C"
 import (
-	"bytes"
 	"fmt"
 	"unsafe"
 
@@ -174,8 +173,7 @@ func SolClientMessageGetTraceContextTraceState(messageP SolClientMessagePt, cont
 		return "", errorInfo
 	}
 
-	traceStateBytes := C.GoBytes(unsafe.Pointer(traceStateChar), C.int(traceStateSize))
-	return string(traceStateBytes), errorInfo
+	return C.GoStringN(traceStateChar, C.int(traceStateSize)), errorInfo
 }
 
 // SolClientMessageSetTraceContextTraceState function
@@ -304,8 +302,8 @@ func SolClientMessageGetBaggage(messageP SolClientMessagePt) (string, *SolClient
 		return "", errorInfo
 	}
 
-	baggageBytes := C.GoBytes(unsafe.Pointer(baggageChar), C.int(baggageSize))
-	return string(bytes.Trim(baggageBytes, "\x00")[:]), errorInfo
+	// use baggageSize - 1 to exclude the null character at the end of the baggage string
+	return C.GoStringN(baggageChar, C.int(baggageSize)-1), errorInfo
 }
 
 // SolClientMessageSetBaggage function

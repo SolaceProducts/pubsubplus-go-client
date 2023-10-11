@@ -18,6 +18,7 @@ package message
 
 import (
 	"encoding/hex"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -335,7 +336,7 @@ func TestSetBaggage(t *testing.T) {
 
 func TestGetBaggage(t *testing.T) {
 	// the baggage value to test
-	baggageValue := "someBaggage=value1;example=value2"
+	baggageValue := "someBaggage=value1'example=value2"
 
 	msgP, ccsmpErr := ccsmp.SolClientMessageAlloc()
 	if ccsmpErr != nil {
@@ -361,7 +362,8 @@ func TestGetBaggage(t *testing.T) {
 	if baggage == "" {
 		t.Error("expected baggage not to be an empty string")
 	}
-	if strings.Compare(baggage, baggageValue) != 0 {
+	if baggage != baggageValue {
+		fmt.Printf("Message Dump:\n================\n%s\n%s \n", baggage, baggageValue)
 		t.Error("expected baggage from message should be the same baggage set on the message")
 	}
 
