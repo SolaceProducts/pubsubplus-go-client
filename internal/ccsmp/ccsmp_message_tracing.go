@@ -72,6 +72,7 @@ func SolClientMessageGetTraceContextTraceID(messageP SolClientMessagePt, context
 		if errorInfo.ReturnCode == SolClientReturnCodeFail {
 			logging.Default.Warning(fmt.Sprintf("Encountered error fetching Creation context traceID prop: %s, subcode: %d", errorInfo.GetMessageAsString(), errorInfo.SubCode))
 		}
+		return [16]byte{}, errorInfo
 	}
 
 	traceID := *(*[16]byte)(unsafe.Pointer(&cChar))
@@ -105,6 +106,7 @@ func SolClientMessageGetTraceContextSpanID(messageP SolClientMessagePt, contextT
 		if errorInfo.ReturnCode == SolClientReturnCodeFail {
 			logging.Default.Warning(fmt.Sprintf("Encountered error fetching Creation context spanID prop: %s, subcode: %d", errorInfo.GetMessageAsString(), errorInfo.SubCode))
 		}
+		return [8]byte{}, errorInfo
 	}
 
 	spanID := *(*[8]byte)(unsafe.Pointer(&cChar))
@@ -138,6 +140,7 @@ func SolClientMessageGetTraceContextSampled(messageP SolClientMessagePt, context
 		if errorInfo.ReturnCode == SolClientReturnCodeFail {
 			logging.Default.Warning(fmt.Sprintf("Encountered error fetching Creation context sampled prop: %s, subcode: %d", errorInfo.GetMessageAsString(), errorInfo.SubCode))
 		}
+		return false, errorInfo
 	}
 
 	isSampled := *(*bool)(unsafe.Pointer(&cSampled))
@@ -302,7 +305,7 @@ func SolClientMessageGetBaggage(messageP SolClientMessagePt) (string, *SolClient
 	}
 
 	baggageBytes := C.GoBytes(unsafe.Pointer(baggageChar), C.int(baggageSize))
-	return string(bytes.Trim(baggageBytes, "\x00")), errorInfo
+	return string(bytes.Trim(baggageBytes, "\x00")[:]), errorInfo
 }
 
 // SolClientMessageSetBaggage function

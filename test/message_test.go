@@ -1982,12 +1982,10 @@ var _ = Describe("Remote Message Tests", func() {
 
 			select {
 			case message := <-inboundMessageChannel:
-				var creationCtxTraceID16 [16]byte
-				var creationCtxSpanID8 [8]byte
 				traceID, spanID, sampled, traceState, ok := message.GetCreationTraceContext()
 				Expect(ok).To(BeFalse())
-				Expect(traceID).To(Equal(creationCtxTraceID16)) // empty
-				Expect(spanID).To(Equal(creationCtxSpanID8))    // empty
+				Expect(traceID).To(Equal([16]byte{})) // empty
+				Expect(spanID).To(Equal([8]byte{}))   // empty
 				Expect(sampled).To(BeFalse())
 				Expect(traceState).To(Equal(""))
 			case <-time.After(1 * time.Second):
@@ -2035,12 +2033,10 @@ var _ = Describe("Remote Message Tests", func() {
 
 			select {
 			case message := <-inboundMessageChannel:
-				var transportCtxTraceID16 [16]byte
-				var transportCtxSpanID8 [8]byte
 				traceID, spanID, sampled, traceState, ok := message.GetTransportTraceContext()
 				Expect(ok).To(BeFalse())
-				Expect(traceID).To(Equal(transportCtxTraceID16)) // empty
-				Expect(spanID).To(Equal(transportCtxSpanID8))    // empty
+				Expect(traceID).To(Equal([16]byte{})) // empty
+				Expect(spanID).To(Equal([8]byte{}))   // empty
 				Expect(sampled).To(BeFalse())
 				Expect(traceState).To(Equal(""))
 			case <-time.After(1 * time.Second):
@@ -2091,8 +2087,8 @@ var _ = Describe("Remote Message Tests", func() {
 			sampledValue := true
 			traceStateValue := "sometrace=Example"
 
-			var creationCtxTraceID16, emptyTransportTraceID16 [16]byte
-			var creationCtxSpanID8, emptyTransportSpanID8 [8]byte
+			var creationCtxTraceID16 [16]byte
+			var creationCtxSpanID8 [8]byte
 			copy(creationCtxTraceID16[:], creationCtxTraceID)
 			copy(creationCtxSpanID8[:], creationCtxSpanID)
 			ok := message.SetCreationTraceContext(creationCtxTraceID16, creationCtxSpanID8, sampledValue, traceStateValue)
@@ -2112,8 +2108,8 @@ var _ = Describe("Remote Message Tests", func() {
 				Expect(creationTraceState).To(Equal(traceStateValue))
 
 				Expect(transportOk).To(BeFalse())
-				Expect(transportTraceID).To(Equal(emptyTransportTraceID16)) // empty
-				Expect(transportSpanID).To(Equal(emptyTransportSpanID8))    // empty
+				Expect(transportTraceID).To(Equal([16]byte{})) // empty
+				Expect(transportSpanID).To(Equal([8]byte{}))   // empty
 				Expect(transportSampled).To(BeFalse())
 				Expect(transportTraceState).To(Equal(""))
 
@@ -2136,8 +2132,8 @@ var _ = Describe("Remote Message Tests", func() {
 			transportCtxSpanID, _ := hex.DecodeString("a7164712c4e1f17f")
 			transportCtxTraceState := "trace2=Sample2"
 
-			var creationCtxTraceID16, transportCtxTraceID16, emptyTransportTraceID16 [16]byte
-			var creationCtxSpanID8, transportCtxSpanID8, emptyTransportSpanID8 [8]byte
+			var creationCtxTraceID16, transportCtxTraceID16 [16]byte
+			var creationCtxSpanID8, transportCtxSpanID8 [8]byte
 			copy(creationCtxTraceID16[:], creationCtxTraceID)
 			copy(creationCtxSpanID8[:], creationCtxSpanID)
 			setCreationCtxOk := message.SetCreationTraceContext(creationCtxTraceID16, creationCtxSpanID8, true, creationCtxTraceState)
@@ -2162,11 +2158,11 @@ var _ = Describe("Remote Message Tests", func() {
 				Expect(creationTraceState).To(Equal(creationCtxTraceState))
 
 				Expect(transportOk).To(BeTrue())
-				Expect(transportTraceID).ToNot(Equal(emptyTransportTraceID16)) // not empty
-				Expect(transportTraceID).To(Equal(transportCtxTraceID16))      // should be equal
+				Expect(transportTraceID).ToNot(Equal([16]byte{}))         // not empty
+				Expect(transportTraceID).To(Equal(transportCtxTraceID16)) // should be equal
 
-				Expect(transportSpanID).ToNot(Equal(emptyTransportSpanID8)) // not empty
-				Expect(transportSpanID).To(Equal(transportCtxSpanID8))      // should be equal
+				Expect(transportSpanID).ToNot(Equal([8]byte{}))        // not empty
+				Expect(transportSpanID).To(Equal(transportCtxSpanID8)) // should be equal
 
 				Expect(transportSampled).To(BeTrue())
 				Expect(transportTraceState).To(Equal(transportCtxTraceState))
