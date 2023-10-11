@@ -2194,7 +2194,7 @@ var _ = Describe("Remote Message Tests", func() {
 			}
 		})
 
-		FIt("should be able to publish/receive a message with a valid baggage", func() {
+		It("should be able to publish/receive a message with a valid baggage", func() {
 			baggage := "baggageKey=baggageValue"
 			message, err := messageBuilder.Build()
 			baggageErr := message.SetBaggage(baggage) // set a valid baggage string
