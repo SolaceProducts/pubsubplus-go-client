@@ -81,6 +81,54 @@ var fromConfigProviderInvalidTestCases = map[config.MessageProperty]interface{}{
 	config.MessagePropertySenderID:                 dummyStruct{},
 }
 
+// InboundMessageWithTracingSupport represents a message received by a consumer.
+type InboundMessageWithTracingSupport interface {
+	// Extend the InboundMessage interface.
+	message.InboundMessage
+
+	// GetCreationTraceContext will return the trace context metadata used for distributed message tracing message
+	GetCreationTraceContext() (traceID [16]byte, spanID [8]byte, sampled bool, traceState string, ok bool)
+
+	// SetTraceContext will set creation trace context metadata used for distributed message tracing.
+	SetCreationTraceContext(traceID [16]byte, spanID [8]byte, sampled bool, traceState string) (ok bool)
+
+	// GetTransportTraceContext will return the trace context metadata used for distributed message tracing
+	GetTransportTraceContext() (traceID [16]byte, spanID [8]byte, sampled bool, traceState string, ok bool)
+
+	// SetTraceContext will set transport trace context metadata used for distributed message tracing.
+	SetTransportTraceContext(traceID [16]byte, spanID [8]byte, sampled bool, traceState string) (ok bool)
+
+	// GetBaggage will return the baggage string associated with the message
+	GetBaggage() (baggage string, ok bool)
+
+	// SetBaggage will set the baggage string associated with the message
+	SetBaggage(baggage string) error
+}
+
+// OutboundMessageWithTracingSupport represents a message received by a consumer.
+type OutboundMessageWithTracingSupport interface {
+	// Extend the OutboundMessage interface.
+	message.OutboundMessage
+
+	// GetCreationTraceContext will return the trace context metadata used for distributed message tracing message
+	GetCreationTraceContext() (traceID [16]byte, spanID [8]byte, sampled bool, traceState string, ok bool)
+
+	// SetTraceContext will set creation trace context metadata used for distributed message tracing.
+	SetCreationTraceContext(traceID [16]byte, spanID [8]byte, sampled bool, traceState string) (ok bool)
+
+	// GetTransportTraceContext will return the trace context metadata used for distributed message tracing
+	GetTransportTraceContext() (traceID [16]byte, spanID [8]byte, sampled bool, traceState string, ok bool)
+
+	// SetTraceContext will set transport trace context metadata used for distributed message tracing.
+	SetTransportTraceContext(traceID [16]byte, spanID [8]byte, sampled bool, traceState string) (ok bool)
+
+	// GetBaggage will return the baggage string associated with the message
+	GetBaggage() (baggage string, ok bool)
+
+	// SetBaggage will set the baggage string associated with the message
+	SetBaggage(baggage string) error
+}
+
 var _ = Describe("Local MessageBuilder Tests", func() {
 	var messageBuilder solace.OutboundMessageBuilder
 
@@ -1939,7 +1987,7 @@ var _ = Describe("Remote Message Tests", func() {
 	Describe("Published and received message with Distributed Tracing support", func() {
 		var publisher solace.DirectMessagePublisher
 		var receiver solace.DirectMessageReceiver
-		var inboundMessageChannel chan message.InboundMessage
+		var inboundMessageChannel chan InboundMessageWithTracingSupport
 
 		BeforeEach(func() {
 			var err error
@@ -1954,9 +2002,9 @@ var _ = Describe("Remote Message Tests", func() {
 			err = publisher.Start()
 			Expect(err).ToNot(HaveOccurred())
 
-			inboundMessageChannel = make(chan message.InboundMessage)
+			inboundMessageChannel = make(chan InboundMessageWithTracingSupport)
 			receiver.ReceiveAsync(func(inboundMessage message.InboundMessage) {
-				inboundMessageChannel <- inboundMessage
+				inboundMessageChannel <- inboundMessage.(InboundMessageWithTracingSupport)
 			})
 
 			err = receiver.Start()
@@ -1997,6 +2045,9 @@ var _ = Describe("Remote Message Tests", func() {
 			message, err := messageBuilder.Build()
 			Expect(err).ToNot(HaveOccurred())
 
+			// cast the message to the extended interface that has message tracing support
+			messageWithDT := message.(OutboundMessageWithTracingSupport)
+
 			// set creation context on message
 			creationCtxTraceID, _ := hex.DecodeString("79f90916c9a3dad1eb4b328e00469e45")
 			creationCtxSpanID, _ := hex.DecodeString("3b364712c4e1f17f")
@@ -2007,10 +2058,10 @@ var _ = Describe("Remote Message Tests", func() {
 			var creationCtxSpanID8 [8]byte
 			copy(creationCtxTraceID16[:], creationCtxTraceID)
 			copy(creationCtxSpanID8[:], creationCtxSpanID)
-			ok := message.SetCreationTraceContext(creationCtxTraceID16, creationCtxSpanID8, sampledValue, traceStateValue)
+			ok := messageWithDT.SetCreationTraceContext(creationCtxTraceID16, creationCtxSpanID8, sampledValue, traceStateValue)
 			Expect(ok).To(BeTrue())
 
-			publisher.Publish(message, resource.TopicOf(topic))
+			publisher.Publish(messageWithDT, resource.TopicOf(topic))
 
 			select {
 			case message := <-inboundMessageChannel:
@@ -2048,6 +2099,9 @@ var _ = Describe("Remote Message Tests", func() {
 			message, err := messageBuilder.Build()
 			Expect(err).ToNot(HaveOccurred())
 
+			// cast the message to the extended interface that has message tracing support
+			messageWithDT := message.(OutboundMessageWithTracingSupport)
+
 			// set transport context on message
 			transportCtxTraceID, _ := hex.DecodeString("55d30916c9a3dad1eb4b328e00469e45")
 			transportCtxSpanID, _ := hex.DecodeString("a7164712c4e1f17f")
@@ -2059,10 +2113,10 @@ var _ = Describe("Remote Message Tests", func() {
 			var transportCtxSpanID8 [8]byte
 			copy(transportCtxTraceID16[:], transportCtxTraceID)
 			copy(transportCtxSpanID8[:], transportCtxSpanID)
-			ok := message.SetTransportTraceContext(transportCtxTraceID16, transportCtxSpanID8, sampledValue, traceStateValue)
+			ok := messageWithDT.SetTransportTraceContext(transportCtxTraceID16, transportCtxSpanID8, sampledValue, traceStateValue)
 			Expect(ok).To(BeTrue())
 
-			publisher.Publish(message, resource.TopicOf(topic))
+			publisher.Publish(messageWithDT, resource.TopicOf(topic))
 
 			select {
 			case message := <-inboundMessageChannel:
@@ -2081,6 +2135,9 @@ var _ = Describe("Remote Message Tests", func() {
 			message, err := messageBuilder.Build()
 			Expect(err).ToNot(HaveOccurred())
 
+			// cast the message to the extended interface that has message tracing support
+			messageWithDT := message.(OutboundMessageWithTracingSupport)
+
 			// set creation context on message
 			creationCtxTraceID, _ := hex.DecodeString("79f90916c9a3dad1eb4b328e00469e45")
 			creationCtxSpanID, _ := hex.DecodeString("3b364712c4e1f17f")
@@ -2091,10 +2148,10 @@ var _ = Describe("Remote Message Tests", func() {
 			var creationCtxSpanID8 [8]byte
 			copy(creationCtxTraceID16[:], creationCtxTraceID)
 			copy(creationCtxSpanID8[:], creationCtxSpanID)
-			ok := message.SetCreationTraceContext(creationCtxTraceID16, creationCtxSpanID8, sampledValue, traceStateValue)
+			ok := messageWithDT.SetCreationTraceContext(creationCtxTraceID16, creationCtxSpanID8, sampledValue, traceStateValue)
 			Expect(ok).To(BeTrue())
 
-			publisher.Publish(message, resource.TopicOf(topic))
+			publisher.Publish(messageWithDT, resource.TopicOf(topic))
 
 			select {
 			case message := <-inboundMessageChannel:
@@ -2122,6 +2179,9 @@ var _ = Describe("Remote Message Tests", func() {
 			message, err := messageBuilder.Build()
 			Expect(err).ToNot(HaveOccurred())
 
+			// cast the message to the extended interface that has message tracing support
+			messageWithDT := message.(OutboundMessageWithTracingSupport)
+
 			// set creation context on message
 			creationCtxTraceID, _ := hex.DecodeString("79f90916c9a3dad1eb4b328e00469e45")
 			creationCtxSpanID, _ := hex.DecodeString("3b364712c4e1f17f")
@@ -2136,15 +2196,15 @@ var _ = Describe("Remote Message Tests", func() {
 			var creationCtxSpanID8, transportCtxSpanID8 [8]byte
 			copy(creationCtxTraceID16[:], creationCtxTraceID)
 			copy(creationCtxSpanID8[:], creationCtxSpanID)
-			setCreationCtxOk := message.SetCreationTraceContext(creationCtxTraceID16, creationCtxSpanID8, true, creationCtxTraceState)
+			setCreationCtxOk := messageWithDT.SetCreationTraceContext(creationCtxTraceID16, creationCtxSpanID8, true, creationCtxTraceState)
 			Expect(setCreationCtxOk).To(BeTrue())
 
 			copy(transportCtxTraceID16[:], transportCtxTraceID)
 			copy(transportCtxSpanID8[:], transportCtxSpanID)
-			setTransportCtxOk := message.SetTransportTraceContext(transportCtxTraceID16, transportCtxSpanID8, true, transportCtxTraceState)
+			setTransportCtxOk := messageWithDT.SetTransportTraceContext(transportCtxTraceID16, transportCtxSpanID8, true, transportCtxTraceState)
 			Expect(setTransportCtxOk).To(BeTrue())
 
-			publisher.Publish(message, resource.TopicOf(topic))
+			publisher.Publish(messageWithDT, resource.TopicOf(topic))
 
 			select {
 			case message := <-inboundMessageChannel:
@@ -2178,11 +2238,15 @@ var _ = Describe("Remote Message Tests", func() {
 
 		It("should be able to publish/receive a message with no baggage", func() {
 			message, err := messageBuilder.Build()
-			baggageErr := message.SetBaggage("") // set empty baggage
 			Expect(err).ToNot(HaveOccurred())
+
+			// cast the message to the extended interface that has message tracing support
+			messageWithDT := message.(OutboundMessageWithTracingSupport)
+
+			baggageErr := messageWithDT.SetBaggage("") // set empty baggage
 			Expect(baggageErr).To(BeNil())
 
-			publisher.Publish(message, resource.TopicOf(topic))
+			publisher.Publish(messageWithDT, resource.TopicOf(topic))
 
 			select {
 			case message := <-inboundMessageChannel:
@@ -2197,11 +2261,15 @@ var _ = Describe("Remote Message Tests", func() {
 		It("should be able to publish/receive a message with a valid baggage", func() {
 			baggage := "baggageKey=baggageValue"
 			message, err := messageBuilder.Build()
-			baggageErr := message.SetBaggage(baggage) // set a valid baggage string
 			Expect(err).ToNot(HaveOccurred())
+
+			// cast the message to the extended interface that has message tracing support
+			messageWithDT := message.(OutboundMessageWithTracingSupport)
+
+			baggageErr := messageWithDT.SetBaggage(baggage) // set a valid baggage string
 			Expect(baggageErr).To(BeNil())
 
-			publisher.Publish(message, resource.TopicOf(topic))
+			publisher.Publish(messageWithDT, resource.TopicOf(topic))
 
 			select {
 			case message := <-inboundMessageChannel:

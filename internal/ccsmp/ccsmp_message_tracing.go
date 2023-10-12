@@ -163,6 +163,8 @@ func SolClientMessageGetTraceContextTraceState(messageP SolClientMessagePt, cont
 	var traceStateChar *C.char
 	var traceStateSize C.size_t
 
+	defer C.free(unsafe.Pointer(traceStateChar)) // free the pointer after function executes
+
 	errorInfo := handleCcsmpError(func() SolClientReturnCode {
 		return C.solClient_msg_tracing_getTraceStatePtr(messageP, contextType, &traceStateChar, &traceStateSize)
 	})
@@ -179,9 +181,10 @@ func SolClientMessageGetTraceContextTraceState(messageP SolClientMessagePt, cont
 // SolClientMessageSetTraceContextTraceState function
 func SolClientMessageSetTraceContextTraceState(messageP SolClientMessagePt, traceState string, contextType SolClientMessageTracingContextType) *SolClientErrorInfoWrapper {
 	cStr := C.CString(traceState)
+	traceStateLen := len(traceState)
 	defer C.free(unsafe.Pointer(cStr)) // free the pointer after function executes
 	errorInfo := handleCcsmpError(func() SolClientReturnCode {
-		return C.solClient_msg_tracing_setTraceState(messageP, contextType, cStr)
+		return C.solClient_msg_tracing_setTraceStatePtr(messageP, contextType, cStr, C.ulong(traceStateLen))
 	})
 	return errorInfo
 }
