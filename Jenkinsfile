@@ -22,6 +22,17 @@ currentBuild.rawBuild.getParent().setQuietPeriod(0)
 
 library 'jenkins-pipeline-library@main'
 
-stage('Build') {
-  builder.goapi()
-}
+builder.goapi([
+  "validationGoVer": 'auto-v1.17.x',
+  "buildCheckGoVer": 'auto-v1.17.x',
+  "getTestPermutations": {
+    List<List<String>> permutations = []
+    for (platform in [builder.LINUX_ARM, builder.DARWIN_X86_64, builder.LINUX_X86_64, builder.DARWIN_ARM, builder.LINUX_MUSL]) {
+      for (gover in ['auto-v1.17.x']) {
+        permutations << [platform, gover]
+      }
+    }
+    return permutations
+  }
+])  
+
