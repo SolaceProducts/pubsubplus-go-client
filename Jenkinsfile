@@ -33,6 +33,7 @@ library 'jenkins-pipeline-library@CRE-705'
 
   Adoption of new versions into these may be delayed.
 */
+
 builder.goapi([
   "buildCheckGoVer": 'auto-v1.17.x',
   "validationGoVer": 'auto-v1.17.x',
