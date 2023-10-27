@@ -47,4 +47,3 @@ builder.goapi([
     return permutations
   }
 ])  
-
