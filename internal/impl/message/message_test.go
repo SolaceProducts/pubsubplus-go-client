@@ -18,7 +18,6 @@ package message
 
 import (
 	"encoding/hex"
-	"fmt"
 	"strings"
 	"testing"
 
@@ -74,6 +73,7 @@ func TestSetCreationTraceContext(t *testing.T) {
 	creationCtxSpanID, _ := hex.DecodeString("3b364712c4e1f17f")
 	sampledValue := true
 	traceStateValue := "sometrace=Example"
+	emptyTraceStateValue := ""
 
 	var creationCtxTraceID16, emptyCreationCtxTraceID16 [16]byte
 	var creationCtxSpanID8, emptyCreationCtxSpanID8 [8]byte
@@ -93,27 +93,33 @@ func TestSetCreationTraceContext(t *testing.T) {
 	}
 
 	// test setting the creation context value
-	ok := msg.SetCreationTraceContext(creationCtxTraceID16, creationCtxSpanID8, sampledValue, traceStateValue)
+	ok := msg.SetCreationTraceContext(creationCtxTraceID16, creationCtxSpanID8, sampledValue, &traceStateValue)
 	if !ok {
 		t.Error("expected SetCreationTraceContext() function for valid values to succeed and return true")
 	}
 
 	// test setting the creation context value - empty TraceID
-	okEmptyTraceID := msg.SetCreationTraceContext(emptyCreationCtxTraceID16, creationCtxSpanID8, sampledValue, traceStateValue)
+	okEmptyTraceID := msg.SetCreationTraceContext(emptyCreationCtxTraceID16, creationCtxSpanID8, sampledValue, &traceStateValue)
 	if !okEmptyTraceID {
 		t.Error("expected SetCreationTraceContext() function for empty TraceID to succeed and return true")
 	}
 
 	// test setting the creation context value - empty SpanID
-	okEmptySpanID := msg.SetCreationTraceContext(creationCtxTraceID16, emptyCreationCtxSpanID8, sampledValue, traceStateValue)
+	okEmptySpanID := msg.SetCreationTraceContext(creationCtxTraceID16, emptyCreationCtxSpanID8, sampledValue, &traceStateValue)
 	if !okEmptySpanID {
 		t.Error("expected SetCreationTraceContext() function for empty SpanID to succeed and return true")
 	}
 
 	// test setting the creation context value - empty trace state
-	okEmptyTraceState := msg.SetCreationTraceContext(creationCtxTraceID16, creationCtxSpanID8, sampledValue, "")
+	okEmptyTraceState := msg.SetCreationTraceContext(creationCtxTraceID16, creationCtxSpanID8, sampledValue, &emptyTraceStateValue)
 	if !okEmptyTraceState {
 		t.Error("expected SetCreationTraceContext() function for empty traceState to succeed and return true")
+	}
+
+	// test setting the creation context value - nil trace state
+	okNilTraceState := msg.SetCreationTraceContext(creationCtxTraceID16, creationCtxSpanID8, sampledValue, nil)
+	if !okNilTraceState {
+		t.Error("expected SetCreationTraceContext() function for Nil traceState to succeed and return true")
 	}
 
 	msg.Dispose()
@@ -147,7 +153,7 @@ func TestGetCreationTraceContext(t *testing.T) {
 	}
 
 	// test setting the creation context value
-	setValuesOk := msg.SetCreationTraceContext(creationCtxTraceID16, creationCtxSpanID8, sampledValue, traceStateValue)
+	setValuesOk := msg.SetCreationTraceContext(creationCtxTraceID16, creationCtxSpanID8, sampledValue, &traceStateValue)
 	if !setValuesOk {
 		t.Error("expected SetCreationTraceContext() function for valid values to succeed and return true")
 	}
@@ -190,6 +196,7 @@ func TestSetTransportTraceContext(t *testing.T) {
 	transportCtxSpanID, _ := hex.DecodeString("a7164712c4e1f17f")
 	sampledValue := true
 	traceStateValue := "sometrace=Example"
+	emptyTraceStateValue := ""
 
 	var transportCtxTraceID16, emptyTransportCtxTraceID16 [16]byte
 	var transportCtxSpanID8, emptyTransportCtxSpanID8 [8]byte
@@ -209,27 +216,33 @@ func TestSetTransportTraceContext(t *testing.T) {
 	}
 
 	// test setting the transport context value
-	ok := msg.SetTransportTraceContext(transportCtxTraceID16, transportCtxSpanID8, sampledValue, traceStateValue)
+	ok := msg.SetTransportTraceContext(transportCtxTraceID16, transportCtxSpanID8, sampledValue, &traceStateValue)
 	if !ok {
 		t.Error("expected SetTransportTraceContext() function for valid values to succeed and return true")
 	}
 
 	// test setting the transport context value - empty TraceID
-	okEmptyTraceID := msg.SetTransportTraceContext(emptyTransportCtxTraceID16, transportCtxSpanID8, sampledValue, traceStateValue)
+	okEmptyTraceID := msg.SetTransportTraceContext(emptyTransportCtxTraceID16, transportCtxSpanID8, sampledValue, &traceStateValue)
 	if !okEmptyTraceID {
 		t.Error("expected SetTransportTraceContext() function for empty TraceID to succeed and return true")
 	}
 
 	// test setting the transport context value - empty SpanID
-	okEmptySpanID := msg.SetTransportTraceContext(transportCtxTraceID16, emptyTransportCtxSpanID8, sampledValue, traceStateValue)
+	okEmptySpanID := msg.SetTransportTraceContext(transportCtxTraceID16, emptyTransportCtxSpanID8, sampledValue, &traceStateValue)
 	if !okEmptySpanID {
 		t.Error("expected SetTransportTraceContext() function for empty SpanID to succeed and return true")
 	}
 
 	// test setting the transport context value - empty trace state
-	okEmptyTraceState := msg.SetTransportTraceContext(transportCtxTraceID16, transportCtxSpanID8, sampledValue, "")
+	okEmptyTraceState := msg.SetTransportTraceContext(transportCtxTraceID16, transportCtxSpanID8, sampledValue, &emptyTraceStateValue)
 	if !okEmptyTraceState {
 		t.Error("expected SetTransportTraceContext() function for empty traceState to succeed and return true")
+	}
+
+	// test setting the transport context value - nil trace state
+	okNilTraceState := msg.SetTransportTraceContext(transportCtxTraceID16, transportCtxSpanID8, sampledValue, nil)
+	if !okNilTraceState {
+		t.Error("expected SetTransportTraceContext() function for nil traceState to succeed and return true")
 	}
 
 	msg.Dispose()
@@ -263,7 +276,7 @@ func TestGetTransportTraceContext(t *testing.T) {
 	}
 
 	// test setting the transport context value
-	setValuesOk := msg.SetTransportTraceContext(transportCtxTraceID16, transportCtxSpanID8, sampledValue, traceStateValue)
+	setValuesOk := msg.SetTransportTraceContext(transportCtxTraceID16, transportCtxSpanID8, sampledValue, &traceStateValue)
 	if !setValuesOk {
 		t.Error("expected SetTransportTraceContext() function for valid values to succeed and return true")
 	}
@@ -302,7 +315,7 @@ func TestGetTransportTraceContext(t *testing.T) {
 
 func TestSetBaggage(t *testing.T) {
 	// the baggage value to test
-	baggageValue := "someBaggage=value1;example=value2"
+	baggageValue := "baggage=value1;example=value2"
 
 	msgP, ccsmpErr := ccsmp.SolClientMessageAlloc()
 	if ccsmpErr != nil {
@@ -336,7 +349,7 @@ func TestSetBaggage(t *testing.T) {
 
 func TestGetBaggage(t *testing.T) {
 	// the baggage value to test
-	baggageValue := "someBaggage=value1'example=value2"
+	baggageValue := "baggage=value1;example=value2"
 
 	msgP, ccsmpErr := ccsmp.SolClientMessageAlloc()
 	if ccsmpErr != nil {
@@ -363,7 +376,6 @@ func TestGetBaggage(t *testing.T) {
 		t.Error("expected baggage not to be an empty string")
 	}
 	if baggage != baggageValue {
-		fmt.Printf("Message Dump:\n================\n%s\n%s \n", baggage, baggageValue)
 		t.Error("expected baggage from message should be the same baggage set on the message")
 	}
 

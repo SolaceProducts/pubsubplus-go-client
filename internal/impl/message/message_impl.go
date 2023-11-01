@@ -347,8 +347,9 @@ func (message *MessageImpl) GetCreationTraceContext() (traceID [16]byte, spanID 
 
 	traceState, traceStateErr = ccsmp.SolClientMessageGetCreationTraceContextTraceState(message.messagePointer)
 	if traceStateErr != nil {
-		ok = false
+		// if we got an actual error
 		if traceStateErr.ReturnCode == ccsmp.SolClientReturnCodeFail {
+			ok = false // set to false
 			logging.Default.Warning(fmt.Sprintf("Failed to retrieve Creation Context traceState property: "+traceStateErr.GetMessageAsString()+", sub code %d", traceStateErr.SubCode))
 		}
 	}
@@ -360,7 +361,7 @@ func (message *MessageImpl) GetCreationTraceContext() (traceID [16]byte, spanID 
 // SetCreationTraceContext will set creation trace context metadata used for distributed message tracing.
 // Creation context considered to be immutable, and should not be set multiple times.
 // If the content could not be set into the message, the ok flag will be false.
-func (message *MessageImpl) SetCreationTraceContext(traceID [16]byte, spanID [8]byte, sampled bool, traceState string) (ok bool) {
+func (message *MessageImpl) SetCreationTraceContext(traceID [16]byte, spanID [8]byte, sampled bool, traceState *string) (ok bool) {
 	var traceIDErr, spanIDErr, sampledErr, traceStateErr core.ErrorInfo
 	ok = true // will remain true if we are able to set all the trace context properties
 	// set the creation trace context properties
@@ -388,11 +389,13 @@ func (message *MessageImpl) SetCreationTraceContext(traceID [16]byte, spanID [8]
 		}
 	}
 
-	traceStateErr = ccsmp.SolClientMessageSetCreationTraceContextTraceState(message.messagePointer, traceState)
-	if traceStateErr != nil {
-		ok = false
-		if traceStateErr.ReturnCode == ccsmp.SolClientReturnCodeFail {
-			logging.Default.Warning(fmt.Sprintf("Failed to set Creation Context traceState property: "+traceStateErr.GetMessageAsString()+", sub code %d", traceStateErr.SubCode))
+	if traceState != nil {
+		traceStateErr = ccsmp.SolClientMessageSetCreationTraceContextTraceState(message.messagePointer, *traceState)
+		if traceStateErr != nil {
+			ok = false
+			if traceStateErr.ReturnCode == ccsmp.SolClientReturnCodeFail {
+				logging.Default.Warning(fmt.Sprintf("Failed to set Creation Context traceState property: "+traceStateErr.GetMessageAsString()+", sub code %d", traceStateErr.SubCode))
+			}
 		}
 	}
 
@@ -435,9 +438,10 @@ func (message *MessageImpl) GetTransportTraceContext() (traceID [16]byte, spanID
 
 	traceState, traceStateErr = ccsmp.SolClientMessageGetTransportTraceContextTraceState(message.messagePointer)
 	if traceStateErr != nil {
-		ok = false
+		// if we got an actual error
 		if traceStateErr.ReturnCode == ccsmp.SolClientReturnCodeFail {
 			logging.Default.Warning(fmt.Sprintf("Failed to retrieve Transport Context traceState property: "+traceStateErr.GetMessageAsString()+", sub code %d", traceStateErr.SubCode))
+			ok = false // set to false
 		}
 	}
 
@@ -447,7 +451,7 @@ func (message *MessageImpl) GetTransportTraceContext() (traceID [16]byte, spanID
 
 // SetTransportTraceContext will set transport trace context metadata used for distributed message tracing.
 // If the content could not be set into the message, the ok flag will be false.
-func (message *MessageImpl) SetTransportTraceContext(traceID [16]byte, spanID [8]byte, sampled bool, traceState string) (ok bool) {
+func (message *MessageImpl) SetTransportTraceContext(traceID [16]byte, spanID [8]byte, sampled bool, traceState *string) (ok bool) {
 	var traceIDErr, spanIDErr, sampledErr, traceStateErr core.ErrorInfo
 	ok = true // will remain true if we are able to set all the trace context properties
 	// set the transport trace context properties
@@ -475,11 +479,13 @@ func (message *MessageImpl) SetTransportTraceContext(traceID [16]byte, spanID [8
 		}
 	}
 
-	traceStateErr = ccsmp.SolClientMessageSetTransportTraceContextTraceState(message.messagePointer, traceState)
-	if traceStateErr != nil {
-		ok = false
-		if traceStateErr.ReturnCode == ccsmp.SolClientReturnCodeFail {
-			logging.Default.Warning(fmt.Sprintf("Failed to set Transport Context traceState property: "+traceStateErr.GetMessageAsString()+", sub code %d", traceStateErr.SubCode))
+	if traceState != nil {
+		traceStateErr = ccsmp.SolClientMessageSetTransportTraceContextTraceState(message.messagePointer, *traceState)
+		if traceStateErr != nil {
+			ok = false
+			if traceStateErr.ReturnCode == ccsmp.SolClientReturnCodeFail {
+				logging.Default.Warning(fmt.Sprintf("Failed to set Transport Context traceState property: "+traceStateErr.GetMessageAsString()+", sub code %d", traceStateErr.SubCode))
+			}
 		}
 	}
 
