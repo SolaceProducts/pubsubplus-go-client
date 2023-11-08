@@ -154,7 +154,7 @@ extern "C"
      For example "level1/lev* /level3" matches "/level1/level2/level3". \n
      A '*'cannot appear at the beginning or within a string. For example, "lev*1" and "*evel" are not valid.
      
-     @section topic-dispatch Dispatching Messages Based on a Topic
+     @subsection topic-dispatch Dispatching Messages Based on a Topic
      By default, when subscriptions are added, all messages are dispatched to the Session message
      receive callback that is defined when the Session is created (through the ::solClient_session_createFuncInfo_t 
      parameter of ::solClient_session_create). However, a Session can also be configured through the Session
@@ -243,8 +243,40 @@ extern "C"
      ::solClient_session_topicUnsubscribeWithDispatch(), providing a NULL pointer for the callback and the 
      user pointer or providing a NULL pointer to the dispatch information is equivalent to calling solClient_session_topicUnsubscribeExt().
 
+     @subsection flow-topic-dispatch Dispatching Messages Based on a Topic for a Flow
+     
+     Topic dispatching is also available on Flows to Queues and Topic Endpoints.
+     
+     A Queue endpoint Flow may have many topics associated with it. Topics may be added to Queue 
+     endpoint Flows with the Session function, solClient_session_endpointTopicSubscribe(), or with the
+     Flow function, solClient_flow_topicSubscribeWithDispatch().  
+     
+     A Topic Endpoint Flow only has a single Topic which is defined when the Flow is created
+     (see ::SOLCLIENT_FLOW_PROP_TOPIC). Topic dispatching for a Topic Endpoint Flow can be
+     useful when the Flow's Topic contains wildcards because the Topic dispatching capability can
+     then be used to separate out different topics covered by the Flow's wildcard topic.
+
+     As with solClient_session_topicSubscribeWithDispatch(), the @ref subscribeflags "subscribe flag"
+     ::SOLCLIENT_SUBSCRIBE_FLAGS_LOCAL_DISPATCH_ONLY may be used on a 
+     Queue endpoint Flow to add a dispatch callback entry only.  ::SOLCLIENT_SUBSCRIBE_FLAGS_LOCAL_DISPATCH_ONLY is
+     implied on a Topic Endpoint Flow as adding topics dynamically to a Topic Endpoint is not supported. 
+
+     solClient_flow_topicSubscribeWithDispatch() can be used to add a Topic subscription only (no dispatch entry)  to the Queue 
+     endpoint by setting the dispatch information to NULL.
+     
+     Similar to a Session, Topic dispatching on a Flow is controlled by the functions
+     ::solClient_flow_topicSubscribeWithDispatch() and ::solClient_flow_topicUnsubscribeWithDispatch().
+     Note that for a Topic Endpoint the ::solClient_flow_topicSubscribeWithDispatch() and ::solClient_flow_topicUnsubscribeWithDispatch() functions only control the dispatching of messages received on the Flow and do 
+     not affect which messages are received on the Flow. The only property that controls the messages
+     received on a Flow to a Topic Endpoint is ::SOLCLIENT_FLOW_PROP_TOPIC.  
+     
+     No check is made to ensure that any Topic subscribed to through ::solClient_flow_topicSubscribeWithDispatch()
+     is actually received on the Topic Endpoint Flow. For example, if the Topic Endpoint Flow was created with Topic 'level1/>',
+     if ::solClient_flow_topicSubscribeWithDispatch() is invoked with a Topic of 'level2/level3', that topic
+     is accepted, but the callback for that Topic is never invoked as the Flow will not attract
+     messages that match that topic.
      <b>
-     @subsection host-entry Configuring Host Entry for SOLCLIENT_SESSION_PROP_HOST property
+     @section host-entry Configuring Host Entry for SOLCLIENT_SESSION_PROP_HOST property
      </b>
      
      The entry for the SOLCLIENT_SESSION_PROP_HOST property should provide a protocol, host, and port. The SOLCLIENT_SESSION_PROP_HOST 
@@ -356,38 +388,6 @@ extern "C"
      (::SOLCLIENT_SESSION_EVENT_CONNECT_FAILED_ERROR) may have to wait up to 
      (<<i>number of hosts in list</i>> times ::SOLCLIENT_SESSION_PROP_CONNECT_TIMEOUT_MS) for the event.
      
-     @subsection flow-topic-dispatch Dispatching Messages Based on a Topic for a Flow
-     
-     Topic dispatching is also available on Flows to Queues and Topic Endpoints.
-     
-     A Queue endpoint Flow may have many topics associated with it. Topics may be added to Queue 
-     endpoint Flows with the Session function, solClient_session_endpointTopicSubscribe(), or with the
-     Flow function, solClient_flow_topicSubscribeWithDispatch().  
-     
-     A Topic Endpoint Flow only has a single Topic which is defined when the Flow is created
-     (see ::SOLCLIENT_FLOW_PROP_TOPIC). Topic dispatching for a Topic Endpoint Flow can be
-     useful when the Flow's Topic contains wildcards because the Topic dispatching capability can
-     then be used to separate out different topics covered by the Flow's wildcard topic.
-
-     As with solClient_session_topicSubscribeWithDispatch(), the @ref subscribeflags "subscribe flag"
-     ::SOLCLIENT_SUBSCRIBE_FLAGS_LOCAL_DISPATCH_ONLY may be used on a 
-     Queue endpoint Flow to add a dispatch callback entry only.  ::SOLCLIENT_SUBSCRIBE_FLAGS_LOCAL_DISPATCH_ONLY is
-     implied on a Topic Endpoint Flow as adding topics dynamically to a Topic Endpoint is not supported. 
-
-     solClient_flow_topicSubscribeWithDispatch() can be used to add a Topic subscription only (no dispatch entry)  to the Queue 
-     endpoint by setting the dispatch information to NULL.
-     
-     Similar to a Session, Topic dispatching on a Flow is controlled by the functions
-     ::solClient_flow_topicSubscribeWithDispatch() and ::solClient_flow_topicUnsubscribeWithDispatch().
-     Note that for a Topic Endpoint the ::solClient_flow_topicSubscribeWithDispatch() and ::solClient_flow_topicUnsubscribeWithDispatch() functions only control the dispatching of messages received on the Flow and do 
-     not affect which messages are received on the Flow. The only property that controls the messages
-     received on a Flow to a Topic Endpoint is ::SOLCLIENT_FLOW_PROP_TOPIC.  
-     
-     No check is made to ensure that any Topic subscribed to through ::solClient_flow_topicSubscribeWithDispatch()
-     is actually received on the Topic Endpoint Flow. For example, if the Topic Endpoint Flow was created with Topic 'level1/>',
-     if ::solClient_flow_topicSubscribeWithDispatch() is invoked with a Topic of 'level2/level3', that topic
-     is accepted, but the callback for that Topic is never invoked as the Flow will not attract
-     messages that match that topic.
      
      @section feature-limitations Feature Limitations
 
