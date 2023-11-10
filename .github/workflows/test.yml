@@ -5,7 +5,32 @@ on: [push, pull_request, workflow_dispatch]
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  # This workflow contains a single job called "build"
+  # This workflow contains multiple jobs
+  # this job sets up the oldest version of go to check lang compatibility
+  CompatibilityCheck:
+    runs-on: ubuntu-20.04
+    #Steps for the compatiblity test
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup Go Environment
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.17.0'
+      - name: Check Go Version
+        run: go version
+      - name: Compiles
+        run: go build ./...
+      - name: Runs unit tests
+        if: ${{ success() }}
+        run: go test -coverprofile ./unitcoverage.out ./...
+      - name: Uploads artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v2
+        with:
+          path: |
+            ./unitcoverage.out
+
+  # this job runs linux based tests
   Linux:
     # The type of runner that the job will run on
     runs-on: ubuntu-20.04
