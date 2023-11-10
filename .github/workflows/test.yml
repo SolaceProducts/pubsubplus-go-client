@@ -17,7 +17,10 @@ jobs:
       - name: Setup Go environment
         uses: actions/setup-go@v2.1.3
         with:
-          go-version: '1.20'
+          go-version: '1.21'
+          check-latest: true
+      - name: Check Go Version
+        run: go version
       - name: Compiles
         run: go build ./...
 
