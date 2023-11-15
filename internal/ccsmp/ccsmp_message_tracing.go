@@ -162,9 +162,6 @@ func SolClientMessageGetTraceContextTraceState(messageP SolClientMessagePt, cont
 	// to hold the trace state
 	var traceStateChar *C.char
 	var traceStateSize C.size_t
-
-	defer C.free(unsafe.Pointer(traceStateChar)) // free the pointer after function executes
-
 	errorInfo := handleCcsmpError(func() SolClientReturnCode {
 		return C.solClient_msg_tracing_getTraceStatePtr(messageP, contextType, &traceStateChar, &traceStateSize)
 	})
