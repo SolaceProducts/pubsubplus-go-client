@@ -480,7 +480,8 @@ func (message *MessageImpl) SetTransportTraceContext(traceID [16]byte, spanID [8
 	}
 
 	if traceState != nil {
-		traceStateErr = ccsmp.SolClientMessageSetTransportTraceContextTraceState(message.messagePointer, *traceState)
+		var stateValue = string(*traceState)
+		traceStateErr = ccsmp.SolClientMessageSetTransportTraceContextTraceState(message.messagePointer, stateValue)
 		if traceStateErr != nil {
 			ok = false
 			if traceStateErr.ReturnCode == ccsmp.SolClientReturnCodeFail {

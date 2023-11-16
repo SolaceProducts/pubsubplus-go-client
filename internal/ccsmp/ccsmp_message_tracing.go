@@ -27,7 +27,6 @@ package ccsmp
 import "C"
 import (
 	"fmt"
-	"strings"
 	"unsafe"
 
 	"solace.dev/go/messaging/internal/impl/logging"
@@ -180,7 +179,7 @@ func SolClientMessageGetTraceContextTraceState(messageP SolClientMessagePt, cont
 	// })
 
 	traceStateMaxSize := 512 // max size of traceState according to OTel specs
-	buffer := (*C.char)(C.malloc(C.ulong(traceStateMaxSize)))
+	var buffer = (*C.char)(C.malloc(C.ulong(traceStateMaxSize)))
 	defer C.free(unsafe.Pointer(buffer))
 
 	errorInfo := handleCcsmpError(func() SolClientReturnCode {
@@ -196,8 +195,17 @@ func SolClientMessageGetTraceContextTraceState(messageP SolClientMessagePt, cont
 		}
 		return "", errorInfo
 	}
-	formattedTraceState := strings.Replace(strings.Split(C.GoString(buffer), "\x1c")[0], "\x01", "", -1)
-	return formattedTraceState, errorInfo
+	var traceResult = C.GoStringN(buffer, C.int(C.strnlen(buffer, C.size_t(traceStateSize)))) //  C.GoStringN(buffer, C.int(traceStateSize)) //  C.GoString(buffer)
+	// var realTraceState = strings.Map(func(r rune) rune {
+	// 	if unicode.IsPrint(r) {
+	// 		return r
+	// 	}
+	// 	return -1
+	// }, traceResult)
+	// var formattedTraceState = strings.Trim(realTraceState, " ")
+	// //var formattedTraceState = strings.Split(realTraceState, " ")
+
+	return traceResult, errorInfo
 }
 
 // SolClientMessageSetTraceContextTraceState function
