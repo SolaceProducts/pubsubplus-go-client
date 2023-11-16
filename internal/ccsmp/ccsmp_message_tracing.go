@@ -27,6 +27,7 @@ package ccsmp
 import "C"
 import (
 	"fmt"
+	"strings"
 	"unsafe"
 
 	"solace.dev/go/messaging/internal/impl/logging"
@@ -195,7 +196,14 @@ func SolClientMessageGetTraceContextTraceState(messageP SolClientMessagePt, cont
 		}
 		return "", errorInfo
 	}
-	var traceResult = C.GoStringN(buffer, C.int(C.strnlen(buffer, C.size_t(traceStateSize)))) //  C.GoStringN(buffer, C.int(traceStateSize)) //  C.GoString(buffer)
+	var traceResultBytes = C.GoBytes(unsafe.Pointer(buffer), C.int(C.strnlen(buffer, C.size_t(traceStateSize))))
+	traceResultParts := make([]string, len(traceResultBytes))
+	for i := range traceResultBytes {
+		traceResultParts[i] = string(traceResultBytes[i]) //  strconv.Itoa(int(traceResultBytes[i]))
+	}
+
+	var traceResult = strings.Join(traceResultParts, "")
+	//  C.GoStringN(buffer, C.int(C.strnlen(buffer, C.size_t(traceStateSize)))) //  C.GoStringN(buffer, C.int(traceStateSize)) //  C.GoString(buffer)
 	// var realTraceState = strings.Map(func(r rune) rune {
 	// 	if unicode.IsPrint(r) {
 	// 		return r
