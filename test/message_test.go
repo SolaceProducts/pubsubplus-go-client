@@ -2052,7 +2052,7 @@ var _ = Describe("Remote Message Tests", func() {
 			creationCtxTraceID, _ := hex.DecodeString("79f90916c9a3dad1eb4b328e00469e45")
 			creationCtxSpanID, _ := hex.DecodeString("3b364712c4e1f17f")
 			sampledValue := true
-			traceStateValue := "sometrace=Example"
+			traceStateValue := "sometrace1=Example1"
 
 			var creationCtxTraceID16 [16]byte
 			var creationCtxSpanID8 [8]byte

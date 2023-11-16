@@ -27,6 +27,7 @@ package ccsmp
 import "C"
 import (
 	"fmt"
+	"strings"
 	"unsafe"
 
 	"solace.dev/go/messaging/internal/impl/logging"
@@ -69,7 +70,11 @@ func SolClientMessageGetTraceContextTraceID(messageP SolClientMessagePt, context
 	})
 	if errorInfo != nil {
 		if errorInfo.ReturnCode == SolClientReturnCodeFail {
-			logging.Default.Warning(fmt.Sprintf("Encountered error fetching Creation context traceID prop: %s, subcode: %d", errorInfo.GetMessageAsString(), errorInfo.SubCode))
+			logging.Default.Warning(
+				fmt.Sprintf(
+					"Encountered error fetching Creation context traceID prop: %s, subcode: %d",
+					errorInfo.GetMessageAsString(),
+					errorInfo.SubCode))
 		}
 		return [16]byte{}, errorInfo
 	}
@@ -103,7 +108,11 @@ func SolClientMessageGetTraceContextSpanID(messageP SolClientMessagePt, contextT
 	})
 	if errorInfo != nil {
 		if errorInfo.ReturnCode == SolClientReturnCodeFail {
-			logging.Default.Warning(fmt.Sprintf("Encountered error fetching Creation context spanID prop: %s, subcode: %d", errorInfo.GetMessageAsString(), errorInfo.SubCode))
+			logging.Default.Warning(
+				fmt.Sprintf(
+					"Encountered error fetching Creation context spanID prop: %s, subcode: %d",
+					errorInfo.GetMessageAsString(),
+					errorInfo.SubCode))
 		}
 		return [8]byte{}, errorInfo
 	}
@@ -137,7 +146,11 @@ func SolClientMessageGetTraceContextSampled(messageP SolClientMessagePt, context
 	})
 	if errorInfo != nil {
 		if errorInfo.ReturnCode == SolClientReturnCodeFail {
-			logging.Default.Warning(fmt.Sprintf("Encountered error fetching Creation context sampled prop: %s, subcode: %d", errorInfo.GetMessageAsString(), errorInfo.SubCode))
+			logging.Default.Warning(
+				fmt.Sprintf(
+					"Encountered error fetching Creation context sampled prop: %s, subcode: %d",
+					errorInfo.GetMessageAsString(),
+					errorInfo.SubCode))
 		}
 		return false, errorInfo
 	}
@@ -160,19 +173,31 @@ func SolClientMessageSetTraceContextSampled(messageP SolClientMessagePt, sampled
 // SolClientMessageGetTraceContextTraceState function
 func SolClientMessageGetTraceContextTraceState(messageP SolClientMessagePt, contextType SolClientMessageTracingContextType) (string, *SolClientErrorInfoWrapper) {
 	// to hold the trace state
-	var traceStateChar *C.char
+	// var traceStateChar *C.char
 	var traceStateSize C.size_t
+	// errorInfo := handleCcsmpError(func() SolClientReturnCode {
+	// 	return C.solClient_msg_tracing_getTraceStatePtr(messageP, contextType, &traceStateChar, &traceStateSize)
+	// })
+
+	traceStateMaxSize := 512 // max size of traceState according to OTel specs
+	buffer := (*C.char)(C.malloc(C.ulong(traceStateMaxSize)))
+	defer C.free(unsafe.Pointer(buffer))
+
 	errorInfo := handleCcsmpError(func() SolClientReturnCode {
-		return C.solClient_msg_tracing_getTraceStatePtr(messageP, contextType, &traceStateChar, &traceStateSize)
+		return C.solClient_msg_tracing_getTraceStatePtr(messageP, contextType, &buffer, &traceStateSize)
 	})
 	if errorInfo != nil {
 		if errorInfo.ReturnCode == SolClientReturnCodeFail {
-			logging.Default.Warning(fmt.Sprintf("Encountered error fetching Creation contex traceState prop: %s, subcode: %d", errorInfo.GetMessageAsString(), errorInfo.SubCode))
+			logging.Default.Warning(
+				fmt.Sprintf(
+					"Encountered error fetching Creation contex traceState prop: %s, subcode: %d",
+					errorInfo.GetMessageAsString(),
+					errorInfo.SubCode))
 		}
 		return "", errorInfo
 	}
-
-	return C.GoStringN(traceStateChar, C.int(traceStateSize)), errorInfo
+	formattedTraceState := strings.Replace(strings.Split(C.GoString(buffer), "\x1c")[0], "\x01", "", -1)
+	return formattedTraceState, errorInfo
 }
 
 // SolClientMessageSetTraceContextTraceState function
@@ -297,7 +322,11 @@ func SolClientMessageGetBaggage(messageP SolClientMessagePt) (string, *SolClient
 	})
 	if errorInfo != nil {
 		if errorInfo.ReturnCode == SolClientReturnCodeFail {
-			logging.Default.Warning(fmt.Sprintf("Encountered error fetching baggage: %s, subcode: %d", errorInfo.GetMessageAsString(), errorInfo.SubCode))
+			logging.Default.Warning(
+				fmt.Sprintf(
+					"Encountered error fetching baggage: %s, subcode: %d",
+					errorInfo.GetMessageAsString(),
+					errorInfo.SubCode))
 		}
 		return "", errorInfo
 	}
