@@ -23,12 +23,32 @@ package ccsmp
 #include "solclient/solClient.h"
 #include "solclient/solClientMsg.h"
 #include "solclient/solClientMsgTracingSupport.h"
+
+char* append_null_terminate(const char* org) {
+    if(org == NULL) return NULL;
+
+    char* newstr = ( char * ) malloc(strlen(org)+1);
+    char* p;
+
+    if(newstr == NULL) return NULL;
+
+	newstr[0] = '\0';
+    p = newstr;
+
+	for ( size_t i = 0; i < strlen(org); i++ ) {
+		if(org[i] == '\x1c' || org[i] == '\x00') {
+			break;
+		}
+		*p++ = org[i];
+		*p = '\0';
+	}
+    return newstr;
+}
 */
 import "C"
 import (
 	"fmt"
 	"strings"
-	"unicode"
 	"unsafe"
 
 	"solace.dev/go/messaging/internal/impl/logging"
@@ -174,20 +194,14 @@ func SolClientMessageSetTraceContextSampled(messageP SolClientMessagePt, sampled
 // SolClientMessageGetTraceContextTraceState function
 func SolClientMessageGetTraceContextTraceState(messageP SolClientMessagePt, contextType SolClientMessageTracingContextType) (string, *SolClientErrorInfoWrapper) {
 	// to hold the trace state
-	// var traceStateChar *C.char
-	var traceStateSize C.size_t
-	// errorInfo := handleCcsmpError(func() SolClientReturnCode {
-	// 	return C.solClient_msg_tracing_getTraceStatePtr(messageP, contextType, &traceStateChar, &traceStateSize)
-	// })
-
-	// traceStateMaxSize := 512 // max size of traceState according to OTel specs
-	// var buffer = (*C.char)(C.malloc(C.ulong(traceStateMaxSize)))
 	var traceStateChar *C.char
+	var traceStateSize C.size_t
 	defer C.free(unsafe.Pointer(traceStateChar))
 
 	errorInfo := handleCcsmpError(func() SolClientReturnCode {
 		return C.solClient_msg_tracing_getTraceStatePtr(messageP, contextType, &traceStateChar, &traceStateSize)
 	})
+
 	if errorInfo != nil {
 		if errorInfo.ReturnCode == SolClientReturnCodeFail {
 			logging.Default.Warning(
@@ -198,38 +212,23 @@ func SolClientMessageGetTraceContextTraceState(messageP SolClientMessagePt, cont
 		}
 		return "", errorInfo
 	}
-	// var traceResultBytes = C.GoBytes(unsafe.Pointer(buffer), C.int(C.strnlen(buffer, C.size_t(traceStateSize))))
-	// traceResultParts := make([]string, len(traceResultBytes))
-	// for i := range traceResultBytes {
-	// 	traceResultParts[i] = traceResultBytes[i] //  string(traceResultBytes[i]) //  strconv.Itoa(int(traceResultBytes[i]))
-	// }
 
-	var traceResult = C.GoString(traceStateChar)
-	var preProcessedTraceState = strings.TrimFunc(traceResult, func(r rune) bool {
-		return !unicode.IsPrint(r) && !unicode.IsGraphic(r)
-	})
+	var newBuffer = C.append_null_terminate(traceStateChar)
+	defer C.free(unsafe.Pointer(newBuffer))
 
-	var traceResultSplited = strings.Split(preProcessedTraceState, "\x1c")[0]
-	var realTraceState = strings.TrimFunc(traceResultSplited, func(r rune) bool {
-		return !unicode.IsPrint(r) && !unicode.IsGraphic(r)
-	})
-	//  C.GoStringN(buffer, C.int(C.strnlen(buffer, C.size_t(traceStateSize)))) //  C.GoStringN(buffer, C.int(traceStateSize)) //  C.GoString(buffer)
-
-	// for i := range []byte(traceResult) {
-	// 	traceResultParts[i] = traceResultBytes[i] //  string(traceResultBytes[i]) //  strconv.Itoa(int(traceResultBytes[i]))
-	// }
-
-	var formattedTraceState = strings.Trim(realTraceState, " ")
+	// remove the new line character
+	var formattedTraceState = strings.TrimRight(C.GoString(newBuffer), "\x01")
 	return formattedTraceState, errorInfo
 }
 
 // SolClientMessageSetTraceContextTraceState function
 func SolClientMessageSetTraceContextTraceState(messageP SolClientMessagePt, traceState string, contextType SolClientMessageTracingContextType) *SolClientErrorInfoWrapper {
 	cStr := C.CString(traceState)
+	traceStateLen := len(traceState)
 	defer C.free(unsafe.Pointer(cStr)) // free the pointer after function executes
 
 	errorInfo := handleCcsmpError(func() SolClientReturnCode {
-		return C.solClient_msg_tracing_setTraceState(messageP, contextType, cStr)
+		return C.solClient_msg_tracing_setTraceStatePtr(messageP, contextType, cStr, C.ulong(traceStateLen))
 	})
 	return errorInfo
 }
