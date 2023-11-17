@@ -276,13 +276,14 @@ func TestGetTransportTraceContext(t *testing.T) {
 	}
 
 	// test setting the transport context value
+	msg.SetCreationTraceContext(transportCtxTraceID16, transportCtxSpanID8, false, nil) // have to set creation context to prevent undesired behaviour
 	setValuesOk := msg.SetTransportTraceContext(transportCtxTraceID16, transportCtxSpanID8, sampledValue, &traceStateValue)
 	if !setValuesOk {
 		t.Error("expected SetTransportTraceContext() function for valid values to succeed and return true")
 	}
 
 	// get the transport context values
-	traceID, spanID, sampled, _, ok := msg.GetTransportTraceContext()
+	traceID, spanID, sampled, traceState, ok := msg.GetTransportTraceContext()
 	if !ok {
 		t.Error("expected GetTransportTraceContext() function to return transport context values and return true")
 	}
@@ -303,9 +304,9 @@ func TestGetTransportTraceContext(t *testing.T) {
 	}
 
 	// test traceState equality
-	// if strings.Compare(traceState, traceStateValue) != 0 {
-	// 	t.Error("expected GetTransportTraceContext() traceState from message should be the same as what was set in message: " + traceState + " || " + traceStateValue)
-	// }
+	if strings.Compare(traceState, traceStateValue) != 0 {
+		t.Error("expected GetTransportTraceContext() traceState from message should be the same as what was set in message")
+	}
 
 	msg.Dispose()
 	if !msg.IsDisposed() {

@@ -440,8 +440,8 @@ func (message *MessageImpl) GetTransportTraceContext() (traceID [16]byte, spanID
 	if traceStateErr != nil {
 		// if we got an actual error
 		if traceStateErr.ReturnCode == ccsmp.SolClientReturnCodeFail {
-			logging.Default.Warning(fmt.Sprintf("Failed to retrieve Transport Context traceState property: "+traceStateErr.GetMessageAsString()+", sub code %d", traceStateErr.SubCode))
 			ok = false // set to false
+			logging.Default.Warning(fmt.Sprintf("Failed to retrieve Transport Context traceState property: "+traceStateErr.GetMessageAsString()+", sub code %d", traceStateErr.SubCode))
 		}
 	}
 
@@ -480,8 +480,7 @@ func (message *MessageImpl) SetTransportTraceContext(traceID [16]byte, spanID [8
 	}
 
 	if traceState != nil {
-		var stateValue = string(*traceState)
-		traceStateErr = ccsmp.SolClientMessageSetTransportTraceContextTraceState(message.messagePointer, stateValue)
+		traceStateErr = ccsmp.SolClientMessageSetTransportTraceContextTraceState(message.messagePointer, string(*traceState))
 		if traceStateErr != nil {
 			ok = false
 			if traceStateErr.ReturnCode == ccsmp.SolClientReturnCodeFail {

@@ -2256,7 +2256,7 @@ var _ = Describe("Remote Message Tests", func() {
 			creationCtxTraceState := "trace1=Sample1"
 
 			// set transport context on message
-			transportCtxTraceID, _ := hex.DecodeString("55d30916c9a3dad1eb4b328e00469e45")
+			transportCtxTraceID, _ := hex.DecodeString("79f90916c9a3dad1eb4b328e00469e45")
 			transportCtxSpanID, _ := hex.DecodeString("a7164712c4e1f17f")
 			transportCtxTraceState := "trace2=Sample2"
 
@@ -2295,9 +2295,9 @@ var _ = Describe("Remote Message Tests", func() {
 				Expect(transportSampled).To(BeTrue())
 				Expect(transportTraceState).To(Equal(transportCtxTraceState))
 
-				Expect(creationTraceID).ToNot(Equal(transportTraceID))       // should be not be equal
-				Expect(creationSpanID).ToNot(Equal(transportSpanID))         // should be not be equal
-				Expect(creationTraceState).ToNot(Equal(transportTraceState)) // should be not be equal
+				Expect(creationTraceID).To(Equal(transportTraceID))          // should be equal
+				Expect(creationSpanID).ToNot(Equal(transportSpanID))         // should not be equal
+				Expect(creationTraceState).ToNot(Equal(transportTraceState)) // should not be equal
 
 			case <-time.After(1 * time.Second):
 				Fail("timed out waiting for message to be delivered")
