@@ -2041,7 +2041,7 @@ var _ = Describe("Remote Message Tests", func() {
 			}
 		})
 
-		FIt("should be able to publish/receive a message with a valid creation context", func() {
+		It("should be able to publish/receive a message with a valid creation context", func() {
 			message, err := messageBuilder.Build()
 			Expect(err).ToNot(HaveOccurred())
 
