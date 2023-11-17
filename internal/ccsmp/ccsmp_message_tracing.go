@@ -28,6 +28,7 @@ import "C"
 import (
 	"fmt"
 	"strings"
+	"unicode"
 	"unsafe"
 
 	"solace.dev/go/messaging/internal/impl/logging"
@@ -179,12 +180,13 @@ func SolClientMessageGetTraceContextTraceState(messageP SolClientMessagePt, cont
 	// 	return C.solClient_msg_tracing_getTraceStatePtr(messageP, contextType, &traceStateChar, &traceStateSize)
 	// })
 
-	traceStateMaxSize := 512 // max size of traceState according to OTel specs
-	var buffer = (*C.char)(C.malloc(C.ulong(traceStateMaxSize)))
-	defer C.free(unsafe.Pointer(buffer))
+	// traceStateMaxSize := 512 // max size of traceState according to OTel specs
+	// var buffer = (*C.char)(C.malloc(C.ulong(traceStateMaxSize)))
+	var traceStateChar *C.char
+	defer C.free(unsafe.Pointer(traceStateChar))
 
 	errorInfo := handleCcsmpError(func() SolClientReturnCode {
-		return C.solClient_msg_tracing_getTraceStatePtr(messageP, contextType, &buffer, &traceStateSize)
+		return C.solClient_msg_tracing_getTraceStatePtr(messageP, contextType, &traceStateChar, &traceStateSize)
 	})
 	if errorInfo != nil {
 		if errorInfo.ReturnCode == SolClientReturnCodeFail {
@@ -196,24 +198,29 @@ func SolClientMessageGetTraceContextTraceState(messageP SolClientMessagePt, cont
 		}
 		return "", errorInfo
 	}
-	var traceResultBytes = C.GoBytes(unsafe.Pointer(buffer), C.int(C.strnlen(buffer, C.size_t(traceStateSize))))
-	traceResultParts := make([]string, len(traceResultBytes))
-	for i := range traceResultBytes {
-		traceResultParts[i] = string(traceResultBytes[i]) //  strconv.Itoa(int(traceResultBytes[i]))
-	}
+	// var traceResultBytes = C.GoBytes(unsafe.Pointer(buffer), C.int(C.strnlen(buffer, C.size_t(traceStateSize))))
+	// traceResultParts := make([]string, len(traceResultBytes))
+	// for i := range traceResultBytes {
+	// 	traceResultParts[i] = traceResultBytes[i] //  string(traceResultBytes[i]) //  strconv.Itoa(int(traceResultBytes[i]))
+	// }
 
-	var traceResult = strings.Join(traceResultParts, "")
+	var traceResult = C.GoString(traceStateChar)
+	var preProcessedTraceState = strings.TrimFunc(traceResult, func(r rune) bool {
+		return !unicode.IsPrint(r) && !unicode.IsGraphic(r)
+	})
+
+	var traceResultSplited = strings.Split(preProcessedTraceState, "\x1c")[0]
+	var realTraceState = strings.TrimFunc(traceResultSplited, func(r rune) bool {
+		return !unicode.IsPrint(r) && !unicode.IsGraphic(r)
+	})
 	//  C.GoStringN(buffer, C.int(C.strnlen(buffer, C.size_t(traceStateSize)))) //  C.GoStringN(buffer, C.int(traceStateSize)) //  C.GoString(buffer)
-	// var realTraceState = strings.Map(func(r rune) rune {
-	// 	if unicode.IsPrint(r) {
-	// 		return r
-	// 	}
-	// 	return -1
-	// }, traceResult)
-	// var formattedTraceState = strings.Trim(realTraceState, " ")
-	// //var formattedTraceState = strings.Split(realTraceState, " ")
 
-	return traceResult, errorInfo
+	// for i := range []byte(traceResult) {
+	// 	traceResultParts[i] = traceResultBytes[i] //  string(traceResultBytes[i]) //  strconv.Itoa(int(traceResultBytes[i]))
+	// }
+
+	var formattedTraceState = strings.Trim(realTraceState, " ")
+	return formattedTraceState, errorInfo
 }
 
 // SolClientMessageSetTraceContextTraceState function
