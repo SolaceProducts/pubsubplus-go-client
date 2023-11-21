@@ -24,10 +24,10 @@ package ccsmp
 #include "solclient/solClientMsg.h"
 #include "solclient/solClientMsgTracingSupport.h"
 
-char* append_null_terminate(const char* org) {
+char* append_null_terminate(const char* org, int length) {
     if(org == NULL) return NULL;
 
-    char* newstr = ( char * ) malloc(strlen(org)+1);
+    char* newstr = ( char * ) malloc(length+1);
     char* p;
 
     if(newstr == NULL) return NULL;
@@ -35,10 +35,7 @@ char* append_null_terminate(const char* org) {
 	newstr[0] = '\0';
     p = newstr;
 
-	for ( size_t i = 0; i < strlen(org); i++ ) {
-		if(org[i] == '\x1c' || org[i] == '\x00') {
-			break;
-		}
+	for ( size_t i = 0; i < length; i++ ) {
 		*p++ = org[i];
 		*p = '\0';
 	}
@@ -213,11 +210,17 @@ func SolClientMessageGetTraceContextTraceState(messageP SolClientMessagePt, cont
 		return "", errorInfo
 	}
 
-	var newBuffer = C.append_null_terminate(traceStateChar)
-	defer C.free(unsafe.Pointer(newBuffer))
+	formattedTraceState := C.GoStringN(traceStateChar, C.int(traceStateSize))
+	i := strings.IndexByte(formattedTraceState, 0)
+	if i != -1 {
+		formattedTraceState = C.GoString(traceStateChar)
+	}
+
+	// var newBuffer = C.append_null_terminate(traceStateChar, C.int(traceStateSize))
+	// defer C.free(unsafe.Pointer(newBuffer))
 
 	// remove the new line character
-	var formattedTraceState = strings.TrimRight(C.GoString(newBuffer), "\x01")
+	// var formattedTraceState = strings.TrimRight(C.GoString(newBuffer), "\x01")
 	return formattedTraceState, errorInfo
 }
 
