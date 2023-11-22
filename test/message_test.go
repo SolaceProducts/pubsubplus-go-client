@@ -2253,12 +2253,12 @@ var _ = Describe("Remote Message Tests", func() {
 			// set creation context on message
 			creationCtxTraceID, _ := hex.DecodeString("79f90916c9a3dad1eb4b328e00469e45")
 			creationCtxSpanID, _ := hex.DecodeString("3b364712c4e1f17f")
-			creationCtxTraceState := "trace1=Sample1"
+			creationCtxTraceState := "sometrace1=Example1"
 
 			// set transport context on message
 			transportCtxTraceID, _ := hex.DecodeString("79f90916c9a3dad1eb4b328e00469e45")
 			transportCtxSpanID, _ := hex.DecodeString("a7164712c4e1f17f")
-			transportCtxTraceState := "trace2=Sample2"
+			transportCtxTraceState := "sometrace2=Example2"
 
 			var creationCtxTraceID16, transportCtxTraceID16 [16]byte
 			var creationCtxSpanID8, transportCtxSpanID8 [8]byte
@@ -2283,7 +2283,7 @@ var _ = Describe("Remote Message Tests", func() {
 				Expect(creationTraceID).To(Equal(creationCtxTraceID16)) // should be equal
 				Expect(creationSpanID).To(Equal(creationCtxSpanID8))    // should be equal
 				Expect(creationSampled).To(BeTrue())
-				// Expect(creationTraceState).To(Equal(creationCtxTraceState))
+				Expect(creationTraceState).To(Equal(creationCtxTraceState))
 
 				Expect(transportOk).To(BeTrue())
 				Expect(transportTraceID).ToNot(Equal([16]byte{}))         // not empty
@@ -2293,7 +2293,7 @@ var _ = Describe("Remote Message Tests", func() {
 				Expect(transportSpanID).To(Equal(transportCtxSpanID8)) // should be equal
 
 				Expect(transportSampled).To(BeTrue())
-				// Expect(transportTraceState).To(Equal(transportCtxTraceState))
+				Expect(transportTraceState).To(Equal(transportCtxTraceState))
 
 				Expect(creationTraceID).To(Equal(transportTraceID))          // should be equal
 				Expect(creationSpanID).ToNot(Equal(transportSpanID))         // should not be equal
@@ -2327,7 +2327,7 @@ var _ = Describe("Remote Message Tests", func() {
 		})
 
 		It("should be able to publish/receive a message with a valid baggage", func() {
-			baggage := "baggage1=baggage1"
+			baggage := "baggage1=payload1"
 			message, err := messageBuilder.Build()
 			Expect(err).ToNot(HaveOccurred())
 
