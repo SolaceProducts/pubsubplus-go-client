@@ -499,13 +499,12 @@ func (message *MessageImpl) SetTransportTraceContext(traceID [16]byte, spanID [8
 func (message *MessageImpl) GetBaggage() (baggage string, ok bool) {
 	var err core.ErrorInfo
 	baggage, err = ccsmp.SolClientMessageGetBaggage(message.messagePointer)
+	ok = true // return true if value ir accessiable
 	if err != nil {
-		ok = false
 		if err.ReturnCode == ccsmp.SolClientReturnCodeFail {
+			ok = false // return false, only when cannot access the data
 			logging.Default.Warning(fmt.Sprintf("Failed to retrieve Baggage: "+err.GetMessageAsString()+", sub code %d", err.SubCode))
 		}
-	} else {
-		ok = true
 	}
 	return baggage, ok
 }

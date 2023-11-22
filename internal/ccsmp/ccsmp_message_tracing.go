@@ -23,29 +23,10 @@ package ccsmp
 #include "solclient/solClient.h"
 #include "solclient/solClientMsg.h"
 #include "solclient/solClientMsgTracingSupport.h"
-
-char* append_null_terminate(const char* org, int length) {
-    if(org == NULL) return NULL;
-
-    char* newstr = ( char * ) malloc(length+1);
-    char* p;
-
-    if(newstr == NULL) return NULL;
-
-	newstr[0] = '\0';
-    p = newstr;
-
-	for ( size_t i = 0; i < length; i++ ) {
-		*p++ = org[i];
-		*p = '\0';
-	}
-    return newstr;
-}
 */
 import "C"
 import (
 	"fmt"
-	"strings"
 	"unsafe"
 
 	"solace.dev/go/messaging/internal/impl/logging"
@@ -210,27 +191,19 @@ func SolClientMessageGetTraceContextTraceState(messageP SolClientMessagePt, cont
 		return "", errorInfo
 	}
 
-	formattedTraceState := C.GoStringN(traceStateChar, C.int(traceStateSize))
-	i := strings.IndexByte(formattedTraceState, 0)
-	if i != -1 {
-		formattedTraceState = C.GoString(traceStateChar)
-	}
-
-	// var newBuffer = C.append_null_terminate(traceStateChar, C.int(traceStateSize))
-	// defer C.free(unsafe.Pointer(newBuffer))
-
-	// remove the new line character
-	// var formattedTraceState = strings.TrimRight(C.GoString(newBuffer), "\x01")
-	return formattedTraceState, errorInfo
+	return C.GoStringN(traceStateChar, C.int(traceStateSize)), errorInfo
 }
 
 // SolClientMessageSetTraceContextTraceState function
 func SolClientMessageSetTraceContextTraceState(messageP SolClientMessagePt, traceState string, contextType SolClientMessageTracingContextType) *SolClientErrorInfoWrapper {
 	cStr := C.CString(traceState)
+	// use the length of the traceState string not len(traceState) + 1
 	traceStateLen := len(traceState)
 	defer C.free(unsafe.Pointer(cStr)) // free the pointer after function executes
 
 	errorInfo := handleCcsmpError(func() SolClientReturnCode {
+		// trace state is not null terminal in SMF protocol
+		// write only char bytes not including null terminal, so use the length of the traceState string not len(traceState) + 1
 		return C.solClient_msg_tracing_setTraceStatePtr(messageP, contextType, cStr, C.ulong(traceStateLen))
 	})
 	return errorInfo
@@ -362,6 +335,14 @@ func SolClientMessageGetBaggage(messageP SolClientMessagePt) (string, *SolClient
 
 // SolClientMessageSetBaggage function
 func SolClientMessageSetBaggage(messageP SolClientMessagePt, baggage string) *SolClientErrorInfoWrapper {
+	// if the baggage is empty, delete the baggage from the message pointer
+	if baggage == "" {
+		deleteErrorInfo := handleCcsmpError(func() SolClientReturnCode {
+			return C.solClient_msg_tracing_deleteBaggage(messageP)
+		})
+		return deleteErrorInfo
+	}
+	// set the baggage if there is an actual baggage string
 	cStr := C.CString(baggage)
 	defer C.free(unsafe.Pointer(cStr)) // free the pointer after function executes
 	errorInfo := handleCcsmpError(func() SolClientReturnCode {
