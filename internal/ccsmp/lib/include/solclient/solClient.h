@@ -2243,7 +2243,7 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
 #define SOLCLIENT_SESSION_PROP_SSL_VALIDATE_CERTIFICATE_DATE    "SESSION_SSL_VALIDATE_CERTIFICATE_DATE"  /**< This property indicates if the session connection should fail when a certificate with an invalid date (current date before valid date, or current date after expiry)  is received. This property only applies when ::SOLCLIENT_SESSION_PROP_SSL_VALIDATE_CERTIFICATE is enabled.<p>Default: ::SOLCLIENT_SESSION_PROP_DEFAULT_SSL_VALIDATE_CERTIFICATE_DATE.<p> See also @ref certificate-validation */
 #define SOLCLIENT_SESSION_PROP_SSL_VALIDATE_CERTIFICATE_HOST    "SESSION_SSL_VALIDATE_CERTIFICATE_HOST"  /**< This property indicates if the session connection should fail when a certificate with an invalid host is received. When enabled, and connecting to a named host, the certificate Subject Alternative Name must contain a DNS entry that matches the host string. When enabled, and connecting to a host by IP address, the certificate Subject Alternative Name must contain an IP Address that matches.  If there is no Subject Alternate Name the certificate common name (CN) must match the named host.  This property only applies when ::SOLCLIENT_SESSION_PROP_SSL_VALIDATE_CERTIFICATE is enabled.<p> Default: ::SOLCLIENT_SESSION_PROP_DEFAULT_SSL_VALIDATE_CERTIFICATE_HOST.<p> See also @ref certificate-validation */
 #define SOLCLIENT_SESSION_PROP_SSL_CIPHER_SUITES      "SESSION_SSL_CIPHER_SUITES"    /**< This property specifies a comma separated list of the cipher suites. Allowed cipher suites are: 'ECDHE-RSA-AES256-GCM-SHA384', 'ECDHE-RSA-AES256-SHA384', 'ECDHE-RSA-AES256-SHA', 'AES256-GCM-SHA384', 'AES256-SHA256', 'AES256-SHA', 'ECDHE-RSA-DES-CBC3-SHA', 'DES-CBC3-SHA', 'ECDHE-RSA-AES128-GCM-SHA256', 'ECDHE-RSA-AES128-SHA256', 'ECDHE-RSA-AES128-SHA', 'AES128-GCM-SHA256', 'AES128-SHA256', 'AES128-SHA', 'RC4-SHA', 'RC4-MD5', 'TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384', 'TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384', 'TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA', 'TLS_RSA_WITH_AES_256_GCM_SHA384', 'TLS_RSA_WITH_AES_256_CBC_SHA256', 'TLS_RSA_WITH_AES_256_CBC_SHA', 'TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA', 'SSL_RSA_WITH_3DES_EDE_CBC_SHA', 'TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256', 'TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256', 'TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA', 'TLS_RSA_WITH_AES_128_GCM_SHA256', 'TLS_RSA_WITH_AES_128_CBC_SHA256', 'TLS_RSA_WITH_AES_128_CBC_SHA', 'SSL_RSA_WITH_RC4_128_SHA', 'SSL_RSA_WITH_RC4_128_MD5'. Default: ::SOLCLIENT_SESSION_PROP_DEFAULT_SSL_CIPHER_SUITES. */
-#define SOLCLIENT_SESSION_PROP_SSL_TRUST_STORE_DIR    "SESSION_SSL_TRUST_STORE_DIR"        /**< This property specifies the directory where the trusted certificates are. A maximum of 64 certificate files are allowed in the trust store directory. The maximum depth for the certificate chain verification that shall be allowed is 3. */
+#define SOLCLIENT_SESSION_PROP_SSL_TRUST_STORE_DIR    "SESSION_SSL_TRUST_STORE_DIR"        /**< This property specifies the directory where the trusted certificates are. The maximum depth for the certificate chain verification that shall be allowed is 3. */
 #define SOLCLIENT_SESSION_PROP_SSL_TRUSTED_COMMON_NAME_LIST  "SESSION_SSL_TRUSTED_COMMON_NAME_LIST"    /**< <b>NOT RECOMMENDED</b>. Per RFC-6125 section 6.4.4, the Common Name (CN) of a certificate should not be used to validate the certificate.  Instead ::SOLCLIENT_SESSION_PROP_SSL_VALIDATE_CERTIFICATE_HOST (enabled by default) indicates that the server certificate must contain a Subject Alternate Name (SAN) that matches the host name (::SOLCLIENT_SESSION_PROP_HOST). <p>This property is only valid if ::SOLCLIENT_SESSION_PROP_SSL_VALIDATE_CERTIFICATE_HOST is disabled. This property specifies a comma separated list of acceptable common names in certificate validation. The number of common names specified by an applications is limited to 16. Leading and trailing whitespaces are considered to be part of the common names and are not ignored. If the application does not provide any common names, there is no common name verification.<p><b>NOTE:</b> When ::SOLCLIENT_SESSION_PROP_SSL_VALIDATE_CERTIFICATE_HOST is enabled (default), this property should be set to an empty list.  Failure to do so may cause the API to reject an otherwise valid certificate. */
 /*@}*/
 
@@ -5651,6 +5651,8 @@ solClient_transactedSession_createFlow (solClient_propertyArray_pt props,
                                         solClient_flow_createFuncInfo_t *funcInfo_p,
                                         size_t funcInfoSize);
 
+#define SOLCLIENT_TRANSACTEDSESSION_MAX_SESSION_NAME_LENGTH 64 /**< The maximum transacted session name length. */
+
 /** Retrieve Transacted Session name
  * @see @ref transacted-session
  *
@@ -5662,8 +5664,6 @@ solClient_transactedSession_createFlow (solClient_propertyArray_pt props,
  * @subcodes
  * @see ::solClient_subCode for a description of subcodes.
  */
-#define SOLCLIENT_TRANSACTEDSESSION_MAX_SESSION_NAME_LENGTH 64 /**< The maximum transacted session name length. */
-
 solClient_dllExport solClient_returnCode_t
 solClient_transactedSession_getSessionName(
     solClient_opaqueTransactedSession_pt  transactedSession_p,
