@@ -154,7 +154,7 @@ extern "C"
      For example "level1/lev* /level3" matches "/level1/level2/level3". \n
      A '*'cannot appear at the beginning or within a string. For example, "lev*1" and "*evel" are not valid.
      
-     @section topic-dispatch Dispatching Messages Based on a Topic
+     @subsection topic-dispatch Dispatching Messages Based on a Topic
      By default, when subscriptions are added, all messages are dispatched to the Session message
      receive callback that is defined when the Session is created (through the ::solClient_session_createFuncInfo_t 
      parameter of ::solClient_session_create). However, a Session can also be configured through the Session
@@ -243,8 +243,40 @@ extern "C"
      ::solClient_session_topicUnsubscribeWithDispatch(), providing a NULL pointer for the callback and the 
      user pointer or providing a NULL pointer to the dispatch information is equivalent to calling solClient_session_topicUnsubscribeExt().
 
+     @subsection flow-topic-dispatch Dispatching Messages Based on a Topic for a Flow
+     
+     Topic dispatching is also available on Flows to Queues and Topic Endpoints.
+     
+     A Queue endpoint Flow may have many topics associated with it. Topics may be added to Queue 
+     endpoint Flows with the Session function, solClient_session_endpointTopicSubscribe(), or with the
+     Flow function, solClient_flow_topicSubscribeWithDispatch().  
+     
+     A Topic Endpoint Flow only has a single Topic which is defined when the Flow is created
+     (see ::SOLCLIENT_FLOW_PROP_TOPIC). Topic dispatching for a Topic Endpoint Flow can be
+     useful when the Flow's Topic contains wildcards because the Topic dispatching capability can
+     then be used to separate out different topics covered by the Flow's wildcard topic.
+
+     As with solClient_session_topicSubscribeWithDispatch(), the @ref subscribeflags "subscribe flag"
+     ::SOLCLIENT_SUBSCRIBE_FLAGS_LOCAL_DISPATCH_ONLY may be used on a 
+     Queue endpoint Flow to add a dispatch callback entry only.  ::SOLCLIENT_SUBSCRIBE_FLAGS_LOCAL_DISPATCH_ONLY is
+     implied on a Topic Endpoint Flow as adding topics dynamically to a Topic Endpoint is not supported. 
+
+     solClient_flow_topicSubscribeWithDispatch() can be used to add a Topic subscription only (no dispatch entry)  to the Queue 
+     endpoint by setting the dispatch information to NULL.
+     
+     Similar to a Session, Topic dispatching on a Flow is controlled by the functions
+     ::solClient_flow_topicSubscribeWithDispatch() and ::solClient_flow_topicUnsubscribeWithDispatch().
+     Note that for a Topic Endpoint the ::solClient_flow_topicSubscribeWithDispatch() and ::solClient_flow_topicUnsubscribeWithDispatch() functions only control the dispatching of messages received on the Flow and do 
+     not affect which messages are received on the Flow. The only property that controls the messages
+     received on a Flow to a Topic Endpoint is ::SOLCLIENT_FLOW_PROP_TOPIC.  
+     
+     No check is made to ensure that any Topic subscribed to through ::solClient_flow_topicSubscribeWithDispatch()
+     is actually received on the Topic Endpoint Flow. For example, if the Topic Endpoint Flow was created with Topic 'level1/>',
+     if ::solClient_flow_topicSubscribeWithDispatch() is invoked with a Topic of 'level2/level3', that topic
+     is accepted, but the callback for that Topic is never invoked as the Flow will not attract
+     messages that match that topic.
      <b>
-     @subsection host-entry Configuring Host Entry for SOLCLIENT_SESSION_PROP_HOST property
+     @section host-entry Configuring Host Entry for SOLCLIENT_SESSION_PROP_HOST property
      </b>
      
      The entry for the SOLCLIENT_SESSION_PROP_HOST property should provide a protocol, host, and port. The SOLCLIENT_SESSION_PROP_HOST 
@@ -356,38 +388,6 @@ extern "C"
      (::SOLCLIENT_SESSION_EVENT_CONNECT_FAILED_ERROR) may have to wait up to 
      (<<i>number of hosts in list</i>> times ::SOLCLIENT_SESSION_PROP_CONNECT_TIMEOUT_MS) for the event.
      
-     @subsection flow-topic-dispatch Dispatching Messages Based on a Topic for a Flow
-     
-     Topic dispatching is also available on Flows to Queues and Topic Endpoints.
-     
-     A Queue endpoint Flow may have many topics associated with it. Topics may be added to Queue 
-     endpoint Flows with the Session function, solClient_session_endpointTopicSubscribe(), or with the
-     Flow function, solClient_flow_topicSubscribeWithDispatch().  
-     
-     A Topic Endpoint Flow only has a single Topic which is defined when the Flow is created
-     (see ::SOLCLIENT_FLOW_PROP_TOPIC). Topic dispatching for a Topic Endpoint Flow can be
-     useful when the Flow's Topic contains wildcards because the Topic dispatching capability can
-     then be used to separate out different topics covered by the Flow's wildcard topic.
-
-     As with solClient_session_topicSubscribeWithDispatch(), the @ref subscribeflags "subscribe flag"
-     ::SOLCLIENT_SUBSCRIBE_FLAGS_LOCAL_DISPATCH_ONLY may be used on a 
-     Queue endpoint Flow to add a dispatch callback entry only.  ::SOLCLIENT_SUBSCRIBE_FLAGS_LOCAL_DISPATCH_ONLY is
-     implied on a Topic Endpoint Flow as adding topics dynamically to a Topic Endpoint is not supported. 
-
-     solClient_flow_topicSubscribeWithDispatch() can be used to add a Topic subscription only (no dispatch entry)  to the Queue 
-     endpoint by setting the dispatch information to NULL.
-     
-     Similar to a Session, Topic dispatching on a Flow is controlled by the functions
-     ::solClient_flow_topicSubscribeWithDispatch() and ::solClient_flow_topicUnsubscribeWithDispatch().
-     Note that for a Topic Endpoint the ::solClient_flow_topicSubscribeWithDispatch() and ::solClient_flow_topicUnsubscribeWithDispatch() functions only control the dispatching of messages received on the Flow and do 
-     not affect which messages are received on the Flow. The only property that controls the messages
-     received on a Flow to a Topic Endpoint is ::SOLCLIENT_FLOW_PROP_TOPIC.  
-     
-     No check is made to ensure that any Topic subscribed to through ::solClient_flow_topicSubscribeWithDispatch()
-     is actually received on the Topic Endpoint Flow. For example, if the Topic Endpoint Flow was created with Topic 'level1/>',
-     if ::solClient_flow_topicSubscribeWithDispatch() is invoked with a Topic of 'level2/level3', that topic
-     is accepted, but the callback for that Topic is never invoked as the Flow will not attract
-     messages that match that topic.
      
      @section feature-limitations Feature Limitations
 
@@ -699,7 +699,7 @@ typedef struct solClient_field {
  */
   typedef enum solClient_rxMsgCallback_returnCode {
     SOLCLIENT_CALLBACK_OK       = 0, /**< Normal return - the message is destroyed by the API upon return. */
-    SOLCLIENT_CALLBACK_TAKE_MSG = 1  /**< The application is keeping the rxMsg, and it must not be released or reused by the API .*/
+    SOLCLIENT_CALLBACK_TAKE_MSG = 1,  /**< The application is keeping the rxMsg, and it must not be released or reused by the API .*/
   } solClient_rxMsgCallback_returnCode_t;
 
 /**
@@ -1554,6 +1554,16 @@ typedef struct solClient_field {
 *     <td width="300"> The client has attempted to publish to a topic that matched a queue or topic endpoint subscription which has its ingress flow shutdown. </td>
 *     <td width="300"> 503 Endpoint Shutdown </td>
 * </tr>
+* <tr>
+*     <td width="300"> SOLCLIENT_SUBCODE_AD_APP_ACK_FAILED_NOT_SUPPORTED </td>
+*     <td width="300"> The AD_APP_ACK_FAILED capability needed for "Fail" and "Reject" message settlement outcomes is not supported in the Solace Message Router. </td>
+*     <td width="300"> N/A </td>
+* </tr>
+* <tr>
+*     <td width="300"> SOLCLIENT_SUBCODE_INVALID_DURABILITY </td>
+*     <td width="300"> The client has attempted to bind a flow to a durable queue or topic endpoint with SOLCLIENT_FLOW_PROP_BIND_ENTITY_DURABLE disabled. </td>
+*     <td width="300"> 400 Invalid Queue or Topic Endpoint Durability </td>
+* </tr>
 * </table>
 */
   typedef enum solClient_subCode
@@ -1720,11 +1730,13 @@ typedef struct solClient_field {
     SOLCLIENT_SUBCODE_DELIVERY_COUNT_NOT_SUPPORTED                   = 155, /**< The message was received from endpoint that does not support delivery count */
     SOLCLIENT_SUBCODE_REPLAY_START_MESSAGE_UNAVAILABLE               = 156, /**< A replay was requested but the requested start message is not available in the replay log. */
     SOLCLIENT_SUBCODE_MESSAGE_ID_NOT_COMPARABLE                      = 157, /**< Replication Group Message Id are not comparable. Messages must be published to the same broker or HA pair for their Replicaton Group Message Id to be comparable. */
-    SOLCLIENT_SUBCODE_REPLAY_ANONYMOUS_NOT_SUPPORTED                  = 158,  /**< The client attempted to start replay on a flow bound to an anonymous queue. */
-    SOLCLIENT_SUBCODE_BROWSING_NOT_SUPPORTED_ON_PARTITIONED_QUEUE       = 159,  /**< Browser flows to Partitioned Queues are not permitted. */
-    SOLCLIENT_SUBCODE_SELECTORS_NOT_SUPPORTED_ON_PARTITIONED_QUEUE      = 160,  /**< Egress selectors are not permitted when binding to a Partitioned Queue. */
-    SOLCLIENT_SUBCODE_SYNC_REPLICATION_INELIGIBLE                    = 161, /**< A guaranteed message was rejected because the broker has been configured to reject messages when sync replication mode is ineligible. A transaction commit failed because replication became ineligible during the transaction. */
+    SOLCLIENT_SUBCODE_REPLAY_ANONYMOUS_NOT_SUPPORTED                 = 158,  /**< The client attempted to start replay on a flow bound to an anonymous queue. */
+    SOLCLIENT_SUBCODE_BROWSING_NOT_SUPPORTED_ON_PARTITIONED_QUEUE    = 159,  /**< Browser flows to Partitioned Queues are not permitted. */
+    SOLCLIENT_SUBCODE_SELECTORS_NOT_SUPPORTED_ON_PARTITIONED_QUEUE   = 160,  /**< Egress selectors are not permitted when binding to a Partitioned Queue. */
+    SOLCLIENT_SUBCODE_SYNC_REPLICATION_INELIGIBLE                    = 161,  /**< A guaranteed message was rejected because the broker has been configured to reject messages when sync replication mode is ineligible. A transaction commit failed because replication became ineligible during the transaction. */
     SOLCLIENT_SUBCODE_ENDPOINT_SHUTDOWN                              = 162, /**< The client has attempted to publish to a topic that matched a queue or topic endpoint subscription which has its ingress flow shutdown. */
+    SOLCLIENT_SUBCODE_AD_APP_ACK_FAILED_NOT_SUPPORTED                = 163,  /**< Fail and Reject message settlement outcomes not supported on the Solace Message Router. */
+    SOLCLIENT_SUBCODE_INVALID_DURABILITY                             = 164,  /**< The client has attempted to bind a flow to a durable queue or topic endpoint with SOLCLIENT_FLOW_PROP_BIND_ENTITY_DURABLE disabled. */
     /*
      * ADDING NEW SUBCODES: When adding a new subcode always add a new entry to the HTML table in 
      * the comment above this enumeration 
@@ -2035,6 +2047,7 @@ typedef struct solClient_uuid
 #define SOLCLIENT_CONTEXT_PROP_TIME_RES_MS    "CONTEXT_TIME_RES_MS"    /**< The internal timer resolution (in milliseconds). Valid range is >= 10 and <= 10000. Default:  ::SOLCLIENT_CONTEXT_PROP_DEFAULT_TIME_RES_MS */
 #define SOLCLIENT_CONTEXT_PROP_CREATE_THREAD  "CONTEXT_CREATE_THREAD"  /**< Use ::SOLCLIENT_PROP_ENABLE_VAL to have the Context thread created automatically (as opposed to the application creating and destroying this thread). Default: ::SOLCLIENT_CONTEXT_PROP_DEFAULT_CREATE_THREAD */
 #define SOLCLIENT_CONTEXT_PROP_THREAD_AFFINITY  "CONTEXT_THREAD_AFFINITY"  /**< The desired thread affinity mask for the Context thread. A thread affinity mask is a bit vector in which each bit represents a logical processor that a thread is allowed to run on. Only used if the Context thread is automatically created. For Solaris, only 1 bit can be set (that is, the thread will run on only one processor). Not supported on AIX. A value of zero means the affinity is not set, and the parent's affinity is used. A value of 1 means use processor 0, a value of 2 means use processor 1, a value of 3 means use both processor 0 and 1, and so on. Default: ::SOLCLIENT_CONTEXT_PROP_DEFAULT_THREAD_AFFINITY */
+#define SOLCLIENT_CONTEXT_PROP_THREAD_AFFINITY_CPU_LIST  "CONTEXT_THREAD_AFFINITY_CPU_LIST"  /**< The desired thread affinity for the Context thread in the form of a comma-separated list of base-10 non-negative integers and dash-separated ranges. The union of this property and SOLCLIENT_CONTEXT_PROP_THREAD_AFFINITY is used.  Each number (and each number in a range) represents a logical processor that a thread is allowed to run on. Only used if the Context thread is automatically created. For Solaris, only 1 number can be supplied (that is, the thread will run on only one processor). Not supported on AIX or OpenVMS. The empty string means the affinity is not set, and the parent's affinity is used. A value of "0" means use processor 0, a value of "1" means use processor 1, a value of "0,1" or "0-1" means use both processor 0 and 1, and so on. Default: ::SOLCLIENT_CONTEXT_PROP_DEFAULT_THREAD_AFFINITY_CPU_LIST */
 /*@}*/
 
 /** @defgroup DefaultContextProps Default Context Configuration Properties
@@ -2044,6 +2057,7 @@ typedef struct solClient_uuid
 #define SOLCLIENT_CONTEXT_PROP_DEFAULT_TIME_RES_MS    "50"  /**< The default value for timer resolution (in milliseconds). */
 #define SOLCLIENT_CONTEXT_PROP_DEFAULT_CREATE_THREAD  SOLCLIENT_PROP_DISABLE_VAL /**< The default value for create Context thread. By default the thread is created and destroyed by the application. */
 #define SOLCLIENT_CONTEXT_PROP_DEFAULT_THREAD_AFFINITY  "0"  /**< By default, the thread affinity for the auto-created Context thread is not set. */
+#define SOLCLIENT_CONTEXT_PROP_DEFAULT_THREAD_AFFINITY_CPU_LIST  ""  /**< By default, the thread affinity for the auto-created Context thread is not set. */
 /*@}*/
 
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
@@ -2229,7 +2243,7 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
 #define SOLCLIENT_SESSION_PROP_SSL_VALIDATE_CERTIFICATE_DATE    "SESSION_SSL_VALIDATE_CERTIFICATE_DATE"  /**< This property indicates if the session connection should fail when a certificate with an invalid date (current date before valid date, or current date after expiry)  is received. This property only applies when ::SOLCLIENT_SESSION_PROP_SSL_VALIDATE_CERTIFICATE is enabled.<p>Default: ::SOLCLIENT_SESSION_PROP_DEFAULT_SSL_VALIDATE_CERTIFICATE_DATE.<p> See also @ref certificate-validation */
 #define SOLCLIENT_SESSION_PROP_SSL_VALIDATE_CERTIFICATE_HOST    "SESSION_SSL_VALIDATE_CERTIFICATE_HOST"  /**< This property indicates if the session connection should fail when a certificate with an invalid host is received. When enabled, and connecting to a named host, the certificate Subject Alternative Name must contain a DNS entry that matches the host string. When enabled, and connecting to a host by IP address, the certificate Subject Alternative Name must contain an IP Address that matches.  If there is no Subject Alternate Name the certificate common name (CN) must match the named host.  This property only applies when ::SOLCLIENT_SESSION_PROP_SSL_VALIDATE_CERTIFICATE is enabled.<p> Default: ::SOLCLIENT_SESSION_PROP_DEFAULT_SSL_VALIDATE_CERTIFICATE_HOST.<p> See also @ref certificate-validation */
 #define SOLCLIENT_SESSION_PROP_SSL_CIPHER_SUITES      "SESSION_SSL_CIPHER_SUITES"    /**< This property specifies a comma separated list of the cipher suites. Allowed cipher suites are: 'ECDHE-RSA-AES256-GCM-SHA384', 'ECDHE-RSA-AES256-SHA384', 'ECDHE-RSA-AES256-SHA', 'AES256-GCM-SHA384', 'AES256-SHA256', 'AES256-SHA', 'ECDHE-RSA-DES-CBC3-SHA', 'DES-CBC3-SHA', 'ECDHE-RSA-AES128-GCM-SHA256', 'ECDHE-RSA-AES128-SHA256', 'ECDHE-RSA-AES128-SHA', 'AES128-GCM-SHA256', 'AES128-SHA256', 'AES128-SHA', 'RC4-SHA', 'RC4-MD5', 'TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384', 'TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384', 'TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA', 'TLS_RSA_WITH_AES_256_GCM_SHA384', 'TLS_RSA_WITH_AES_256_CBC_SHA256', 'TLS_RSA_WITH_AES_256_CBC_SHA', 'TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA', 'SSL_RSA_WITH_3DES_EDE_CBC_SHA', 'TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256', 'TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256', 'TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA', 'TLS_RSA_WITH_AES_128_GCM_SHA256', 'TLS_RSA_WITH_AES_128_CBC_SHA256', 'TLS_RSA_WITH_AES_128_CBC_SHA', 'SSL_RSA_WITH_RC4_128_SHA', 'SSL_RSA_WITH_RC4_128_MD5'. Default: ::SOLCLIENT_SESSION_PROP_DEFAULT_SSL_CIPHER_SUITES. */
-#define SOLCLIENT_SESSION_PROP_SSL_TRUST_STORE_DIR    "SESSION_SSL_TRUST_STORE_DIR"        /**< This property specifies the directory where the trusted certificates are. A maximum of 64 certificate files are allowed in the trust store directory. The maximum depth for the certificate chain verification that shall be allowed is 3. */
+#define SOLCLIENT_SESSION_PROP_SSL_TRUST_STORE_DIR    "SESSION_SSL_TRUST_STORE_DIR"        /**< This property specifies the directory where the trusted certificates are. The maximum depth for the certificate chain verification that shall be allowed is 3. */
 #define SOLCLIENT_SESSION_PROP_SSL_TRUSTED_COMMON_NAME_LIST  "SESSION_SSL_TRUSTED_COMMON_NAME_LIST"    /**< <b>NOT RECOMMENDED</b>. Per RFC-6125 section 6.4.4, the Common Name (CN) of a certificate should not be used to validate the certificate.  Instead ::SOLCLIENT_SESSION_PROP_SSL_VALIDATE_CERTIFICATE_HOST (enabled by default) indicates that the server certificate must contain a Subject Alternate Name (SAN) that matches the host name (::SOLCLIENT_SESSION_PROP_HOST). <p>This property is only valid if ::SOLCLIENT_SESSION_PROP_SSL_VALIDATE_CERTIFICATE_HOST is disabled. This property specifies a comma separated list of acceptable common names in certificate validation. The number of common names specified by an applications is limited to 16. Leading and trailing whitespaces are considered to be part of the common names and are not ignored. If the application does not provide any common names, there is no common name verification.<p><b>NOTE:</b> When ::SOLCLIENT_SESSION_PROP_SSL_VALIDATE_CERTIFICATE_HOST is enabled (default), this property should be set to an empty list.  Failure to do so may cause the API to reject an otherwise valid certificate. */
 /*@}*/
 
@@ -2381,6 +2395,7 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
 #define SOLCLIENT_SESSION_PROP_MAX_CLIENT_NAME_LEN (160) /**< The maximum length of client name string (Session property), not including the NULL terminator. */
 #define SOLCLIENT_SESSION_PROP_MAX_VPN_NAME_LEN    (32)  /**< The maximum length of a Message VPN name string (Session property), not including the NULL terminator. */
 #define SOLCLIENT_SESSION_PROP_MAX_VIRTUAL_ROUTER_NAME_LEN (52)  /**< The maximum length of a virtual router name (read-only Session property), not including the NULL terminator. */
+#define SOLCLIENT_CONTEXT_PROP_MAX_CPU_LIST_LEN    (255) /**< The maximum length of the SOLCLIENT_CONTEXT_PROP_THREAD_AFFINITY_CPU_LIST string (Context property), not including the NULL terminator. */
 /*@}*/
 
 /** @anchor flowProps
@@ -2418,6 +2433,8 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
 #define SOLCLIENT_FLOW_PROP_REPLAY_START_LOCATION "FLOW_REPLAY_START_LOCATION" /**< When a Flow is created, the application may request replay of messages from the replay log, even messages that have been previously delivered and removed the from topic endpoint or queue.  The replay start location may be ::SOLCLIENT_FLOW_PROP_REPLAY_START_LOCATION_BEGINNING to indicate that all messages available should be replayed. Or the replay start location may be a string that begins with "DATE:" followed by a date in one of two formats. The date may be a string representing a long integer, which is the number of seconds since the epoch - 0:00:00 Jan 1, 1970.  The date may be a string as specified in RFC3339 - 'YYYY-MM-DDTHH:MM:SS[.1*DIGIT]Z' or 'YYYY-MM-DDTHH:MM:SS[.1*DIGIT]("+"/"-")HH:MM'. Additionally, the replay start location may be a replication-group-message-id string as returned by solClient_replicationGroupMessageId_toString(). Such a string starts with "rmid1:" and is a ::solClient_replicationGroupMessageId_t. */
 #define SOLCLIENT_FLOW_PROP_MAX_RECONNECT_TRIES "FLOW_MAX_RECONNECT_TRIES" /**< When a flow is unbound by the message-broker due to "Replay Started" or "Service Unavailable", the API will attempt to reconnect the flow if this property is non-zero.  If this property is -1, it will retry forever. Otherwise it tries the configured maximum number of times. Default: ::SOLCLIENT_FLOW_PROP_DEFAULT_MAX_RECONNECT_TRIES */
 #define SOLCLIENT_FLOW_PROP_RECONNECT_RETRY_INTERVAL_MS "FLOW_RECONNECT_RETRY_INTERVAL_MS" /**< When a flow is reconnecting, the API will attempt to reconnect immediately, if that bind attempt fails it will wait for the retry interval before attempting to connect again. Default:  ::SOLCLIENT_FLOW_PROP_DEFAULT_RECONNECT_RETRY_INTERVAL_MS */
+#define SOLCLIENT_FLOW_PROP_REQUIRED_OUTCOME_FAILED  "FLOW_REQUIRED_OUTCOME_FAILED" /**< Create a flow that allows solClient_flow_settleMsg() with SOLCLIENT_OUTCOME_FAILED. Ignored on transacted sessions. Requires SOLCLIENT_SESSION_CAPABILITY_AD_APP_ACK_FAILED. Default:  ::SOLCLIENT_FLOW_PROP_DEFAULT_REQUIRED_OUTCOME_FAILED */
+#define SOLCLIENT_FLOW_PROP_REQUIRED_OUTCOME_REJECTED  "FLOW_REQUIRED_OUTCOME_REJECTED" /**< Create a flow that allows solClient_flow_settleMsg() with SOLCLIENT_OUTCOME_REJECTED. Ignored on transacted sessions. Requires SOLCLIENT_SESSION_CAPABILITY_AD_APP_ACK_FAILED. Default:  ::SOLCLIENT_FLOW_PROP_DEFAULT_REQUIRED_OUTCOME_REJECTED */
 
 /** @name Default Flow Configuration Properties
  *  The default values for Flow configuration.
@@ -2443,6 +2460,8 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
 #define SOLCLIENT_FLOW_PROP_DEFAULT_REPLAY_START_LOCATION ""    /**< The default value for ::SOLCLIENT_FLOW_PROP_REPLAY_START_LOCATION is no replay requested. */
 #define SOLCLIENT_FLOW_PROP_DEFAULT_MAX_RECONNECT_TRIES "-1"    /**< The default value for ::SOLCLIENT_FLOW_PROP_MAX_RECONNECT_TRIES. */
 #define SOLCLIENT_FLOW_PROP_DEFAULT_RECONNECT_RETRY_INTERVAL_MS "3000" /**< The default reconnect retry interval timer */
+#define SOLCLIENT_FLOW_PROP_DEFAULT_REQUIRED_OUTCOME_FAILED     SOLCLIENT_PROP_DISABLE_VAL   /**< Failing messages is disabled by default */
+#define SOLCLIENT_FLOW_PROP_DEFAULT_REQUIRED_OUTCOME_REJECTED     SOLCLIENT_PROP_DISABLE_VAL   /**< Rejecting messages is disabled by default */
 
 /*@}*/
 
@@ -2588,7 +2607,9 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
 #define SOLCLIENT_SESSION_CAPABILITY_LONG_SELECTORS                 "SESSION_CAPABILITY_LONG_SELECTORS" /**< Boolean - The peer can support selectors longer than 1023 bytes */
 #define SOLCLIENT_SESSION_CAPABILITY_SHARED_SUBSCRIPTIONS           "SESSION_CAPABILITY_SHARED_SUBSCRIPTIONS" /**< Boolean - The peer can support \#shared and \#noexport subscriptions */
 #define SOLCLIENT_SESSION_CAPABILITY_BR_REPLAY_ERRORID              "SESSION_CAPABILITY_BR_REPLAY_ERRORID" /**< Boolean - The peer can support the endpoint error id parameter on the flow bind response during message replay */
+#define SOLCLIENT_SESSION_CAPABILITY_AD_APP_ACK_FAILED              "SESSION_CAPABILITY_AD_APP_ACK_FAILED" /**< Boolean - The broker supports FAILED and REJECTED message settlement outcomes. */
 #define SOLCLIENT_SESSION_CAPABILITY_VAR_LEN_EXT_PARAM              "SESSION_CAPABILITY_VAR_LEN_EXT_PARAM" /**< Boolean - The peer can support variable length extended parameters. */
+#define SOLCLIENT_SESSION_CAPABILITY_AD_APP_ACK_FAILED              "SESSION_CAPABILITY_AD_APP_ACK_FAILED" /**< Boolean - The broker supports Consumer Redelivery Flows, which support FAIL and REJECT message settlement outcomes. */
 #define SOLCLIENT_SESSION_CAPABILITY_ADCTRL_VERSION_MIN             "SESSION_CAPABILITY_ADCTRL_VERSION_MIN"   /**< Uint32 - Lowest AdCtrl version supported by the broker. */
 #define SOLCLIENT_SESSION_CAPABILITY_ADCTRL_VERSION_MAX             "SESSION_CAPABILITY_ADCTRL_VERSION_MAX"   /**< Uint32 - Highest AdCtrl version supported by the broker. */
 /*@}*/
@@ -2710,7 +2731,10 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
     SOLCLIENT_STATS_RX_DISCARD_TRANSACTION_RESPONSE     = 34, /**< On a transacted session, the number of transaction responses discarded due to reconnection. */
     SOLCLIENT_STATS_RX_SSL_READ_EVENTS                  = 35,
     SOLCLIENT_STATS_RX_SSL_READ_CALLS                   = 36,
-    SOLCLIENT_STATS_RX_NUM_STATS                       = 37  /**< The size of receive stats array. */
+    SOLCLIENT_STATS_RX_SETTLE_ACCEPTED                  = 37, /**< Number of messages settled with "ACCEPTED" outcome. */
+    SOLCLIENT_STATS_RX_SETTLE_FAILED                    = 38, /**< Number of messages settled with "FAILED" outcome. */
+    SOLCLIENT_STATS_RX_SETTLE_REJECTED                  = 39, /**< Number of messages settled with "REJECTED" outcome. */
+    SOLCLIENT_STATS_RX_NUM_STATS                        = 40  /**< The size of receive stats array. */
   } solClient_stats_rx_t; /**< Type that indicates which receive statistic. */
 
 /**
@@ -3002,6 +3026,19 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
  {
     SOLCLIENT_DISPATCH_TYPE_CALLBACK    = 1  /**< Callback on the dispatch function immediately when a message arrives */
  } solClient_dispatchType_t;
+
+/**
+ * @enum solClient_msgOutcome
+ * The three different possible message outcomes that can be used to settle a message which was received on a flow.
+ * see \ref ::solClient_flow_settleMsg , \ref ::SOLCLIENT_FLOW_PROP_REQUIRED_OUTCOME_FAILED , \ref ::SOLCLIENT_FLOW_PROP_REQUIRED_OUTCOME_REJECTED
+ */
+
+typedef enum solClient_msgOutcome
+{
+  SOLCLIENT_OUTCOME_ACCEPTED = 0, /**< The message was successfully processed. */
+  SOLCLIENT_OUTCOME_FAILED = 2, /**< Message processing failed temporarily, attempt redelivery if configured. */
+  SOLCLIENT_OUTCOME_REJECTED = 3 /**< Message deemed permanently unprocessable, move to DMQ if configured, no redelivery. */
+} solClient_msgOutcome_t;
 
 /**
 * A function prototype for OPTIONAL application-supplied file descriptor registration service.
@@ -5043,6 +5080,7 @@ solClient_session_sendReply (solClient_opaqueSession_pt opaqueSession_p,
 * @li ::SOLCLIENT_SUBCODE_UNKNOWN_START_LOCATION_TYPE
 * @li ::SOLCLIENT_SUBCODE_REPLAY_START_TIME_NOT_AVAILABLE
 * @li ::SOLCLIENT_SUBCODE_REPLAY_START_MESSAGE_UNAVAILABLE
+* @li ::SOLCLIENT_SUBCODE_AD_APP_ACK_FAILED_NOT_SUPPORTED
 * @see ::solClient_subCode for a description of all subcodes.
 */
   solClient_dllExport solClient_returnCode_t
@@ -5088,6 +5126,9 @@ solClient_session_sendReply (solClient_opaqueSession_pt opaqueSession_p,
 
 
 /**
+ * This function is now just a convenience shorthand for calling solClient_flow_settleMsg()
+ * with the SOLCLIENT_OUTCOME_ACCEPTED outcome.
+ *
  * Sends an acknowledgment on the specified Flow. This instructs the API to consider
  * the specified msgID acknowledged at the application layer. The library 
  * does not send acknowledgments immediately. It stores the state for 
@@ -5099,6 +5140,8 @@ solClient_session_sendReply (solClient_opaqueSession_pt opaqueSession_p,
  * on another may result in no message being removed from the message-spool or the wrong
  * message being removed from the message-spool.
  * 
+ * Ignored on transacted flows.
+ *
  * The exact behavior of solClient_flow_sendAck() is controlled by Flow property 
  * ::SOLCLIENT_FLOW_PROP_ACKMODE:
  * @li SOLCLIENT_FLOW_PROP_ACKMODE_AUTO - messages are acknowledged automatically by C API
@@ -5119,6 +5162,58 @@ solClient_session_sendReply (solClient_opaqueSession_pt opaqueSession_p,
   solClient_dllExport solClient_returnCode_t
     solClient_flow_sendAck (solClient_opaqueFlow_pt opaqueFlow_p,
                             solClient_msgId_t msgId);
+
+
+/**
+ * Sends a positive or negative acknowledgment on the specified Flow. This instructs the API to consider
+ * the specified msgID acknowledged at the application layer. The library 
+ * does not send positive acknowledgments immediately. It stores the state for 
+ * acknowledged messages internally and acknowledges messages, in bulk, when a
+ * threshold or timer is reached. Negative outcomes are sent immediately.
+ *
+ * Use this function instead of solClient_flow_sendAck on flows configured for negative outcomes.
+ * Besides SOLCLIENT_OUTCOME_ACCEPTED, which is equivalent to an Ack, negative outcomes are allowed too.
+ * SOLCLIENT_OUTCOME_FAILED means the message will be redelivered,
+ * SOLCLIENT_OUTCOME_REJECTED means the message is removed from the queue and moved to the DMQ if configured.
+ *
+ * Applications <b>must</b> only settle a message on the Flow on which
+ * it was received. Using the <i>msgId</i> received on one Flow when settling
+ * on another may result in no message being removed from (or returned to) the message-spool or the wrong
+ * message being removed from (or returned to) the message-spool.
+ *
+ * Ignored on transacted flows.
+ * 
+ * The exact behavior of solClient_flow_settleMsg() is controlled by Flow property 
+ * ::SOLCLIENT_FLOW_PROP_ACKMODE:
+ * @li SOLCLIENT_FLOW_PROP_ACKMODE_AUTO - messages are settled automatically by C API,
+ * and calling this function has no effect.
+ * @li SOLCLIENT_FLOW_PROP_ACKMODE_CLIENT - every message received must be settled by the 
+ * application through individual calls to solClient_flow_settleMsg().
+ *
+ * <b>WARNING:</b> If ::SOLCLIENT_FLOW_PROP_ACKMODE is set to ::SOLCLIENT_FLOW_PROP_ACKMODE_AUTO 
+ * (the default behavior), the function returns ::SOLCLIENT_OK, but with a warning that 
+ * solClient_flow_settleMsg is ignored as the flow is in auto-ack mode.
+ *
+ * <b>WARNING:</b> If ::SOLCLIENT_FLOW_PROP_REQUIRED_OUTCOME_FAILED and/or ::SOLCLIENT_FLOW_PROP_REQUIRED_OUTCOME_REJECTED is not set, 
+ * (the default behavior), but SOLCLIENT_OUTCOME_FAILED and/or SOLCLIENT_OUTCOME_REJECTED is attempted,
+ * the function returns ::SOLCLIENT_FAIL with subcode SOLCLIENT_SUBCODE_INVALID_FLOW_OPERATION,
+ * the message is not settled on the broker, and a warning is logged that 
+ * solClient_flow_settleMsg is ignored because the flow was not set up for it.
+ * 
+ * @param opaqueFlow_p    The opaque Flow that is returned when the Flow was created.
+ * @param msgId           The 64-bit messageId for the settleded message.
+ * @param outcome         The positive or negative outcome with which the message is settled.
+ * @return ::SOLCLIENT_OK, ::SOLCLIENT_FAIL
+ * @subcodes
+ * @see ::solClient_subCode for a description of all subcodes.
+ */
+  solClient_dllExport solClient_returnCode_t
+    solClient_flow_settleMsg(solClient_opaqueFlow_pt opaqueFlow_p,
+                             solClient_msgId_t msgId,
+                             solClient_msgOutcome_t outcome);
+
+
+
 
 /**
 * Closes the receiver on the specified Flow. This method will close the Flow 
@@ -5556,6 +5651,8 @@ solClient_transactedSession_createFlow (solClient_propertyArray_pt props,
                                         solClient_flow_createFuncInfo_t *funcInfo_p,
                                         size_t funcInfoSize);
 
+#define SOLCLIENT_TRANSACTEDSESSION_MAX_SESSION_NAME_LENGTH 64 /**< The maximum transacted session name length. */
+
 /** Retrieve Transacted Session name
  * @see @ref transacted-session
  *
@@ -5567,8 +5664,6 @@ solClient_transactedSession_createFlow (solClient_propertyArray_pt props,
  * @subcodes
  * @see ::solClient_subCode for a description of subcodes.
  */
-#define SOLCLIENT_TRANSACTEDSESSION_MAX_SESSION_NAME_LENGTH 64 /**< The maximum transacted session name length. */
-
 solClient_dllExport solClient_returnCode_t
 solClient_transactedSession_getSessionName(
     solClient_opaqueTransactedSession_pt  transactedSession_p,
