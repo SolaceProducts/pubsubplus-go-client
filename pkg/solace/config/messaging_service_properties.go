@@ -297,8 +297,7 @@ const (
 	TransportLayerSecurityPropertyCipherSuites ServiceProperty = "solace.messaging.tls.cipher-suites"
 
 	// TransportLayerSecurityPropertyTrustStorePath specifies the path of the directory where trusted certificates are found
-	// A maximum of 64 files are allowed in the trust store directory. The maximum depth for the
-	// certificate chain verification is 3.
+	// The maximum depth for the certificate chain verification is 3.
 	TransportLayerSecurityPropertyTrustStorePath ServiceProperty = "solace.messaging.tls.trust-store-path"
 
 	// TransportLayerSecurityPropertyTrustedCommonNameList is provided for legacy installations and is not recommended as part of our best practices.
