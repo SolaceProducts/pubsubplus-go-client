@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2023 Solace Corporation. All rights reserved.
+// Copyright 2021-2024 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,9 +17,10 @@
 package helpers
 
 import (
+	"time"
+
 	"solace.dev/go/messaging/test/sempclient/config"
 	"solace.dev/go/messaging/test/testcontext"
-	"time"
 )
 
 // Our generated SEMPv2 client has **bool as the datatype for booleans to be able to differentiate between "missing" and "false"
