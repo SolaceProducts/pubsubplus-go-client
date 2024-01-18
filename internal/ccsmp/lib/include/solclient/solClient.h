@@ -2,7 +2,7 @@
 *
 * @file solClient.h include file for the Solace Corporation Messaging API for C
 *
-* Copyright 2007-2023 Solace Corporation. All rights reserved.
+* Copyright 2007-2024 Solace Corporation. All rights reserved.
 *
 * This include file provides the public constants and API calls for clients
 * connecting to a Solace messaging broker.
