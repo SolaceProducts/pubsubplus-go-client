@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2023 Solace Corporation. All rights reserved.
+// Copyright 2021-2024 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@
 package test
 
 import (
+	"time"
+
 	"solace.dev/go/messaging"
 	"solace.dev/go/messaging/pkg/solace"
 	"solace.dev/go/messaging/pkg/solace/config"
@@ -24,7 +26,6 @@ import (
 	"solace.dev/go/messaging/pkg/solace/subcode"
 	"solace.dev/go/messaging/test/helpers"
 	"solace.dev/go/messaging/test/testcontext"
-	"time"
 
 	sempconfig "solace.dev/go/messaging/test/sempclient/config"
 

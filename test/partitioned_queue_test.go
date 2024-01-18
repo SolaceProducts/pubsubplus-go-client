@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2022 Solace Corporation. All rights reserved.
+// Copyright 2021-2024 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import (
 	"solace.dev/go/messaging/pkg/solace/config"
 	"solace.dev/go/messaging/pkg/solace/metrics"
 	"solace.dev/go/messaging/pkg/solace/resource"
+
 	//"solace.dev/go/messaging/pkg/solace/subcode"
 	"solace.dev/go/messaging/pkg/solace/message"
 	"solace.dev/go/messaging/test/helpers"
@@ -56,7 +57,7 @@ var _ = Describe("Partitioned Queue Tests", func() {
 		It("should have at least one key assigned to each partition and same keyed messages go to same partition", Label(PQLabel), func() {
 			var messagingServices [4]solace.MessagingService
 			var partitionKeys [9]string
-            var rebalanceDelayDuration = time.Duration(rebalanceDelay) * 2
+			var rebalanceDelayDuration = time.Duration(rebalanceDelay) * 2
 
 			//generate partition keys
 			for i := 0; i < 9; i++ {
@@ -141,7 +142,7 @@ var _ = Describe("Partitioned Queue Tests", func() {
 			var listenerTwo solace.ReceiverStateChangeListener
 			var listenerThree solace.ReceiverStateChangeListener
 
-            var rebalanceDelayDuration = time.Duration(rebalanceDelay) * 2
+			var rebalanceDelayDuration = time.Duration(rebalanceDelay) * 2
 
 			var messagingServices [3]solace.MessagingService
 
@@ -294,7 +295,7 @@ var _ = Describe("Partitioned Queue Tests", func() {
 				return totalMessagesReceived
 			}).WithTimeout(rebalanceDelayDuration * time.Second).Should(Equal(publisherMetrics.GetValue(metrics.TotalMessagesSent)))
 
-            numPartitionKeys := len(receiverOnePartitionKeys)
+			numPartitionKeys := len(receiverOnePartitionKeys)
 			partitionKeysBeforeDisconnect := make([]string, numPartitionKeys)
 			copy(receiverOnePartitionKeys, partitionKeysBeforeDisconnect)
 			receiverOnePartitionKeys = receiverOnePartitionKeys[:0]
