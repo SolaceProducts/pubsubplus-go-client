@@ -538,8 +538,8 @@ func SolClientMessageSetTimeToLive(messageP SolClientMessagePt, timeToLive int64
 
 // Utility functions
 
-const defaultMsgDumpBufferSize = 1000
-const msgDumpMultiplier = 5
+// Set the default message dump buffer size to accommodate
+// the Distributed Tracing properties in the message dump, SOL-107974
 const maxDumpSize = 10000
 
 // SolClientMessageDump function
@@ -587,11 +587,9 @@ func SolClientMessageDump(messageP SolClientMessagePt) string {
 		}
 	}
 
-	bufferSize := C.ulong(defaultMsgDumpBufferSize + payloadSize*msgDumpMultiplier)
 	// Truncate the message after 10,000 characters, SOL-62945
-	if bufferSize > maxDumpSize {
-		bufferSize = maxDumpSize
-	}
+	// removed the dynamic calculation of buffer size as defaultMsgDumpBufferSize{1000} + (payloadSize * msgDumpMultiplier{5})
+	bufferSize := C.ulong(maxDumpSize)
 	buffer := (*C.char)(C.malloc(bufferSize))
 	defer C.free(unsafe.Pointer(buffer))
 
