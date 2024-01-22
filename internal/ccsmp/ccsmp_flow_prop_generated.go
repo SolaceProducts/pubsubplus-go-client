@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2023 Solace Corporation. All rights reserved.
+// Copyright 2021-2024 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -66,6 +66,10 @@ const (
 	SolClientFlowPropMaxReconnectTries = C.SOLCLIENT_FLOW_PROP_MAX_RECONNECT_TRIES
 	// SolClientFlowPropReconnectRetryIntervalMs: When a flow is reconnecting, the API will attempt to reconnect immediately, if that bind attempt fails it will wait for the retry interval before attempting to connect again. Default:  ::SOLCLIENT_FLOW_PROP_DEFAULT_RECONNECT_RETRY_INTERVAL_MS
 	SolClientFlowPropReconnectRetryIntervalMs = C.SOLCLIENT_FLOW_PROP_RECONNECT_RETRY_INTERVAL_MS
+	// SolClientFlowPropRequiredOutcomeFailed: Create a flow that allows solClient_flow_settleMsg() with SOLCLIENT_OUTCOME_FAILED. Ignored on transacted sessions. Requires SOLCLIENT_SESSION_CAPABILITY_AD_APP_ACK_FAILED. Default:  ::SOLCLIENT_FLOW_PROP_DEFAULT_REQUIRED_OUTCOME_FAILED
+	SolClientFlowPropRequiredOutcomeFailed = C.SOLCLIENT_FLOW_PROP_REQUIRED_OUTCOME_FAILED
+	// SolClientFlowPropRequiredOutcomeRejected: Create a flow that allows solClient_flow_settleMsg() with SOLCLIENT_OUTCOME_REJECTED. Ignored on transacted sessions. Requires SOLCLIENT_SESSION_CAPABILITY_AD_APP_ACK_FAILED. Default:  ::SOLCLIENT_FLOW_PROP_DEFAULT_REQUIRED_OUTCOME_REJECTED
+	SolClientFlowPropRequiredOutcomeRejected = C.SOLCLIENT_FLOW_PROP_REQUIRED_OUTCOME_REJECTED
 	// SolClientFlowPropDefaultBindTimeoutMs: The default bind timeout in milliseconds.
 	SolClientFlowPropDefaultBindTimeoutMs = C.SOLCLIENT_FLOW_PROP_DEFAULT_BIND_TIMEOUT_MS
 	// SolClientFlowPropDefaultWindowsize: The default Flow window size.

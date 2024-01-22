@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2023 Solace Corporation. All rights reserved.
+// Copyright 2021-2024 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -64,17 +64,17 @@ func CreateNonExclusiveQueue(queueName string, topics ...string) {
 
 // CreatePartitionedQueue function
 func CreatePartitionedQueue(queueName string, partitionCount int32, partitionRebalanceDelay int64, topics ...string) {
-    _, _, err := testcontext.SEMP().Config().QueueApi.CreateMsgVpnQueue(testcontext.SEMP() .ConfigCtx(), sempconfig.MsgVpnQueue{
-        QueueName:      queueName,
-        AccessType:     "non-exclusive",
-        Permission:     "modify-topic",
-        IngressEnabled: True,
-        EgressEnabled:  True,
-        PartitionCount: partitionCount,
-        PartitionRebalanceDelay: partitionRebalanceDelay,
-		Owner:          "default",
-    }, testcontext.Messaging().VPN, nil)
-    ExpectWithOffset(1, err).ToNot(HaveOccurred(), "Failed to create queue with name "+queueName) 
+	_, _, err := testcontext.SEMP().Config().QueueApi.CreateMsgVpnQueue(testcontext.SEMP().ConfigCtx(), sempconfig.MsgVpnQueue{
+		QueueName:               queueName,
+		AccessType:              "non-exclusive",
+		Permission:              "modify-topic",
+		IngressEnabled:          True,
+		EgressEnabled:           True,
+		PartitionCount:          partitionCount,
+		PartitionRebalanceDelay: partitionRebalanceDelay,
+		Owner:                   "default",
+	}, testcontext.Messaging().VPN, nil)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred(), "Failed to create queue with name "+queueName)
 	for _, topic := range topics {
 		_, _, err = testcontext.SEMP().Config().QueueApi.CreateMsgVpnQueueSubscription(testcontext.SEMP().ConfigCtx(),
 			sempconfig.MsgVpnQueueSubscription{
