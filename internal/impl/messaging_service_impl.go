@@ -101,6 +101,10 @@ type messagingServiceImpl struct {
 	reconnectAttemptEventHandlersMutex sync.Mutex
 }
 
+type requestReplyServiceImpl struct {
+	messagingService *messagingServiceImpl
+}
+
 func newMessagingServiceImpl(logger logging.LogLevelLogger) *messagingServiceImpl {
 	messagingService := &messagingServiceImpl{
 		state:                         messagingServiceStateNotConnected,
@@ -483,6 +487,12 @@ func (service *messagingServiceImpl) Info() metrics.APIInfo {
 	}
 }
 
+func (service *messagingServiceImpl) RequestReply() solace.RequestReplyMessagingService {
+	return &requestReplyServiceImpl{
+		messagingService: service,
+	}
+}
+
 func (service *messagingServiceImpl) String() string {
 	return fmt.Sprintf("solace.MessagingService at %p", service)
 }
@@ -493,6 +503,14 @@ func (service *messagingServiceImpl) getState() messagingServiceState {
 
 func (service *messagingServiceImpl) getSubState() messagingServiceSubState {
 	return atomic.LoadInt32(&service.activeSubState)
+}
+
+func (service *requestReplyServiceImpl) CreateRequestReplyMessagePublisherBuilder() solace.RequestReplyMessagePublisherBuilder {
+	return nil
+}
+
+func (service *requestReplyServiceImpl) CreateRequestReplyMessageReceiverBuilder() solace.RequestReplyMessageReceiverBuilder {
+	return nil
 }
 
 type apiInfo struct {
