@@ -113,7 +113,7 @@ type RequestReplyMessagePublisherBuilder interface {
 	// OnBackPressureWait will set the publisher backpressure strategy to wait where publish
 	// attempts will block until there is space in the buffer of size bufferSize in number of messages.
 	// Valid bufferSize is >= 1.
-	OnBackPressureWait(bufferSize uint, waitTime time.Duration) RequestReplyMessagePublisherBuilder
+	OnBackPressureWait(bufferSize uint) RequestReplyMessagePublisherBuilder
 	// FromConfigurationProvider will configure the persistent publisher with the given properties.
 	// Built in PublisherPropertiesConfigurationProvider implementations include:
 	//   PublisherPropertyMap, a map of PublisherProperty keys to values
