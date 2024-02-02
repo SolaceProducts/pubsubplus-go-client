@@ -18,6 +18,8 @@ package core
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"unsafe"
@@ -43,7 +45,27 @@ type Publisher interface {
 	IncrementMetric(metric NextGenMetric, amount uint64)
 	// Acknowledgements returns the acknowledgement handler
 	Acknowledgements() Acknowledgements
+	// Requestor returns the reply handler manager
+	Requestor() Requestor
 }
+
+// Requestor interface
+// User for making requests in the request reply model
+type Requestor interface {
+	// CreateReplyToTopic return a replyto topic created from a publisher id
+	CreateReplyToTopic(publisherId string) string
+	// registers callback for response message for a returned replyTo topic with correlation id generator
+	AddRequestorReplyHandler(replyHandler RequestorReplyHandler) (string, func() (messageId uint64, correlationId string), ErrorInfo)
+	// deregisters replyHandler from core requestor
+	RemoveRequestorReplyHandler(replyToTopic string) ErrorInfo
+}
+
+// This is Repliable alias, repliable are structs that are received as a part of a reply not a struct that can send a reply
+type Repliable = ccsmp.SolClientMessagePt
+
+type RequestorReplyHandler func(message Repliable, correlationId string) bool
+
+var RequestCorrelationPrefix = ccsmp.SolClientGoPropCorrelationPrefix
 
 // Acknowledgements interface
 type Acknowledgements interface {
@@ -63,6 +85,13 @@ type SendTask func()
 type Publishable = ccsmp.SolClientMessagePt
 
 // Implementation
+type ccsmpReplyCorrelation struct {
+	handler      RequestorReplyHandler
+	replyToTopic string
+}
+
+type RequestorReplyCorrelationEntry = *ccsmpReplyCorrelation
+
 type ccsmpBackedPublisher struct {
 	events  *ccsmpBackedEvents
 	metrics *ccsmpBackedMetrics
@@ -82,6 +111,12 @@ type ccsmpBackedPublisher struct {
 
 	acknowledgementHandlerID uint64
 	acknowledgementMap       sync.Map
+
+	// requestor fields
+	rxLock              sync.RWMutex
+	replyToPrefix       string
+	replyDispatchID     uint64
+	requestorRxReplyMap map[uintptr]RequestorReplyCorrelationEntry
 }
 
 func newCcsmpPublisher(session *ccsmp.SolClientSession, events *ccsmpBackedEvents, metrics *ccsmpBackedMetrics) *ccsmpBackedPublisher {
@@ -94,11 +129,169 @@ func newCcsmpPublisher(session *ccsmp.SolClientSession, events *ccsmpBackedEvent
 	publisher.terminationComplete = make(chan struct{})
 	publisher.canSend = make(chan bool, 1)
 	publisher.isRunning = 0
+	publisher.replyDispatchID = 0
+	publisher.replyToPrefix = ""
+	publisher.requestorRxReplyMap = make(map[uintptr]RequestorReplyCorrelationEntry)
 	return publisher
 }
 
 func (publisher *ccsmpBackedPublisher) Publish(message Publishable) ErrorInfo {
 	return publisher.session.SolClientSessionPublish(ccsmp.SolClientMessagePt(message))
+}
+
+func (publisher *ccsmpBackedPublisher) Requestor() Requestor {
+	return publisher
+}
+
+// Requestor functions
+
+func (requestor *ccsmpBackedPublisher) CreateReplyToTopic(pubId string) string {
+	return requestor.replyToPrefix + pubId
+}
+
+func (requestor *ccsmpBackedPublisher) AddRequestorReplyHandler(replyHandler RequestorReplyHandler) (string, func() (messageId uint64, correlationId string), ErrorInfo) {
+	// create reply to topic
+	// add local dispatch only subscription for reply to topic, note subscribe with local dispatch only is not asynchronous
+	// create correlationId generator
+
+	// create reply to topic
+	// create unique id to incorperate into replyTo topic
+	pubId := atomic.AddUint64(&requestor.replyDispatchID, 1)
+	replyToTopic := fmt.Sprintf("%s%016X", requestor.replyToPrefix, pubId)
+
+	// add local dispatch only subscription after adding entry into requestorRxReplyMap to handle reply messages
+
+	// create dispatch entry
+	dispatch, dispatchPointer := ccsmp.NewSessionReplyDispatch(pubId)
+	replyEntry := &ccsmpReplyCorrelation{
+		handler:      replyHandler,
+		replyToTopic: replyToTopic,
+		//        publisherId     : pubId,
+	}
+
+	// add dispatch index into rx map
+	requestor.rxLock.Lock()
+
+	requestor.requestorRxReplyMap[dispatchPointer] = replyEntry
+
+	requestor.rxLock.Unlock()
+
+	// subscribe using local dispatch only
+	errorInfo := requestor.session.SolClientSessionSubscribeWithLocalDispatchOnly(replyToTopic, dispatch, 0)
+
+	// handle subscription error
+	if errorInfo != nil {
+		// cleanup rx map entry
+		requestor.rxLock.Lock()
+
+		delete(requestor.requestorRxReplyMap, dispatchPointer)
+
+		requestor.rxLock.Unlock()
+
+		return "", nil, errorInfo
+	}
+	// return reply to topic and correlation id generator
+	var messageID uint64
+	return replyToTopic, func() (nextID uint64, correlationID string) {
+		nextID = atomic.AddUint64(&messageID, 1)
+		// use correlation prefix independent to avoid ccsmp reply message dispatch discards
+        // note the ccsmp prefix is "#SOL"
+		correlationID = fmt.Sprintf("%s%016X", RequestCorrelationPrefix, nextID)
+		return nextID, correlationID
+	}, nil
+}
+
+func (requestor *ccsmpBackedPublisher) RemoveRequestorReplyHandler(replyToTopic string) ErrorInfo {
+	// convert replyToTopic into index for rx map
+	// unsubscribe from local dispatch only replyto subscription
+	// remove callback from rx map
+
+	// convert replyToTopic into index for rx map
+	// split into parts
+	replyTopicParts := strings.Split(replyToTopic, "/")
+	// get last part with is the pubId
+	pubIdHex := replyTopicParts[len(replyTopicParts)-1]
+	// parse into uint64
+	pubId, err := strconv.ParseUint(pubIdHex, 16, 64)
+	if err != nil {
+		return nil
+	}
+	// convert pubId into pubIndex by creating dispatch used to unsubscribe
+	dispatch, pubIndex := ccsmp.NewSessionReplyDispatch(pubId)
+
+	// call unsubscribe on reply to topic to halt messaging
+	errorInfo := requestor.session.SolClientSessionUnsubscribeWithLocalDispatchOnly(replyToTopic, dispatch, 0)
+
+	if errorInfo != nil {
+		return errorInfo
+	}
+
+	// remove entry rx map
+	requestor.rxLock.Lock()
+
+	delete(requestor.requestorRxReplyMap, pubIndex)
+
+	requestor.rxLock.Unlock()
+
+	return nil
+}
+
+func (requestor *ccsmpBackedPublisher) onReplyMessage(msgP Repliable, userP unsafe.Pointer, correlationID string) bool {
+	requestor.rxLock.RLock()
+
+	entry, ok := requestor.requestorRxReplyMap[uintptr(userP)]
+	if !ok {
+		if logging.Default.IsDebugEnabled() {
+			logging.Default.Debug(fmt.Sprintf("reply callback called but no reply function is registered for user pointer %v", userP))
+		}
+		return false
+	}
+	callback := entry.handler
+	requestor.rxLock.RUnlock()
+	return callback(msgP, correlationID)
+}
+
+func (requestor *ccsmpBackedPublisher) startRequestor() error {
+	// get reply to prefix
+	var errInfo ErrorInfo
+	if requestor.replyToPrefix, errInfo = requestor.session.SolClientSessionGetP2PTopicPrefix(); errInfo != nil {
+		return fmt.Errorf("Error get client p2p inbox topic prefix. Error:", errInfo.String())
+	}
+	// register with session for reply message callback
+	err := requestor.session.SetReplyMessageCallback(func(msgP ccsmp.SolClientMessagePt, userP unsafe.Pointer, correlationID string) bool {
+		return requestor.onReplyMessage(msgP, userP, correlationID)
+	})
+	return err
+}
+
+func (requestor *ccsmpBackedPublisher) terminateRequestor() {
+	// first deregister from session for reply mesasge callbacks
+	requestor.session.SetReplyMessageCallback(nil)
+
+	// cleanup the rx reply map
+	requestor.rxLock.Lock()
+
+	// exact entry list to unsubscribe after mutx unlock
+	unsubIdList := make([]uint64, len(requestor.requestorRxReplyMap))
+	unsubEntryList := make([]RequestorReplyCorrelationEntry, len(requestor.requestorRxReplyMap))
+	index := 0
+
+	for id, entry := range requestor.requestorRxReplyMap {
+		unsubEntryList[index] = entry
+		unsubIdList[index] = uint64(id)
+		delete(requestor.requestorRxReplyMap, id)
+		index++
+	}
+
+	requestor.rxLock.Unlock()
+
+	// call unsubscribe for any outstanding requestor reply to topics
+	// note this shuold only occur if there is no call to RemoveRequestorReplyHandler
+	for index = 0; index < len(unsubIdList); index++ {
+		dispatch, _ := ccsmp.NewSessionReplyDispatch(unsubIdList[index])
+		requestor.session.SolClientSessionUnsubscribeWithLocalDispatchOnly(unsubEntryList[index].replyToTopic, dispatch, 0)
+	}
+
 }
 
 func (publisher *ccsmpBackedPublisher) Events() Events {
@@ -215,6 +408,7 @@ func (publisher *ccsmpBackedPublisher) start() {
 	publisher.rejectedEventID = publisher.Events().AddEventHandler(SolClientEventRejected, func(ei SessionEventInfo) {
 		publisher.onAcknowledgement(ei.GetCorrelationPointer(), false, ei.GetError())
 	})
+	publisher.startRequestor()
 	go publisher.publishLoop()
 }
 
@@ -239,6 +433,8 @@ func (publisher *ccsmpBackedPublisher) terminate() {
 	publisher.events.RemoveEventHandler(publisher.canSendEventID)
 	publisher.events.RemoveEventHandler(publisher.acknowledgementEventID)
 	publisher.events.RemoveEventHandler(publisher.rejectedEventID)
+	// cleanup requestor
+	publisher.terminateRequestor()
 }
 
 func (publisher *ccsmpBackedPublisher) publishLoop() {

@@ -283,6 +283,17 @@ func SolClientMessageSetDestination(messageP SolClientMessagePt, destinationStri
 	})
 }
 
+// SolClientMessageSetReplyToDestination function
+func SolClientMessageSetReplyToDestination(messageP SolClientMessagePt, replyToDestinationString string) *SolClientErrorInfoWrapper {
+	destination := &SolClientDestination{}
+	destination.destType = C.SOLCLIENT_TOPIC_DESTINATION
+	destination.dest = C.CString(replyToDestinationString)
+	defer C.free(unsafe.Pointer(destination.dest))
+	return handleCcsmpError(func() SolClientReturnCode {
+		return C.solClient_msg_setReplyTo(messageP, destination, (C.size_t)(unsafe.Sizeof(*destination)))
+	})
+}
+
 // SolClientMessageGetExpiration function
 func SolClientMessageGetExpiration(messageP SolClientMessagePt) (time.Time, *SolClientErrorInfoWrapper) {
 	var cint64 C.longlong

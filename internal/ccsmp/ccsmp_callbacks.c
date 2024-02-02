@@ -22,12 +22,24 @@
 
 #include "solclient/solClient.h"
 #include "solclient/solClientMsg.h"
+#include "./ccsmp_helper.h"
 
 solClient_rxMsgCallback_returnCode_t
 messageReceiveCallback(solClient_opaqueSession_pt opaqueSession_p, solClient_opaqueMsg_pt msg_p, void *user_p)
 {
     solClient_rxMsgCallback_returnCode_t goMessageReceiveCallback(solClient_opaqueSession_pt, solClient_opaqueMsg_pt, void *);
     return goMessageReceiveCallback(opaqueSession_p, msg_p, user_p);
+}
+
+solClient_rxMsgCallback_returnCode_t
+requestResponseReplyMessageReceiveCallback(solClient_opaqueSession_pt opaqueSession_p, solClient_opaqueMsg_pt msg_p, void *user_p) {
+    solClient_rxMsgCallback_returnCode_t goReplyMessageReceiveCallback(solClient_opaqueSession_pt, solClient_opaqueMsg_pt, void *, char *);
+    char * correlationId = NULL;
+    // when receiving message that is not a reply deliver to subscription dispatch
+    if ( SOLCLIENT_OK != solClientgo_msg_isRequestReponseMsg(msg_p, &correlationId) ) {
+        return messageReceiveCallback(opaqueSession_p, msg_p, user_p);
+    }
+    return goReplyMessageReceiveCallback(opaqueSession_p, msg_p, user_p, correlationId);
 }
 
 solClient_rxMsgCallback_returnCode_t

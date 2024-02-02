@@ -122,6 +122,24 @@ func SetDestination(message *OutboundMessageImpl, destName string) error {
 	return nil
 }
 
+// SetReplyToDestination function
+func SetReplyToDestination(message *OutboundMessageImpl, destName string) error {
+	err := ccsmp.SolClientMessageSetReplyToDestination(message.messagePointer, destName)
+	if err != nil {
+		return core.ToNativeError(err, "error setting replyTo destination: ")
+	}
+	return nil
+}
+
+// SetCorrelationID function
+func SetCorrelationID(message *OutboundMessageImpl, correlationID string) error {
+	err := ccsmp.SolClientMessageSetCorrelationID(message.messagePointer, correlationID)
+	if err != nil {
+		return core.ToNativeError(err, "error setting correlationID: ")
+	}
+	return nil
+}
+
 // SetAckImmediately function
 func SetAckImmediately(message *OutboundMessageImpl) error {
 	err := ccsmp.SolClientMessageSetAckImmediately(message.messagePointer, true)

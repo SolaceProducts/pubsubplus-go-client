@@ -29,6 +29,7 @@ package ccsmp
 #include "./ccsmp_helper.h"
 
 solClient_rxMsgCallback_returnCode_t messageReceiveCallback ( solClient_opaqueSession_pt opaqueSession_p, solClient_opaqueMsg_pt msg_p, void *user_p );
+solClient_rxMsgCallback_returnCode_t requestResponseReplyMessageReceiveCallback ( solClient_opaqueSession_pt opaqueSession_p, solClient_opaqueMsg_pt msg_p, void *user_p );
 solClient_rxMsgCallback_returnCode_t defaultMessageReceiveCallback ( solClient_opaqueSession_pt opaqueSession_p, solClient_opaqueMsg_pt msg_p, void *user_p );
 void eventCallback ( solClient_opaqueSession_pt opaqueSession_p, solClient_session_eventCallbackInfo_pt eventInfo_p, void *user_p );
 void handleLogCallback(solClient_log_callbackInfo_pt logInfo_p, void *user_p);
@@ -69,6 +70,9 @@ type SolClientSessionRxMsgDispatchFuncInfo = C.solClient_session_rxMsgDispatchFu
 // SolClientVersionInfo is assigned a value
 type SolClientVersionInfo = C.solClient_version_info_t
 
+// SolClientCorrelationId is assigned a value
+type SolClientCorrelationId = *C.char
+
 // Reexport various CCSMP variables
 
 // SolClientPropEnableVal is assigned a value
@@ -77,16 +81,26 @@ var SolClientPropEnableVal = C.SOLCLIENT_PROP_ENABLE_VAL
 // SolClientPropDisableVal is assigned a value
 var SolClientPropDisableVal = C.SOLCLIENT_PROP_DISABLE_VAL
 
+// Reexport solclientgo variables
+
+// SolClientGoPropCorrelationPrefix property value
+//var SolClientGoPropCorrelationPrefix = C.GoString(C.SOLCLIENTGO_REPLY_CORRELATION_PREFIX)
+var SolClientGoPropCorrelationPrefix = C.SOLCLIENTGO_REPLY_CORRELATION_PREFIX
+
 // Callbacks
 
 // SolClientMessageCallback is assigned a function
 type SolClientMessageCallback = func(msgP SolClientMessagePt, userP unsafe.Pointer) bool
+
+// SolClientReplyMessageCallback assigned a function
+type SolClientReplyMessageCallback = func(msgP SolClientMessagePt, userP unsafe.Pointer, correlationP string) bool
 
 // SolClientSessionEventCallback is assigned a function
 type SolClientSessionEventCallback = func(sessionEvent SolClientSessionEvent, responseCode SolClientResponseCode, info string, correlationP unsafe.Pointer, userP unsafe.Pointer)
 
 // maps to callbacks
 var sessionToRXCallbackMap sync.Map
+var sessionToReplyRXCallbackMap sync.Map
 var sessionToEventCallbackMap sync.Map
 
 //export goMessageReceiveCallback
@@ -98,6 +112,19 @@ func goMessageReceiveCallback(sessionP SolClientSessionPt, msgP SolClientMessage
 		return C.SOLCLIENT_CALLBACK_OK
 	}
 	logging.Default.Error("Received message from core API without an associated session callback")
+	return C.SOLCLIENT_CALLBACK_OK
+}
+
+//export goReplyMessageReceiveCallback
+func goReplyMessageReceiveCallback(sessionP SolClientSessionPt, msgP SolClientMessagePt, userP unsafe.Pointer, correlationIDP SolClientCorrelationId) C.solClient_rxMsgCallback_returnCode_t {
+	// propagate to request reponse reply message handler
+	if callback, ok := sessionToReplyRXCallbackMap.Load(sessionP); ok {
+		if callback.(SolClientReplyMessageCallback)(msgP, userP, C.GoString(correlationIDP)) {
+			return C.SOLCLIENT_CALLBACK_TAKE_MSG
+		}
+		return C.SOLCLIENT_CALLBACK_OK
+	}
+	logging.Default.Error("Received reply message from core API without an associated session callback")
 	return C.SOLCLIENT_CALLBACK_OK
 }
 
@@ -207,6 +234,19 @@ func (session *SolClientSession) SetMessageCallback(callback SolClientMessageCal
 	return nil
 }
 
+// SetReplyMessageCallback sets the message callback to use
+func (session *SolClientSession) SetReplyMessageCallback(callback SolClientReplyMessageCallback) error {
+	if session == nil || session.pointer == nil {
+		return fmt.Errorf("could not set message receive callback for nil session")
+	}
+	if callback == nil {
+		sessionToReplyRXCallbackMap.Delete(session.pointer)
+	} else {
+		sessionToReplyRXCallbackMap.Store(session.pointer, callback)
+	}
+	return nil
+}
+
 // SetEventCallback sets the event callback to use
 func (session *SolClientSession) SetEventCallback(callback SolClientSessionEventCallback) error {
 	if session == nil || session.pointer == nil {
@@ -289,6 +329,7 @@ func (session *SolClientSession) SolClientSessionDestroy() *SolClientErrorInfoWr
 	// last line of defence to make sure everything is cleaned up
 	sessionToEventCallbackMap.Delete(session.pointer)
 	sessionToRXCallbackMap.Delete(session.pointer)
+	sessionToReplyRXCallbackMap.Delete(session.pointer)
 	return handleCcsmpError(func() SolClientReturnCode {
 		return C.solClient_session_destroy(&session.pointer)
 	})
@@ -302,24 +343,44 @@ func (session *SolClientSession) SolClientSessionPublish(message SolClientMessag
 	})
 }
 
-// SolClientSessionSubscribe wraps solClient_session_topicSubscribeWithDispatch
-func (session *SolClientSession) SolClientSessionSubscribe(topic string, dispatch *SolClientSessionRxMsgDispatchFuncInfo, correlationID uintptr) *SolClientErrorInfoWrapper {
+// solClientSessionSubscribeWithFlags wraps solClient_session_topicSubscribeWithDispatch
+func (session *SolClientSession) solClientSessionSubscribeWithFlags(topic string, flags C.solClient_uint32_t, dispatch *SolClientSessionRxMsgDispatchFuncInfo, correlationID uintptr) *SolClientErrorInfoWrapper {
 	return handleCcsmpError(func() SolClientReturnCode {
 		cString := C.CString(topic)
 		defer C.free(unsafe.Pointer(cString))
 		// This is not an unsafe usage of unsafe.Pointer as we are using correlationId as data, not as a pointer
-		return C.solClient_session_topicSubscribeWithDispatch(session.pointer, C.SOLCLIENT_SUBSCRIBE_FLAGS_REQUEST_CONFIRM, cString, dispatch, C.uintptr_to_void_p(C.solClient_uint64_t(correlationID)))
+		return C.solClient_session_topicSubscribeWithDispatch(session.pointer, flags, cString, dispatch, C.uintptr_to_void_p(C.solClient_uint64_t(correlationID)))
 	})
+}
+
+// solClientSessionUnsubscribeWithFlags wraps solClient_session_topicUnsubscribeWithDispatch
+func (session *SolClientSession) solClientSessionUnsubscribeWithFlags(topic string, flags C.solClient_uint32_t, dispatch *SolClientSessionRxMsgDispatchFuncInfo, correlationID uintptr) *SolClientErrorInfoWrapper {
+	return handleCcsmpError(func() SolClientReturnCode {
+		cString := C.CString(topic)
+		defer C.free(unsafe.Pointer(cString))
+		// This is not an unsafe usage of unsafe.Pointer as we are using correlationId as data, not as a pointer
+		return C.solClient_session_topicUnsubscribeWithDispatch(session.pointer, flags, cString, dispatch, C.uintptr_to_void_p(C.solClient_uint64_t(correlationID)))
+	})
+}
+
+// SolClientSessionSubscribeWithLocalDispatchOnly wraps solClient_session_topicSubscribeWithDispatch
+func (session *SolClientSession) SolClientSessionSubscribeWithLocalDispatchOnly(topic string, dispatch *SolClientSessionRxMsgDispatchFuncInfo, correlationID uintptr) *SolClientErrorInfoWrapper {
+	return session.solClientSessionSubscribeWithFlags(topic, C.SOLCLIENT_SUBSCRIBE_FLAGS_LOCAL_DISPATCH_ONLY, dispatch, correlationID)
+}
+
+// SolClientSessionUnsubscribeWithLocalDispatchOnly wraps solClient_session_topicUnsubscribeWithDispatch
+func (session *SolClientSession) SolClientSessionUnsubscribeWithLocalDispatchOnly(topic string, dispatch *SolClientSessionRxMsgDispatchFuncInfo, correlationID uintptr) *SolClientErrorInfoWrapper {
+	return session.solClientSessionUnsubscribeWithFlags(topic, C.SOLCLIENT_SUBSCRIBE_FLAGS_LOCAL_DISPATCH_ONLY, dispatch, correlationID)
+}
+
+// SolClientSessionSubscribe wraps solClient_session_topicSubscribeWithDispatch
+func (session *SolClientSession) SolClientSessionSubscribe(topic string, dispatch *SolClientSessionRxMsgDispatchFuncInfo, correlationID uintptr) *SolClientErrorInfoWrapper {
+	return session.solClientSessionSubscribeWithFlags(topic, C.SOLCLIENT_SUBSCRIBE_FLAGS_REQUEST_CONFIRM, dispatch, correlationID)
 }
 
 // SolClientSessionUnsubscribe wraps solClient_session_topicUnsubscribeWithDispatch
 func (session *SolClientSession) SolClientSessionUnsubscribe(topic string, dispatch *SolClientSessionRxMsgDispatchFuncInfo, correlationID uintptr) *SolClientErrorInfoWrapper {
-	return handleCcsmpError(func() SolClientReturnCode {
-		cString := C.CString(topic)
-		defer C.free(unsafe.Pointer(cString))
-		// This is not an unsafe usage of unsafe.Pointer as we are using correlationId as data, not as a pointer
-		return C.solClient_session_topicUnsubscribeWithDispatch(session.pointer, C.SOLCLIENT_SUBSCRIBE_FLAGS_REQUEST_CONFIRM, cString, dispatch, C.uintptr_to_void_p(C.solClient_uint64_t(correlationID)))
-	})
+	return session.solClientSessionUnsubscribeWithFlags(topic, C.SOLCLIENT_SUBSCRIBE_FLAGS_REQUEST_CONFIRM, dispatch, correlationID)
 }
 
 // SolClientEndpointProvision wraps solClient_session_endpointProvision
@@ -396,6 +457,39 @@ func (session *SolClientSession) SolClientSessionGetClientName() (string, *SolCl
 	return string(clientName[:endIndex]), nil
 }
 
+// SolClientSessionGetP2PTopicPrefix wraps solClient_session_getProperty
+func (session *SolClientSession) SolClientSessionGetP2PTopicPrefix() (string, *SolClientErrorInfoWrapper) {
+	const maxTopicSize = 251 // max topic size including the nul terminal
+	p2pTopicInUseKey := C.CString(SolClientSessionPropP2pinboxInUse)
+	defer C.free(unsafe.Pointer(p2pTopicInUseKey))
+	p2pTopicInUse := make([]byte, maxTopicSize)
+	// Get the P2P topic for this session/transport.
+	// It is used together with inbox request/reply MEP using
+	// native CCSMP inbox
+	// Example CCSMP session
+	//   P2PINBOX_IN_USE: '#P2P/v:mybroker/mPuoLl8m/myhost/5221/00000001/oWxIwBFz28/#'
+	// This only works if the session is connected
+	errorInfo := handleCcsmpError(func() SolClientReturnCode {
+		return C.solClient_session_getProperty(session.pointer, p2pTopicInUseKey, (*C.char)(unsafe.Pointer(&p2pTopicInUse[0])), maxTopicSize)
+	})
+	if errorInfo != nil {
+		return "", errorInfo
+	}
+	endIndex := maxTopicSize
+	for i := 0; i < maxTopicSize; i++ {
+		if p2pTopicInUse[i] == 0 {
+			endIndex = i
+			break
+		}
+	}
+	// truncate last character '#'
+	if endIndex > 0 {
+		endIndex = endIndex - 1
+		p2pTopicInUse[endIndex] = 0
+	}
+	return string(p2pTopicInUse[:endIndex]), nil
+}
+
 // SolClientVersionGet wraps solClient_version_get
 func SolClientVersionGet() (err *SolClientErrorInfoWrapper, version, dateTime, variant string) {
 	var versionInfo *SolClientVersionInfo
@@ -440,6 +534,20 @@ func NewSessionDispatch(id uint64) (*SolClientSessionRxMsgDispatchFuncInfo, uint
 	return &SolClientSessionRxMsgDispatchFuncInfo{
 		dispatchType: C.SOLCLIENT_DISPATCH_TYPE_CALLBACK,
 		callback_p:   (C.solClient_session_rxMsgCallbackFunc_t)(unsafe.Pointer(C.messageReceiveCallback)),
+		user_p:       C.uintptr_to_void_p(C.solClient_uint64_t(ptr)),
+		rfu_p:        nil,
+	}, ptr
+}
+
+// NewSessionReplyDispatch function
+func NewSessionReplyDispatch(id uint64) (*SolClientSessionRxMsgDispatchFuncInfo, uintptr) {
+	// This is not a misuse of unsafe.Pointer as we are not storing a pointer.
+	// CGO defines void* as unsafe.Pointer, however it is just arbitrary data.
+	// We want to store a number at void*
+	ptr := uintptr(id)
+	return &SolClientSessionRxMsgDispatchFuncInfo{
+		dispatchType: C.SOLCLIENT_DISPATCH_TYPE_CALLBACK,
+		callback_p:   (C.solClient_session_rxMsgCallbackFunc_t)(unsafe.Pointer(C.requestResponseReplyMessageReceiveCallback)),
 		user_p:       C.uintptr_to_void_p(C.solClient_uint64_t(ptr)),
 		rfu_p:        nil,
 	}, ptr
