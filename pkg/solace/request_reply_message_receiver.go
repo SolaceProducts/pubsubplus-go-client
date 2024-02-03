@@ -77,9 +77,9 @@ type RequestReplyMessageReceiverBuilder interface {
 	Build(requestTopicSubscription resource.Subscription) (messageReceiver RequestReplyMessageReceiver, err error)
 	// BuildWithSharedSubscription will build a new RequestReplyMessageReceiver with
 	// the given properties using a shared topic subscription and the shared name.
-	BuildWithSharedSubscription(requestTopicSubscription resource.Subscription, shareName resource.ShareName) (messageReceiver RequestReplyMessageReceiver, err error)
+	BuildWithSharedSubscription(requestTopicSubscription resource.Subscription, shareName *resource.ShareName) (messageReceiver RequestReplyMessageReceiver, err error)
 	// FromConfigurationProvider will configure the request reply receiver with the given properties.
 	// Built in ReceiverPropertiesConfigurationProvider implementations include:
 	//   ReceiverPropertyMap, a map of ReceiverProperty keys to values
-	FromConfigurationProvider(provider config.PublisherPropertiesConfigurationProvider) RequestReplyMessageReceiverBuilder
+	FromConfigurationProvider(provider config.ReceiverPropertiesConfigurationProvider) RequestReplyMessageReceiverBuilder
 }
