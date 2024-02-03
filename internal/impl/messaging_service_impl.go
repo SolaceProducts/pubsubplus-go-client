@@ -510,7 +510,7 @@ func (service *requestReplyServiceImpl) CreateRequestReplyMessagePublisherBuilde
 }
 
 func (service *requestReplyServiceImpl) CreateRequestReplyMessageReceiverBuilder() solace.RequestReplyMessageReceiverBuilder {
-	return nil
+	return receiver.NewRequestReplyMessageReceiverBuilderImpl(service.messagingService.transport.Receiver())
 }
 
 type apiInfo struct {

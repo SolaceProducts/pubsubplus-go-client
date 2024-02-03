@@ -272,6 +272,18 @@ func SolClientMessageGetDestinationName(messageP SolClientMessagePt) (destName s
 	return destName, errorInfo
 }
 
+// SolClientMessageGetReplyToDestinationName
+func SolClientMessageGetReplyToDestinationName(messageP SolClientMessagePt) (destName string, errorInfo *SolClientErrorInfoWrapper) {
+	var dest *SolClientDestination = &SolClientDestination{}
+	errorInfo = handleCcsmpError(func() SolClientReturnCode {
+		return C.solClient_msg_getReplyTo(messageP, dest, (C.size_t)(unsafe.Sizeof(*dest)))
+	})
+	if errorInfo == nil {
+		destName = C.GoString(dest.dest)
+	}
+	return destName, errorInfo
+}
+
 // SolClientMessageSetDestination function
 func SolClientMessageSetDestination(messageP SolClientMessagePt, destinationString string) *SolClientErrorInfoWrapper {
 	destination := &SolClientDestination{}
@@ -292,6 +304,18 @@ func SolClientMessageSetReplyToDestination(messageP SolClientMessagePt, replyToD
 	return handleCcsmpError(func() SolClientReturnCode {
 		return C.solClient_msg_setReplyTo(messageP, destination, (C.size_t)(unsafe.Sizeof(*destination)))
 	})
+}
+
+// SolClientMessageSetAsReply function
+func SolClientMessageSetAsReply(messageP SolClientMessagePt, val bool) *SolClientErrorInfoWrapper {
+	var isReply uint8
+	if val {
+		isReply = 1
+	}
+	errorInfo := handleCcsmpError(func() SolClientReturnCode {
+		return C.solClient_msg_setAsReplyMsg(messageP, C.solClient_bool_t(isReply))
+	})
+	return errorInfo
 }
 
 // SolClientMessageGetExpiration function

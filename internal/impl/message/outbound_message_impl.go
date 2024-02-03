@@ -149,6 +149,20 @@ func SetAckImmediately(message *OutboundMessageImpl) error {
 	return nil
 }
 
+// SetAsReplyMessage function
+func SetAsReplyMessage(message *OutboundMessageImpl, replyToDestination string, correlationID string) error {
+	if err := SetDestination(message, replyToDestination); err != nil {
+		return err
+	}
+	if err := SetCorrelationID(message, correlationID); err != nil {
+		return err
+	}
+	if errInfo := ccsmp.SolClientMessageSetAsReply(message.messagePointer, true); errInfo != nil {
+		return core.ToNativeError(errInfo, "error setting as reply message header: ")
+	}
+	return nil
+}
+
 // GetOutboundMessagePointer function
 func GetOutboundMessagePointer(message *OutboundMessageImpl) ccsmp.SolClientMessagePt {
 	if message == nil {

@@ -84,7 +84,7 @@ var SolClientPropDisableVal = C.SOLCLIENT_PROP_DISABLE_VAL
 // Reexport solclientgo variables
 
 // SolClientGoPropCorrelationPrefix property value
-//var SolClientGoPropCorrelationPrefix = C.GoString(C.SOLCLIENTGO_REPLY_CORRELATION_PREFIX)
+// var SolClientGoPropCorrelationPrefix = C.GoString(C.SOLCLIENTGO_REPLY_CORRELATION_PREFIX)
 var SolClientGoPropCorrelationPrefix = C.SOLCLIENTGO_REPLY_CORRELATION_PREFIX
 
 // Callbacks

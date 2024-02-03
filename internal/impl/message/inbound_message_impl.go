@@ -191,3 +191,15 @@ func GetMessageID(message *InboundMessageImpl) (MessageID, bool) {
 	}
 	return id, true
 }
+
+// GetReplyToDestinationName
+func GetReplyToDestinationName(message *InboundMessageImpl) (string, bool) {
+	destName, errorInfo := ccsmp.SolClientMessageGetReplyToDestinationName(message.messagePointer)
+	if errorInfo != nil {
+		if errorInfo.ReturnCode == ccsmp.SolClientReturnCodeFail {
+			logging.Default.Debug(fmt.Sprintf("Unable to retrieve the reply to destination this message was published to: %s, subcode: %d", errorInfo.GetMessageAsString(), errorInfo.SubCode))
+		}
+		return destName, false
+	}
+	return destName, true
+}

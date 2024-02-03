@@ -195,7 +195,7 @@ func (requestor *ccsmpBackedPublisher) AddRequestorReplyHandler(replyHandler Req
 	return replyToTopic, func() (nextID uint64, correlationID string) {
 		nextID = atomic.AddUint64(&messageID, 1)
 		// use correlation prefix independent to avoid ccsmp reply message dispatch discards
-        // note the ccsmp prefix is "#SOL"
+		// note the ccsmp prefix is "#SOL"
 		correlationID = fmt.Sprintf("%s%016X", RequestCorrelationPrefix, nextID)
 		return nextID, correlationID
 	}, nil
