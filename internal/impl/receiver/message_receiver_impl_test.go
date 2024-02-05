@@ -284,7 +284,7 @@ type result struct {
 
 type mockInternalReceiver struct {
 	events                func() core.Events
-    replier               func() core.Replier
+	replier               func() core.Replier
 	isRunning             func() bool
 	registerRxCallback    func(callback core.RxCallback) uintptr
 	unregisterRxCallback  func(ptr uintptr)
@@ -302,10 +302,10 @@ func (mock *mockInternalReceiver) Events() core.Events {
 }
 
 func (mock *mockInternalReceiver) Replier() core.Replier {
-    if mock.replier != nil {
-        return mock.replier()
-    }
-    return &mockReplier{}
+	if mock.replier != nil {
+		return mock.replier()
+	}
+	return &mockReplier{}
 }
 
 func (mock *mockInternalReceiver) IsRunning() bool {
@@ -447,7 +447,7 @@ type mockReplier struct {
 }
 
 func (replier *mockReplier) SendReply(replyMsg core.ReplyPublishable) error {
-    return nil
+	return nil
 }
 
 type notASubscription struct{}
@@ -479,7 +479,6 @@ func (event mockEvent) GetCorrelationPointer() unsafe.Pointer {
 func (event mockEvent) GetUserPointer() unsafe.Pointer {
 	return nil
 }
-
 
 type mockSubscriptionEvent struct {
 	err error
