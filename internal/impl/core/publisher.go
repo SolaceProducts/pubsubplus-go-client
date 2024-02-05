@@ -255,7 +255,7 @@ func (requestor *ccsmpBackedPublisher) startRequestor() error {
 	// get reply to prefix
 	var errInfo ErrorInfo
 	if requestor.replyToPrefix, errInfo = requestor.session.SolClientSessionGetP2PTopicPrefix(); errInfo != nil {
-		return fmt.Errorf("Error get client p2p inbox topic prefix. Error:", errInfo.String())
+		return fmt.Errorf("Error get client p2p inbox topic prefix. Error:%v", errInfo.String())
 	}
 	// register with session for reply message callback
 	err := requestor.session.SetReplyMessageCallback(func(msgP ccsmp.SolClientMessagePt, userP unsafe.Pointer, correlationID string) bool {

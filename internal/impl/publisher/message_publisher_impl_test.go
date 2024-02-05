@@ -298,6 +298,7 @@ type result struct {
 type mockInternalPublisher struct {
 	publish                      func(message core.Publishable) core.ErrorInfo
 	events                       func() core.Events
+    requestor                    func() core.Requestor
 	awaitWritable                func(terminateSignal chan struct{}) error
 	taskQueue                    func() chan core.SendTask
 	isRunning                    func() bool
@@ -318,6 +319,13 @@ func (mock *mockInternalPublisher) Events() core.Events {
 		return mock.events()
 	}
 	return &mockEvents{}
+}
+
+func (mock *mockInternalPublisher) Requestor() core.Requestor {
+    if mock.requestor != nil {
+        return mock.requestor()
+    }
+    return &mockRequestor{}
 }
 
 func (mock *mockInternalPublisher) AwaitWritable(terminateSignal chan struct{}) error {
@@ -374,4 +382,21 @@ func (events *mockEvents) AddEventHandler(sessionEvent core.Event, responseCode 
 }
 
 func (events *mockEvents) RemoveEventHandler(id uint) {
+}
+
+type mockRequestor struct {
+}
+
+func (requestor *mockRequestor) CreateReplyToTopic(publisherId string) string {
+    return ""
+}
+
+func (requestor *mockRequestor) AddRequestorReplyHandler(replyHandler core.RequestorReplyHandler) (string, func() (messageId uint64, correlationId string), core.ErrorInfo) {
+    return "", func() (uint64, string) { 
+        return uint64(0), ""
+    }, nil
+}
+
+func (requestor *mockRequestor) RemoveRequestorReplyHandler(replyToTopic string) core.ErrorInfo {
+    return nil
 }
