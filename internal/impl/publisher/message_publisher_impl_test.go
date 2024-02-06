@@ -387,7 +387,7 @@ func (events *mockEvents) RemoveEventHandler(id uint) {
 type mockRequestor struct {
 }
 
-func (requestor *mockRequestor) CreateReplyToTopic(publisherId string) string {
+func (requestor *mockRequestor) CreateReplyToTopic(publisherID string) string {
 	return ""
 }
 

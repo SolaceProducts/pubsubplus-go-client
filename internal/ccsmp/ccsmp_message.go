@@ -272,7 +272,7 @@ func SolClientMessageGetDestinationName(messageP SolClientMessagePt) (destName s
 	return destName, errorInfo
 }
 
-// SolClientMessageGetReplyToDestinationName
+// SolClientMessageGetReplyToDestinationName function
 func SolClientMessageGetReplyToDestinationName(messageP SolClientMessagePt) (destName string, errorInfo *SolClientErrorInfoWrapper) {
 	var dest *SolClientDestination = &SolClientDestination{}
 	errorInfo = handleCcsmpError(func() SolClientReturnCode {

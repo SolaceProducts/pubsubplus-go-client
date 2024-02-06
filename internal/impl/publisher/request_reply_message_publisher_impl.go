@@ -71,7 +71,7 @@ type requestReplyMessagePublisherImpl struct {
 	// correlation management
 	rxLock                   sync.Mutex
 	requestCorrelationMap    map[string]CorrelationEntry
-	nextCorrelationId        func() (uint64, string)
+	nextCorrelationID        func() (uint64, string)
 	correlationComplete      chan struct{}
 	requestCorrelateComplete chan struct{}
 
@@ -139,7 +139,7 @@ func (publisher *requestReplyMessagePublisherImpl) Start() (err error) {
 		// if we are direct, we want to register to receive can send events
 		publisher.canSendEventHandlerID = publisher.internalPublisher.Events().AddEventHandler(core.SolClientEventCanSend, publisher.onCanSend)
 	}
-	publisher.replyToTopic, publisher.nextCorrelationId, _ = publisher.internalPublisher.Requestor().AddRequestorReplyHandler(func(msg core.Repliable, correlationId string) bool {
+	publisher.replyToTopic, publisher.nextCorrelationID, _ = publisher.internalPublisher.Requestor().AddRequestorReplyHandler(func(msg core.Repliable, correlationId string) bool {
 		return publisher.handleReplyMessage(msg, correlationId)
 	})
 	go publisher.eventExecutor.Run()
@@ -751,7 +751,7 @@ func (publisher *requestReplyMessagePublisherImpl) createReplyCorrelation(userCo
 	publisher.rxLock.Lock()
 	defer publisher.rxLock.Unlock()
 	// create correlation id
-	_, correlationID := publisher.nextCorrelationId()
+	_, correlationID := publisher.nextCorrelationID()
 
 	// create entry for id
 	entry := &correlationEntryImpl{}
@@ -771,6 +771,8 @@ func (publisher *requestReplyMessagePublisherImpl) createReplyCorrelation(userCo
 			if !ok {
 				sent = false
 			}
+		case <-publisher.correlationComplete:
+			sent = false
 		}
 
 		// if not sent dispatch outcome of reply

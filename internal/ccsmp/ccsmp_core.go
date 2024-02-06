@@ -70,8 +70,8 @@ type SolClientSessionRxMsgDispatchFuncInfo = C.solClient_session_rxMsgDispatchFu
 // SolClientVersionInfo is assigned a value
 type SolClientVersionInfo = C.solClient_version_info_t
 
-// SolClientCorrelationId is assigned a value
-type SolClientCorrelationId = *C.char
+// SolClientCorrelationID is assigned a value
+type SolClientCorrelationID = *C.char
 
 // Reexport various CCSMP variables
 
@@ -116,7 +116,7 @@ func goMessageReceiveCallback(sessionP SolClientSessionPt, msgP SolClientMessage
 }
 
 //export goReplyMessageReceiveCallback
-func goReplyMessageReceiveCallback(sessionP SolClientSessionPt, msgP SolClientMessagePt, userP unsafe.Pointer, correlationIDP SolClientCorrelationId) C.solClient_rxMsgCallback_returnCode_t {
+func goReplyMessageReceiveCallback(sessionP SolClientSessionPt, msgP SolClientMessagePt, userP unsafe.Pointer, correlationIDP SolClientCorrelationID) C.solClient_rxMsgCallback_returnCode_t {
 	// propagate to request reponse reply message handler
 	if callback, ok := sessionToReplyRXCallbackMap.Load(sessionP); ok {
 		if callback.(SolClientReplyMessageCallback)(msgP, userP, C.GoString(correlationIDP)) {

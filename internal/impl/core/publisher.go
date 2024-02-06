@@ -53,14 +53,14 @@ type Publisher interface {
 // User for making requests in the request reply model
 type Requestor interface {
 	// CreateReplyToTopic return a replyto topic created from a publisher id
-	CreateReplyToTopic(publisherId string) string
+	CreateReplyToTopic(publisherID string) string
 	// registers callback for response message for a returned replyTo topic with correlation id generator
 	AddRequestorReplyHandler(replyHandler RequestorReplyHandler) (string, func() (messageId uint64, correlationId string), ErrorInfo)
-	// deregisters replyHandler from core requestor
+	// deregisters replyHandler from core publisher
 	RemoveRequestorReplyHandler(replyToTopic string) ErrorInfo
 }
 
-// This is Repliable alias, repliable are structs that are received as a part of a reply not a struct that can send a reply
+// Repliable interface, this is Repliable alias, repliable are structs that are received as a part of a reply not a struct that can send a reply
 type Repliable = ccsmp.SolClientMessagePt
 
 type RequestorReplyHandler func(message Repliable, correlationId string) bool
@@ -116,7 +116,7 @@ type ccsmpBackedPublisher struct {
 	rxLock              sync.RWMutex
 	replyToPrefix       string
 	replyDispatchID     uint64
-	requestorRxReplyMap map[uintptr]RequestorReplyCorrelationEntry
+	publisherRxReplyMap map[uintptr]RequestorReplyCorrelationEntry
 }
 
 func newCcsmpPublisher(session *ccsmp.SolClientSession, events *ccsmpBackedEvents, metrics *ccsmpBackedMetrics) *ccsmpBackedPublisher {
@@ -131,7 +131,7 @@ func newCcsmpPublisher(session *ccsmp.SolClientSession, events *ccsmpBackedEvent
 	publisher.isRunning = 0
 	publisher.replyDispatchID = 0
 	publisher.replyToPrefix = ""
-	publisher.requestorRxReplyMap = make(map[uintptr]RequestorReplyCorrelationEntry)
+	publisher.publisherRxReplyMap = make(map[uintptr]RequestorReplyCorrelationEntry)
 	return publisher
 }
 
@@ -145,48 +145,47 @@ func (publisher *ccsmpBackedPublisher) Requestor() Requestor {
 
 // Requestor functions
 
-func (requestor *ccsmpBackedPublisher) CreateReplyToTopic(pubId string) string {
-	return requestor.replyToPrefix + pubId
+func (publisher *ccsmpBackedPublisher) CreateReplyToTopic(pubID string) string {
+	return publisher.replyToPrefix + pubID
 }
 
-func (requestor *ccsmpBackedPublisher) AddRequestorReplyHandler(replyHandler RequestorReplyHandler) (string, func() (messageId uint64, correlationId string), ErrorInfo) {
+func (publisher *ccsmpBackedPublisher) AddRequestorReplyHandler(replyHandler RequestorReplyHandler) (string, func() (messageID uint64, correlationID string), ErrorInfo) {
 	// create reply to topic
 	// add local dispatch only subscription for reply to topic, note subscribe with local dispatch only is not asynchronous
 	// create correlationId generator
 
 	// create reply to topic
 	// create unique id to incorperate into replyTo topic
-	pubId := atomic.AddUint64(&requestor.replyDispatchID, 1)
-	replyToTopic := fmt.Sprintf("%s%016X", requestor.replyToPrefix, pubId)
+	pubID := atomic.AddUint64(&publisher.replyDispatchID, 1)
+	replyToTopic := fmt.Sprintf("%s%016X", publisher.replyToPrefix, pubID)
 
-	// add local dispatch only subscription after adding entry into requestorRxReplyMap to handle reply messages
+	// add local dispatch only subscription after adding entry into publisherRxReplyMap to handle reply messages
 
 	// create dispatch entry
-	dispatch, dispatchPointer := ccsmp.NewSessionReplyDispatch(pubId)
+	dispatch, dispatchPointer := ccsmp.NewSessionReplyDispatch(pubID)
 	replyEntry := &ccsmpReplyCorrelation{
 		handler:      replyHandler,
 		replyToTopic: replyToTopic,
-		//        publisherId     : pubId,
 	}
 
 	// add dispatch index into rx map
-	requestor.rxLock.Lock()
+	publisher.rxLock.Lock()
 
-	requestor.requestorRxReplyMap[dispatchPointer] = replyEntry
+	publisher.publisherRxReplyMap[dispatchPointer] = replyEntry
 
-	requestor.rxLock.Unlock()
+	publisher.rxLock.Unlock()
 
 	// subscribe using local dispatch only
-	errorInfo := requestor.session.SolClientSessionSubscribeWithLocalDispatchOnly(replyToTopic, dispatch, 0)
+	errorInfo := publisher.session.SolClientSessionSubscribeWithLocalDispatchOnly(replyToTopic, dispatch, 0)
 
 	// handle subscription error
 	if errorInfo != nil {
 		// cleanup rx map entry
-		requestor.rxLock.Lock()
+		publisher.rxLock.Lock()
 
-		delete(requestor.requestorRxReplyMap, dispatchPointer)
+		delete(publisher.publisherRxReplyMap, dispatchPointer)
 
-		requestor.rxLock.Unlock()
+		publisher.rxLock.Unlock()
 
 		return "", nil, errorInfo
 	}
@@ -201,7 +200,7 @@ func (requestor *ccsmpBackedPublisher) AddRequestorReplyHandler(replyHandler Req
 	}, nil
 }
 
-func (requestor *ccsmpBackedPublisher) RemoveRequestorReplyHandler(replyToTopic string) ErrorInfo {
+func (publisher *ccsmpBackedPublisher) RemoveRequestorReplyHandler(replyToTopic string) ErrorInfo {
 	// convert replyToTopic into index for rx map
 	// unsubscribe from local dispatch only replyto subscription
 	// remove callback from rx map
@@ -209,37 +208,37 @@ func (requestor *ccsmpBackedPublisher) RemoveRequestorReplyHandler(replyToTopic 
 	// convert replyToTopic into index for rx map
 	// split into parts
 	replyTopicParts := strings.Split(replyToTopic, "/")
-	// get last part with is the pubId
-	pubIdHex := replyTopicParts[len(replyTopicParts)-1]
+	// get last part with is the pubID
+	pubIDHex := replyTopicParts[len(replyTopicParts)-1]
 	// parse into uint64
-	pubId, err := strconv.ParseUint(pubIdHex, 16, 64)
+	pubID, err := strconv.ParseUint(pubIDHex, 16, 64)
 	if err != nil {
 		return nil
 	}
-	// convert pubId into pubIndex by creating dispatch used to unsubscribe
-	dispatch, pubIndex := ccsmp.NewSessionReplyDispatch(pubId)
+	// convert pubID into pubIndex by creating dispatch used to unsubscribe
+	dispatch, pubIndex := ccsmp.NewSessionReplyDispatch(pubID)
 
 	// call unsubscribe on reply to topic to halt messaging
-	errorInfo := requestor.session.SolClientSessionUnsubscribeWithLocalDispatchOnly(replyToTopic, dispatch, 0)
+	errorInfo := publisher.session.SolClientSessionUnsubscribeWithLocalDispatchOnly(replyToTopic, dispatch, 0)
 
 	if errorInfo != nil {
 		return errorInfo
 	}
 
 	// remove entry rx map
-	requestor.rxLock.Lock()
+	publisher.rxLock.Lock()
 
-	delete(requestor.requestorRxReplyMap, pubIndex)
+	delete(publisher.publisherRxReplyMap, pubIndex)
 
-	requestor.rxLock.Unlock()
+	publisher.rxLock.Unlock()
 
 	return nil
 }
 
-func (requestor *ccsmpBackedPublisher) onReplyMessage(msgP Repliable, userP unsafe.Pointer, correlationID string) bool {
-	requestor.rxLock.RLock()
+func (publisher *ccsmpBackedPublisher) onReplyMessage(msgP Repliable, userP unsafe.Pointer, correlationID string) bool {
+	publisher.rxLock.RLock()
 
-	entry, ok := requestor.requestorRxReplyMap[uintptr(userP)]
+	entry, ok := publisher.publisherRxReplyMap[uintptr(userP)]
 	if !ok {
 		if logging.Default.IsDebugEnabled() {
 			logging.Default.Debug(fmt.Sprintf("reply callback called but no reply function is registered for user pointer %v", userP))
@@ -247,49 +246,49 @@ func (requestor *ccsmpBackedPublisher) onReplyMessage(msgP Repliable, userP unsa
 		return false
 	}
 	callback := entry.handler
-	requestor.rxLock.RUnlock()
+	publisher.rxLock.RUnlock()
 	return callback(msgP, correlationID)
 }
 
-func (requestor *ccsmpBackedPublisher) startRequestor() error {
+func (publisher *ccsmpBackedPublisher) startRequestor() error {
 	// get reply to prefix
 	var errInfo ErrorInfo
-	if requestor.replyToPrefix, errInfo = requestor.session.SolClientSessionGetP2PTopicPrefix(); errInfo != nil {
-		return fmt.Errorf("Error get client p2p inbox topic prefix. Error:%v", errInfo.String())
+	if publisher.replyToPrefix, errInfo = publisher.session.SolClientSessionGetP2PTopicPrefix(); errInfo != nil {
+		return fmt.Errorf("error get client p2p inbox topic prefix. Error:%v", errInfo.String())
 	}
 	// register with session for reply message callback
-	err := requestor.session.SetReplyMessageCallback(func(msgP ccsmp.SolClientMessagePt, userP unsafe.Pointer, correlationID string) bool {
-		return requestor.onReplyMessage(msgP, userP, correlationID)
+	err := publisher.session.SetReplyMessageCallback(func(msgP ccsmp.SolClientMessagePt, userP unsafe.Pointer, correlationID string) bool {
+		return publisher.onReplyMessage(msgP, userP, correlationID)
 	})
 	return err
 }
 
-func (requestor *ccsmpBackedPublisher) terminateRequestor() {
+func (publisher *ccsmpBackedPublisher) terminateRequestor() {
 	// first deregister from session for reply mesasge callbacks
-	requestor.session.SetReplyMessageCallback(nil)
+	publisher.session.SetReplyMessageCallback(nil)
 
 	// cleanup the rx reply map
-	requestor.rxLock.Lock()
+	publisher.rxLock.Lock()
 
 	// exact entry list to unsubscribe after mutx unlock
-	unsubIdList := make([]uint64, len(requestor.requestorRxReplyMap))
-	unsubEntryList := make([]RequestorReplyCorrelationEntry, len(requestor.requestorRxReplyMap))
+	unsubIDList := make([]uint64, len(publisher.publisherRxReplyMap))
+	unsubEntryList := make([]RequestorReplyCorrelationEntry, len(publisher.publisherRxReplyMap))
 	index := 0
 
-	for id, entry := range requestor.requestorRxReplyMap {
+	for id, entry := range publisher.publisherRxReplyMap {
 		unsubEntryList[index] = entry
-		unsubIdList[index] = uint64(id)
-		delete(requestor.requestorRxReplyMap, id)
+		unsubIDList[index] = uint64(id)
+		delete(publisher.publisherRxReplyMap, id)
 		index++
 	}
 
-	requestor.rxLock.Unlock()
+	publisher.rxLock.Unlock()
 
-	// call unsubscribe for any outstanding requestor reply to topics
+	// call unsubscribe for any outstanding publisher reply to topics
 	// note this shuold only occur if there is no call to RemoveRequestorReplyHandler
-	for index = 0; index < len(unsubIdList); index++ {
-		dispatch, _ := ccsmp.NewSessionReplyDispatch(unsubIdList[index])
-		requestor.session.SolClientSessionUnsubscribeWithLocalDispatchOnly(unsubEntryList[index].replyToTopic, dispatch, 0)
+	for index = 0; index < len(unsubIDList); index++ {
+		dispatch, _ := ccsmp.NewSessionReplyDispatch(unsubIDList[index])
+		publisher.session.SolClientSessionUnsubscribeWithLocalDispatchOnly(unsubEntryList[index].replyToTopic, dispatch, 0)
 	}
 
 }

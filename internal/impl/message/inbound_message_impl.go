@@ -192,7 +192,7 @@ func GetMessageID(message *InboundMessageImpl) (MessageID, bool) {
 	return id, true
 }
 
-// GetReplyToDestinationName
+// GetReplyToDestinationName function
 func GetReplyToDestinationName(message *InboundMessageImpl) (string, bool) {
 	destName, errorInfo := ccsmp.SolClientMessageGetReplyToDestinationName(message.messagePointer)
 	if errorInfo != nil {

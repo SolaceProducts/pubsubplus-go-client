@@ -212,7 +212,7 @@ type replierImpl struct {
 	replyToDestination string
 }
 
-// NewReplierImpl
+// NewReplierImpl function
 func NewReplierImpl(requestMsg apimessage.InboundMessage, internalReceiver core.Receiver) (solace.Replier, bool) {
 	replyToDestination, ok := message.GetReplyToDestinationName(requestMsg.(*message.InboundMessageImpl))
 	if !ok {
