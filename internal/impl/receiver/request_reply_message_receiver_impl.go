@@ -234,10 +234,13 @@ func (replier *replierImpl) construct(correlationID string, replyToDestination s
 }
 
 func (replier *replierImpl) Reply(msg apimessage.OutboundMessage) error {
-	msgImpl := msg.(*message.OutboundMessageImpl)
-	//if !ok {
-	//    return solace.NewError(&solace.IllegalArgumentError{}, "Replier must have OutboundMessage from OutboundMessageBuilder", nil)
-	//}
+	if msg == nil {
+		return solace.NewError(&solace.IllegalArgumentError{}, "Replier must have OutboundMessage not nil", nil)
+	}
+	msgImpl, ok := msg.(*message.OutboundMessageImpl)
+	if !ok {
+		return solace.NewError(&solace.IllegalArgumentError{}, "Replier must have OutboundMessage from OutboundMessageBuilder", nil)
+	}
 	replyMsg, err := message.DuplicateOutboundMessage(msgImpl)
 	if err != nil {
 		return err
