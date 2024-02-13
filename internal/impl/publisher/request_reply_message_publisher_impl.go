@@ -561,7 +561,7 @@ func (publisher *requestReplyMessagePublisherImpl) publish(msg *message.Outbound
 		defer msg.Dispose()
 		// publish directly with CCSMP
 		errorInfo := publisher.internalPublisher.Publish(message.GetOutboundMessagePointer(msg))
-		publisher.signalRequestCorrelationSent(correlationID, errorInfo != nil)
+		publisher.signalRequestCorrelationSent(correlationID, errorInfo == nil)
 		if errorInfo != nil {
 			if errorInfo.ReturnCode == ccsmp.SolClientReturnCodeWouldBlock {
 				return nil, solace.NewError(&solace.PublisherOverflowError{}, constants.WouldBlock, nil)
@@ -649,7 +649,8 @@ func (publisher *requestReplyMessagePublisherImpl) sendTask(msg *message.Outboun
 					// otherwise we got another error, should deal with it accordingly
 				}
 			}
-			publisher.signalRequestCorrelationSent(correlationID, true)
+			// if there is no errorInfo then the message was sent.
+			publisher.signalRequestCorrelationSent(correlationID, errorInfo == nil)
 			// exit out of the loop if we succeeded or got an error
 			// we will only continue on would_block + AwaitWritable
 			break
@@ -730,7 +731,13 @@ func (publisher *requestReplyMessagePublisherImpl) closeReplyCorrelation(correla
 	select {
 	case <-publisher.requestCorrelateComplete:
 		if len(publisher.requestCorrelationMap) == 0 {
-			close(publisher.correlationComplete)
+			select {
+			case <-publisher.correlationComplete:
+				// already closed
+			default:
+				// close the channel
+				close(publisher.correlationComplete)
+			}
 		}
 	default:
 		// termination not called do nothing
