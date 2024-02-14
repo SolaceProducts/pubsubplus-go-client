@@ -15,8 +15,31 @@
 // limitations under the License.
 
 #include "./ccsmp_helper.h"
+#include "solclient/solClient.h"
+#include "solclient/solClientMsg.h"
 
 void *uintptr_to_void_p(solClient_uint64_t ptr)
 {
     return (void *)ptr;
+}
+
+solClient_returnCode_t
+solClientgo_msg_isRequestReponseMsg(solClient_opaqueMsg_pt msg_p, char **correlationId_p) {
+    solClient_returnCode_t rc = SOLCLIENT_FAIL;
+    const char *correlationId = NULL;
+    if ( correlationId_p == NULL ) {
+        return rc;
+    }
+    if ( !solClient_msg_isReplyMsg(msg_p) ) {
+        return rc;
+    }
+    if ( SOLCLIENT_OK != (rc = solClient_msg_getCorrelationId(msg_p, &correlationId)) ) {
+        return rc;
+    }
+    if (!SOLCLIENTGO_HAS_REPLY_CORRELATION_ID_PREFIX(correlationId)) {
+        return rc;
+    }
+    // This string is a direct read from the message backing memory and shoud be copied into go memory for persistent use.
+    *correlationId_p = (char *)correlationId;
+    return SOLCLIENT_OK;
 }

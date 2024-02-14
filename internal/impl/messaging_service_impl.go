@@ -506,11 +506,11 @@ func (service *messagingServiceImpl) getSubState() messagingServiceSubState {
 }
 
 func (service *requestReplyServiceImpl) CreateRequestReplyMessagePublisherBuilder() solace.RequestReplyMessagePublisherBuilder {
-	return nil
+	return publisher.NewRequestReplyMessagePublisherBuilderImpl(service.messagingService.transport.Publisher())
 }
 
 func (service *requestReplyServiceImpl) CreateRequestReplyMessageReceiverBuilder() solace.RequestReplyMessageReceiverBuilder {
-	return nil
+	return receiver.NewRequestReplyMessageReceiverBuilderImpl(service.messagingService.transport.Receiver())
 }
 
 type apiInfo struct {

@@ -49,4 +49,22 @@ typedef struct solClient_errorInfo_wrapper
 void *
 uintptr_to_void_p(solClient_uint64_t ptr);
 
+/**
+ * Definition of solclientgo correlation prefix
+ */
+#define SOLCLIENTGO_REPLY_CORRELATION_PREFIX "#GOS"
+
+/**
+ * Macro for determining if a message correlation has the solclientgo correlation prefix
+ */
+#define SOLCLIENTGO_HAS_REPLY_CORRELATION_ID_PREFIX(corrId_p) (   \
+    (corrId_p)[0] == (SOLCLIENTGO_REPLY_CORRELATION_PREFIX)[0] && \
+    (corrId_p)[1] == (SOLCLIENTGO_REPLY_CORRELATION_PREFIX)[1] && \
+    (corrId_p)[2] == (SOLCLIENTGO_REPLY_CORRELATION_PREFIX)[2] && \
+    (corrId_p)[3] == (SOLCLIENTGO_REPLY_CORRELATION_PREFIX)[3]    \
+    )
+
+solClient_returnCode_t
+solClientgo_msg_isRequestReponseMsg(solClient_opaqueMsg_pt msg_p, char **correlationId_p);
+
 #endif
