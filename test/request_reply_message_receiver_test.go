@@ -59,7 +59,7 @@ var _ = Describe("RequestReplyReceiver", func() {
 		Expect(receiver).To(BeNil())
 	})
 
-	It("fails to start on unstarted messaging service", func() {
+	It("fails to start on unconnected messaging service", func() {
 		receiver, err := messagingService.RequestReply().CreateRequestReplyMessageReceiverBuilder().Build(subscription)
 		Expect(err).ToNot(HaveOccurred())
 
