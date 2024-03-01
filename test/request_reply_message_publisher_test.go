@@ -26,6 +26,7 @@ import (
 	"solace.dev/go/messaging/pkg/solace/message"
 	"solace.dev/go/messaging/pkg/solace/metrics"
 	"solace.dev/go/messaging/pkg/solace/resource"
+	"solace.dev/go/messaging/pkg/solace/subcode"
 	"solace.dev/go/messaging/test/helpers"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -155,36 +156,26 @@ var _ = Describe("RequestReplyPublisher", func() {
 		})
 
 		Describe("request-reply publisher termination tests", func() {
-			topic := resource.TopicOf("hello/world")
-			// topicSubscription := resource.TopicSubscriptionOf("hello/world")
+			publishTopic := resource.TopicOf("hello/world")
+			topicSubscription := resource.TopicSubscriptionOf("hello/world")
 			largeByteArray := make([]byte, 16384)
 			timeOut := 5 * time.Second
 
-			/*
-				// A helper function to handle repliers for publishers
-				receiverInstance := func(subscription *resource.TopicSubscription) {
-					receiver, err := messagingService.RequestReply().CreateRequestReplyMessageReceiverBuilder().Build(subscription)
-					Expect(err).ToNot(HaveOccurred())
-					startErr := receiver.Start()
-					Expect(startErr).ToNot(HaveOccurred())
-					Expect(receiver.IsRunning()).To(BeTrue()) // running state should be true
-					requestMessageHandler := func(message message.InboundMessage, replier solace.Replier) {
-						if replier == nil { // the replier is only set when received message is request message that be replied to
-							return
-						}
-
-						replyMsg, err := messageBuilder.BuildWithByteArrayPayload(largeByteArray)
-						Expect(err).ToNot(HaveOccurred())
-
-						replier.Reply(replyMsg)
-						// replyErr := replier.Reply(replyMsg)
-						// Expect(replyErr).ToNot(HaveOccurred())
-					}
-					// have receiver push request messages to request message handler
-					regErr := receiver.ReceiveAsync(requestMessageHandler)
-					Expect(regErr).ToNot(HaveOccurred())
+			// A handler for the request-reply publisher
+			publisherReplyHandler := func(message message.InboundMessage, userContext interface{}, err error) {
+				if err == nil { // Good, a reply was received
+					Expect(message).ToNot(BeNil())
+					payload, _ := message.GetPayloadAsString()
+					fmt.Printf("The reply inbound payload: %s\n", payload)
+				} else if terr, ok := err.(*solace.TimeoutError); ok { // Not good, a timeout occurred and no reply was received
+					// message should be nil
+					// This handles the situation that the requester application did not receive a reply for the published message within the specified timeout.
+					// This would be a good location for implementing resiliency or retry mechanisms.
+					fmt.Printf("The message reply timed out with %s\n", terr)
+				} else { // async error occurred.
+					Expect(err).ToNot(BeNil())
 				}
-			*/
+			}
 
 			// A helper function to saturate a given publisher. Counts the number of published messages at the given int pointer
 			// Returns a channel that is closed when the publisher receives an error from a call to Publish
@@ -196,22 +187,6 @@ var _ = Describe("RequestReplyPublisher", func() {
 				toPublish, err := messageBuilder.BuildWithByteArrayPayload(largeByteArray)
 				Expect(err).ToNot(HaveOccurred())
 
-				publisherReplyHandler := func(message message.InboundMessage, userContext interface{}, err error) {
-					if err == nil { // Good, a reply was received
-						Expect(message).ToNot(BeNil())
-						payload, _ := message.GetPayloadAsString()
-						fmt.Printf("The reply inbound payload: %s\n", payload)
-					} else if terr, ok := err.(*solace.TimeoutError); ok { // Not good, a timeout occurred and no reply was received
-						// message should be nil
-						// This handles the situation that the requester application did not receive a reply for the published message within the specified timeout.
-						// This would be a good location for implementing resiliency or retry mechanisms.
-						fmt.Printf("The message reply timed out with %s\n", terr)
-					} else { // async error occurred.
-						// panic(err)
-						Expect(err).ToNot(BeNil())
-					}
-				}
-
 				go func() {
 					defer GinkgoRecover()
 				loop:
@@ -221,7 +196,7 @@ var _ = Describe("RequestReplyPublisher", func() {
 							break loop
 						default:
 						}
-						err := publisher.Publish(toPublish, publisherReplyHandler, topic, timeOut, nil /* properties */, nil /* usercontext */)
+						err := publisher.Publish(toPublish, publisherReplyHandler, publishTopic, timeOut, nil /* properties */, nil /* usercontext */)
 
 						if err != nil {
 							Expect(err).To(BeAssignableToTypeOf(&solace.IllegalStateError{}))
@@ -241,7 +216,6 @@ var _ = Describe("RequestReplyPublisher", func() {
 				publishedMessages := 0
 
 				bufferSize := uint(1000)
-				// publisher, err := messagingService.CreateDirectMessagePublisherBuilder().OnBackPressureWait(bufferSize).Build()
 				publisher, err := messagingService.RequestReply().CreateRequestReplyMessagePublisherBuilder().OnBackPressureWait(bufferSize).Build()
 				Expect(err).ToNot(HaveOccurred())
 
@@ -249,7 +223,6 @@ var _ = Describe("RequestReplyPublisher", func() {
 				Expect(err).ToNot(HaveOccurred())
 				defer publisher.Terminate(0)
 
-				// receiverInstance(topicSubscription) // start a receiver to reply back to the publisher
 				publisherComplete, testComplete := publisherSaturation(publisher, &publishedMessages)
 				defer close(testComplete)
 
@@ -277,7 +250,7 @@ var _ = Describe("RequestReplyPublisher", func() {
 				Expect(messagingService.Metrics().GetValue(metrics.DirectMessagesSent)).To(BeNumerically("==", publishedMessages))
 			})
 
-			FIt("should have undelivered messages on ungraceful termination (no waiting for reply messages)", func() {
+			It("should have undelivered messages on ungraceful termination (no waiting for reply messages)", func() {
 				publishedMessages := 0
 
 				bufferSize := uint(10000)
@@ -305,149 +278,275 @@ var _ = Describe("RequestReplyPublisher", func() {
 				Expect(directSent + directDropped).To(BeNumerically("==", publishedMessages))
 			})
 
-			/*
-				It("should have undelivered messages on unsolicited termination", func() {
-					publishedMessages := 0
-					startTime := time.Now()
-					bufferSize := uint(10000)
-					publisher, err := messagingService.RequestReply().CreateRequestReplyMessagePublisherBuilder().OnBackPressureWait(bufferSize).Build()
-					// publisher, err := messagingService.CreateDirectMessagePublisherBuilder().OnBackPressureWait(bufferSize).Build()
-					Expect(err).ToNot(HaveOccurred())
+			It("should have undelivered messages on unsolicited termination of messaging service", func() {
+				publishedMessages := 0
+				bufferSize := uint(10000)
+				publisher, err := messagingService.RequestReply().CreateRequestReplyMessagePublisherBuilder().OnBackPressureWait(bufferSize).Build()
+				Expect(err).ToNot(HaveOccurred())
 
-					err = publisher.Start()
-					Expect(err).ToNot(HaveOccurred())
-					defer publisher.Terminate(0)
+				err = publisher.Start()
+				Expect(err).ToNot(HaveOccurred())
+				defer publisher.Terminate(0)
 
-					terminationListenerCalled := make(chan solace.TerminationEvent)
-					publisher.SetTerminationNotificationListener(func(te solace.TerminationEvent) {
-						terminationListenerCalled <- te
-					})
-
-					undeliveredCount := uint64(0)
-					failedPublishCount := uint64(0)
-					publisher.SetPublishFailureListener(func(fpe solace.FailedPublishEvent) {
-						defer GinkgoRecover()
-						if nativeError, ok := fpe.GetError().(*solace.NativeError); (ok && nativeError.SubCode() == subcode.CommunicationError) ||
-							// Due to SOL-66163, the error may occasionally be nil when session disconnects occur
-							// To avoid test failures we should be updating the undelivered count in this case
-							// This should be reverted once SOL-66163 is fixed
-							fpe.GetError() == nil {
-							// we were terminated
-							atomic.AddUint64(&undeliveredCount, 1)
-						} else {
-							// some other errsor occurred
-							atomic.AddUint64(&failedPublishCount, 1)
-						}
-						Expect(fpe.GetDestination()).To(Equal(topic))
-						Expect(fpe.GetTimeStamp()).To(BeTemporally(">", startTime))
-						Expect(fpe.GetTimeStamp()).To(BeTemporally("<", time.Now()))
-						Expect(fpe.GetMessage()).ToNot(BeNil())
-						payload, ok := fpe.GetMessage().GetPayloadAsBytes()
-						Expect(ok).To(BeTrue())
-						Expect(payload).ToNot(BeNil())
-						Expect(payload).To(HaveLen(len(largeByteArray)))
-					})
-
-					publisherComplete, testComplete := publisherSaturation(publisher, &publishedMessages)
-					defer close(testComplete)
-
-					shutdownTime := time.Now()
-					helpers.ForceDisconnectViaSEMPv2(messagingService)
-
-					Eventually(publisherComplete).Should(BeClosed())
-					Eventually(publisher.IsTerminated).Should(BeTrue())
-
-					select {
-					case te := <-terminationListenerCalled:
-						Expect(te.GetTimestamp()).To(BeTemporally(">", shutdownTime))
-						Expect(te.GetTimestamp()).To(BeTemporally("<", time.Now()))
-						// SOL-66163: a race condition in CCSMP may cause the error to be nil
-						// helpers.ValidateNativeError(te.GetCause(), subcode.CommunicationError)
-						Expect(te.GetMessage()).To(ContainSubstring("Publisher"))
-					case <-time.After(100 * time.Millisecond):
-						Fail("timed out waiting for termination listener to be called")
-					}
-
-					directSent := messagingService.Metrics().GetValue(metrics.DirectMessagesSent)
-					directDropped := messagingService.Metrics().GetValue(metrics.PublishMessagesTerminationDiscarded)
-					Expect(directSent).To(BeNumerically("<", publishedMessages))
-					Eventually(func() uint64 {
-						return atomic.LoadUint64(&undeliveredCount)
-					}, 10*time.Second).Should(BeNumerically("==", directDropped))
-
-					// There is a known issue where there may be an additional message counted as undelivered.
-					// Given a terminating publisher in buffered backpressure, it is possible that a message gets
-					// queued in the publish buffer after message publishing has halted. This results in a situation
-					// where the call to Publish fails but the message is still counted as discarded due to termination.
-					Eventually(func() uint64 {
-						return directSent + directDropped + atomic.LoadUint64(&failedPublishCount)
-					}).Should(BeNumerically(">=", publishedMessages))
-					Expect(directSent + directDropped + atomic.LoadUint64(&failedPublishCount)).Should(BeNumerically("<=", publishedMessages+1))
-
+				terminationListenerCalled := make(chan solace.TerminationEvent)
+				publisher.SetTerminationNotificationListener(func(te solace.TerminationEvent) {
+					terminationListenerCalled <- te
 				})
-				/*
-					It("should have undelivered messages on messaging service shutdown", func() {
-						publishedMessages := 0
 
-						bufferSize := uint(100)
-						publisher, err := messagingService.CreateDirectMessagePublisherBuilder().OnBackPressureWait(bufferSize).Build()
-						Expect(err).ToNot(HaveOccurred())
+				publisherComplete, testComplete := publisherSaturation(publisher, &publishedMessages)
+				defer close(testComplete)
 
-						err = publisher.Start()
-						Expect(err).ToNot(HaveOccurred())
-						defer publisher.Terminate(0)
+				shutdownTime := time.Now()
+				helpers.ForceDisconnectViaSEMPv2(messagingService)
 
-						terminationListenerCalled := make(chan solace.TerminationEvent)
-						publisher.SetTerminationNotificationListener(func(te solace.TerminationEvent) {
-							terminationListenerCalled <- te
-						})
+				Eventually(publisherComplete).Should(BeClosed())
+				Eventually(publisher.IsTerminated).Should(BeTrue())
 
-						undeliveredCount := uint64(0)
-						failedPublishCount := uint64(0)
-						publisher.SetPublishFailureListener(func(fpe solace.FailedPublishEvent) {
-							if _, ok := fpe.GetError().(*solace.ServiceUnreachableError); ok {
-								// we were terminated
-								atomic.AddUint64(&undeliveredCount, 1)
-							} else {
-								// some other error occurred
-								atomic.AddUint64(&failedPublishCount, 1)
-							}
-						})
+				select {
+				case te := <-terminationListenerCalled:
+					Expect(te.GetTimestamp()).To(BeTemporally(">", shutdownTime))
+					Expect(te.GetTimestamp()).To(BeTemporally("<", time.Now()))
+					Expect(te.GetCause()).To(BeAssignableToTypeOf(&solace.NativeError{}))
+					// SOL-66163: a race condition in CCSMP may cause the error to be nil
+					helpers.ValidateNativeError(te.GetCause(), subcode.CommunicationError)
+					Expect(te.GetMessage()).To(ContainSubstring("Publisher"))
+				case <-time.After(100 * time.Millisecond):
+					Fail("timed out waiting for termination listener to be called")
+				}
 
-						publisherComplete, testComplete := publisherSaturation(publisher, &publishedMessages)
-						defer close(testComplete)
+				publishSent := messagingService.Metrics().GetValue(metrics.DirectMessagesSent)
+				Expect(publishSent).To(BeNumerically("<", publishedMessages))
+			})
 
-						shutdownTime := time.Now()
-						helpers.DisconnectMessagingService(messagingService)
+			It("should have undelivered messages on messaging service shutdown/disconnection", func() {
+				publishedMessages := 0
+				bufferSize := uint(100)
+				publisher, err := messagingService.RequestReply().CreateRequestReplyMessagePublisherBuilder().OnBackPressureWait(bufferSize).Build()
+				Expect(err).ToNot(HaveOccurred())
 
-						Eventually(publisherComplete).Should(BeClosed())
-						Eventually(publisher.IsTerminated).Should(BeTrue())
+				err = publisher.Start()
+				Expect(err).ToNot(HaveOccurred())
+				defer publisher.Terminate(0)
 
-						select {
-						case te := <-terminationListenerCalled:
-							Expect(te.GetTimestamp()).To(BeTemporally(">", shutdownTime))
-							Expect(te.GetTimestamp()).To(BeTemporally("<", time.Now()))
-							Expect(te.GetCause()).To(BeAssignableToTypeOf(&solace.ServiceUnreachableError{}))
-						case <-time.After(100 * time.Millisecond):
-							Fail("timed out waiting for termination listener to be called")
-						}
+				terminationListenerCalled := make(chan solace.TerminationEvent)
+				publisher.SetTerminationNotificationListener(func(te solace.TerminationEvent) {
+					terminationListenerCalled <- te
+				})
 
-						directSent := messagingService.Metrics().GetValue(metrics.DirectMessagesSent)
-						directDropped := messagingService.Metrics().GetValue(metrics.PublishMessagesTerminationDiscarded)
-						Expect(directSent).To(BeNumerically("<", publishedMessages))
-						Eventually(func() uint64 {
-							return atomic.LoadUint64(&undeliveredCount)
-						}, 10*time.Second).Should(BeNumerically("==", directDropped))
-						// There is a known issue where there may be an additional message counted as undelivered.
-						// Given a terminating publisher in buffered backpressure, it is possible that a message gets
-						// queued in the publish buffer after message publishing has halted. This results in a situation
-						// where the call to Publish fails but the message is still counted as discarded due to termination.
-						Eventually(func() uint64 {
-							return directSent + directDropped + atomic.LoadUint64(&failedPublishCount)
-						}).Should(BeNumerically(">=", publishedMessages))
-						Expect(directSent + directDropped + atomic.LoadUint64(&failedPublishCount)).Should(BeNumerically("<=", publishedMessages+1))
+				publisherComplete, testComplete := publisherSaturation(publisher, &publishedMessages)
+				defer close(testComplete)
+
+				shutdownTime := time.Now()
+				helpers.DisconnectMessagingService(messagingService)
+
+				Eventually(publisherComplete).Should(BeClosed())
+				Eventually(publisher.IsTerminated).Should(BeTrue())
+
+				select {
+				case te := <-terminationListenerCalled:
+					Expect(te.GetTimestamp()).To(BeTemporally(">", shutdownTime))
+					Expect(te.GetTimestamp()).To(BeTemporally("<", time.Now()))
+					Expect(te.GetCause()).To(BeAssignableToTypeOf(&solace.ServiceUnreachableError{}))
+				case <-time.After(100 * time.Millisecond):
+					Fail("timed out waiting for termination listener to be called")
+				}
+
+				publishSent := messagingService.Metrics().GetValue(metrics.DirectMessagesSent)
+				Expect(publishSent).To(BeNumerically("<", publishedMessages))
+			})
+
+			startFunctions := map[string](func(publisher solace.RequestReplyMessagePublisher) <-chan error){
+				"sync": func(publisher solace.RequestReplyMessagePublisher) <-chan error {
+					c := make(chan error)
+					go func() {
+						c <- publisher.Start()
+					}()
+					return c
+				},
+				"async": func(publisher solace.RequestReplyMessagePublisher) <-chan error {
+					return publisher.StartAsync()
+				},
+				"callback": func(publisher solace.RequestReplyMessagePublisher) <-chan error {
+					c := make(chan error)
+					publisher.StartAsyncCallback(func(dmp solace.RequestReplyMessagePublisher, e error) {
+						defer GinkgoRecover()
+						Expect(dmp).To(Equal(publisher))
+						c <- e
 					})
-			*/
+					return c
+				},
+			}
+
+			// gracePeriod := 5 * time.Second
+			terminateFunctions := map[string](func(publisher solace.RequestReplyMessagePublisher, gracePeriod time.Duration) <-chan error){
+				"sync": func(publisher solace.RequestReplyMessagePublisher, gracePeriod time.Duration) <-chan error {
+					c := make(chan error)
+					go func() {
+						c <- publisher.Terminate(gracePeriod)
+					}()
+					return c
+				},
+				"async": func(publisher solace.RequestReplyMessagePublisher, gracePeriod time.Duration) <-chan error {
+					return publisher.TerminateAsync(gracePeriod)
+				},
+				"callback": func(publisher solace.RequestReplyMessagePublisher, gracePeriod time.Duration) <-chan error {
+					c := make(chan error)
+					publisher.TerminateAsyncCallback(gracePeriod, func(e error) {
+						c <- e
+					})
+					return c
+				},
+			}
+
+			// for the success paths
+			for startName, fn := range startFunctions {
+				for terminateName, fn2 := range terminateFunctions {
+					start := fn
+					terminate := fn2
+					It("can start and terminate with start "+startName+" and terminate "+terminateName+" with subscribed reply receiver on topic", func() {
+						// build a request replier
+						receiver := helpers.NewRequestReplyMessageReceiver(messagingService, topicSubscription)
+						helpers.StartRequestReplyMessageReceiverWithDefault(messagingService, receiver)
+						publisher, err := messagingService.RequestReply().CreateRequestReplyMessagePublisherBuilder().Build()
+						Expect(err).ToNot(HaveOccurred())
+						// check that not started
+						helpers.ValidateReadyState(publisher, false, false, false, false)
+						// start and check state
+						Eventually(start(publisher)).Should(Receive(Not(HaveOccurred())))
+						helpers.ValidateReadyState(publisher, true, true, false, false)
+						// try using publisher
+						publisher.PublishString("hello world", publisherReplyHandler, publishTopic, timeOut, nil /* usercontext */)
+						Eventually(func() int64 {
+							return helpers.GetClient(messagingService).DataRxMsgCount
+						}).Should(BeNumerically("==", 2))
+						// terminate and check state
+						Eventually(terminate(publisher, 5*time.Second)).Should(Receive(Not(HaveOccurred())))
+						helpers.ValidateReadyState(publisher, false, false, false, true)
+						receiver.Terminate(1 * time.Second) // terminate the receiver
+					})
+					It("can start and terminate idempotently with start "+startName+" and terminate "+terminateName+" with subscribed reply receiver on topic", func() {
+						// build a request replier
+						receiver := helpers.NewRequestReplyMessageReceiver(messagingService, topicSubscription)
+						helpers.StartRequestReplyMessageReceiverWithDefault(messagingService, receiver)
+						publisher, err := messagingService.RequestReply().CreateRequestReplyMessagePublisherBuilder().Build()
+						Expect(err).ToNot(HaveOccurred())
+						// check that not started
+						helpers.ValidateReadyState(publisher, false, false, false, false)
+						// start and check state
+						c1 := start(publisher)
+						c2 := start(publisher)
+						Eventually(c1).Should(Receive(Not(HaveOccurred())))
+						Eventually(c2).Should(Receive(Not(HaveOccurred())))
+						helpers.ValidateReadyState(publisher, true, true, false, false)
+						// try using publisher
+						publisher.PublishString("hello world", publisherReplyHandler, publishTopic, timeOut, nil /* usercontext */)
+						Eventually(func() int64 {
+							return helpers.GetClient(messagingService).DataRxMsgCount
+						}).Should(BeNumerically("==", 2))
+						// terminate and check state
+						c1 = terminate(publisher, 5*time.Second)
+						c2 = terminate(publisher, 5*time.Second)
+						Eventually(c1).Should(Receive(Not(HaveOccurred())))
+						Eventually(c2).Should(Receive(Not(HaveOccurred())))
+						helpers.ValidateReadyState(publisher, false, false, false, true)
+						c1 = start(publisher)
+						c2 = start(publisher)
+						Eventually(c1).Should(Receive(BeAssignableToTypeOf(&solace.IllegalStateError{})))
+						Eventually(c2).Should(Receive(BeAssignableToTypeOf(&solace.IllegalStateError{})))
+						receiver.Terminate(1 * time.Second) // terminate the receiver
+					})
+					It("can start and terminate with start "+startName+" and terminate "+terminateName+" without subscribed reply receiver and zero grace period", func() {
+						publisher, err := messagingService.RequestReply().CreateRequestReplyMessagePublisherBuilder().Build()
+						Expect(err).ToNot(HaveOccurred())
+						// check that not started
+						helpers.ValidateReadyState(publisher, false, false, false, false)
+						// start and check state
+						Eventually(start(publisher)).Should(Receive(Not(HaveOccurred())))
+						helpers.ValidateReadyState(publisher, true, true, false, false)
+						// try using publisher
+						publisher.PublishString("hello world", publisherReplyHandler, publishTopic, timeOut, nil /* usercontext */)
+						Eventually(func() int64 {
+							return helpers.GetClient(messagingService).DataRxMsgCount
+						}).Should(BeNumerically("==", 1))
+						// terminate and check state
+						Eventually(terminate(publisher, 0*time.Second)).Should(Receive(Not(HaveOccurred())))
+						helpers.ValidateReadyState(publisher, false, false, false, true)
+					})
+					It("can start and terminate with start "+startName+" and terminate "+terminateName+" without subscribed reply receiver and > 0 grace period", func() {
+						publisher, err := messagingService.RequestReply().CreateRequestReplyMessagePublisherBuilder().Build()
+						Expect(err).ToNot(HaveOccurred())
+						// check that not started
+						helpers.ValidateReadyState(publisher, false, false, false, false)
+						// start and check state
+						Eventually(start(publisher)).Should(Receive(Not(HaveOccurred())))
+						helpers.ValidateReadyState(publisher, true, true, false, false)
+						// try using publisher
+						publisher.PublishString("hello world", publisherReplyHandler, publishTopic, timeOut, nil /* usercontext */)
+						Eventually(func() int64 {
+							return helpers.GetClient(messagingService).DataRxMsgCount
+						}).Should(BeNumerically("==", 1))
+						// terminate and check state
+						terminateChan := terminate(publisher, 5*time.Second)
+						Eventually(terminateChan, "5000ms").Should(Receive(BeNil()))
+						helpers.ValidateReadyState(publisher, false, false, false, true)
+					})
+				}
+			}
+
+			// more success paths
+			for terminateName, fn := range terminateFunctions {
+				terminate := fn
+				It("should be able to terminate when not started using terminate "+terminateName, func() {
+					publisher, err := messagingService.RequestReply().CreateRequestReplyMessagePublisherBuilder().Build()
+					Expect(err).ToNot(HaveOccurred(), "Encountered error while building request-reply publisher")
+					Eventually(terminate(publisher, 5*time.Second)).Should(Receive(BeNil()))
+					Expect(publisher.IsTerminated()).To(BeTrue())
+					helpers.ValidateError(publisher.Start(), &solace.IllegalStateError{})
+				})
+			}
+
+			// failure paths
+			It("should fail to publish on unstarted publisher", func() {
+				publisher, err := messagingService.RequestReply().CreateRequestReplyMessagePublisherBuilder().Build()
+				Expect(err).ToNot(HaveOccurred(), "Encountered error while building request-reply publisher")
+				helpers.ValidateError(
+					publisher.Publish(helpers.NewMessage(messagingService), publisherReplyHandler, publishTopic, timeOut, nil /* properties */, nil /* usercontext */),
+					&solace.IllegalStateError{},
+				)
+			})
+			It("should fail to publish on terminated publisher", func() {
+				publisher, err := messagingService.RequestReply().CreateRequestReplyMessagePublisherBuilder().Build()
+				Expect(err).ToNot(HaveOccurred(), "Encountered error while building request-reply publisher")
+
+				Expect(publisher.Start()).ToNot(HaveOccurred())
+				Expect(publisher.Terminate(gracePeriod)).ToNot(HaveOccurred())
+
+				helpers.ValidateError(publisher.Publish(helpers.NewMessage(messagingService), publisherReplyHandler, publishTopic, timeOut, nil /* properties */, nil /* usercontext */), &solace.IllegalStateError{})
+			})
+
+			// for the failure paths
+			for startName, fn := range startFunctions {
+				start := fn
+				It("should fail to start when messaging service is disconnected using start "+startName, func() {
+					publisher, err := messagingService.RequestReply().CreateRequestReplyMessagePublisherBuilder().Build()
+					Expect(err).ToNot(HaveOccurred())
+
+					messagingService.Disconnect()
+					Eventually(start(publisher)).Should(Receive(&err))
+					Expect(err).To(HaveOccurred())
+					Expect(err).To(BeAssignableToTypeOf(&solace.IllegalStateError{}))
+				})
+				It("should fail to start when messaging service is down using start "+startName, func() {
+					publisher, err := messagingService.RequestReply().CreateRequestReplyMessagePublisherBuilder().Build()
+					Expect(err).ToNot(HaveOccurred())
+
+					helpers.ForceDisconnectViaSEMPv2(messagingService)
+					Eventually(messagingService.IsConnected).Should(BeFalse())
+					Expect(messagingService.Disconnect()).ToNot(HaveOccurred())
+
+					helpers.ValidateChannelError(start(publisher), &solace.IllegalStateError{})
+				})
+			}
 		})
 
 	})
