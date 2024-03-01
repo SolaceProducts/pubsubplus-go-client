@@ -59,7 +59,7 @@ var _ = Describe("RequestReplyReceiver", func() {
 		Expect(receiver).To(BeNil())
 	})
 
-	It("fails to start on unstarted messaging service", func() {
+	It("fails to start on unconnected messaging service", func() {
 		receiver, err := messagingService.RequestReply().CreateRequestReplyMessageReceiverBuilder().Build(subscription)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -68,7 +68,7 @@ var _ = Describe("RequestReplyReceiver", func() {
 		Expect(err).To(BeAssignableToTypeOf(&solace.IllegalStateError{}))
 	})
 
-	It("fails to start on terminated messaging service", func() {
+	It("fails to start on disconnected messaging service", func() {
 		receiver, err := messagingService.RequestReply().CreateRequestReplyMessageReceiverBuilder().Build(subscription)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -80,7 +80,7 @@ var _ = Describe("RequestReplyReceiver", func() {
 		Expect(err).To(BeAssignableToTypeOf(&solace.IllegalStateError{}))
 	})
 
-	It("fails to receive a message on an unstarted receiver", func() {
+	It("fails to receive a message on an unconnected receiver", func() {
 		receiver, err := messagingService.RequestReply().CreateRequestReplyMessageReceiverBuilder().Build(subscription)
 		Expect(err).ToNot(HaveOccurred())
 
