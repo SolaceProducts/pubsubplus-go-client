@@ -108,11 +108,11 @@ var _ = Describe("RequestReplyPublisher", func() {
 		for key, val := range validConfigurations {
 			validConfiguration := val
 			It("succeeds to build with "+key, func() {
-				requestReplyPublisher, err := messagingService.RequestReply().CreateRequestReplyMessagePublisherBuilder().FromConfigurationProvider(validConfiguration).Build()
+				publisher, err := messagingService.RequestReply().CreateRequestReplyMessagePublisherBuilder().FromConfigurationProvider(validConfiguration).Build()
 
 				expected := &solace.IllegalArgumentError{}
-				Expect(requestReplyPublisher).ShouldNot(Equal(nil))
-				Expect(requestReplyPublisher.IsRunning()).To(BeFalse()) // running state should be false
+				Expect(publisher).ShouldNot(Equal(nil))
+				Expect(publisher.IsRunning()).To(BeFalse()) // running state should be false
 				ExpectWithOffset(2, err).ToNot(HaveOccurred(), "Expected error to not have occurred")
 				ExpectWithOffset(2, err).ToNot(BeAssignableToTypeOf(expected), fmt.Sprintf("Expected error of type %T to not be assignable of type %T", err, expected))
 			})
