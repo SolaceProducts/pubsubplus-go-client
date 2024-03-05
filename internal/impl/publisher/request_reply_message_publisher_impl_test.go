@@ -18,23 +18,24 @@ package publisher
 
 import (
 	"encoding/json"
-	//    "fmt"
+	"fmt"
 	"testing"
-	//    "time"
+	"time"
 	//    "unsafe"
 
 	//    "solace.dev/go/messaging/internal/ccsmp"
 
-	//    "solace.dev/go/messaging/internal/impl/core"
-	//    "solace.dev/go/messaging/internal/impl/message"
+	"solace.dev/go/messaging/internal/impl/core"
+	"solace.dev/go/messaging/internal/impl/message"
 
-	//    "solace.dev/go/messaging/internal/impl/constants"
+	"solace.dev/go/messaging/internal/impl/constants"
 
 	//    "solace.dev/go/messaging/internal/impl/executor"
 	//    "solace.dev/go/messaging/internal/impl/publisher/buffer"
 	"solace.dev/go/messaging/pkg/solace"
 	"solace.dev/go/messaging/pkg/solace/config"
-	// "solace.dev/go/messaging/pkg/solace/resource"
+	apimessage "solace.dev/go/messaging/pkg/solace/message"
+	"solace.dev/go/messaging/pkg/solace/resource"
 	// "solace.dev/go/messaging/pkg/solace/subcode"
 )
 
@@ -160,5 +161,737 @@ func TestRequestReplyMessagePublisherBuilderWithInvalidCustomPropertiesMapWrongS
 	}
 	if err == nil {
 		t.Error("expected error when backpressure strategy is an integer")
+	}
+}
+
+func TestRequestReplyMessagePublisherImplLifecycle(t *testing.T) {
+	gracePeriod := 10 * time.Second
+
+	// parameterize this test with the various start and terminate functions (sync/async)
+	startAndTerminatFunctions := []struct {
+		start     func(publisher *requestReplyMessagePublisherImpl)
+		terminate func(publisher *requestReplyMessagePublisherImpl)
+	}{
+		{
+			start: func(publisher *requestReplyMessagePublisherImpl) {
+				err := publisher.Start()
+				if err != nil {
+					t.Error("expected error to be nil, got " + err.Error())
+				}
+			},
+			terminate: func(publisher *requestReplyMessagePublisherImpl) {
+				err := publisher.Terminate(gracePeriod)
+				if err != nil {
+					t.Error("expected error to be nil, got " + err.Error())
+				}
+			},
+		},
+		{
+			start: func(publisher *requestReplyMessagePublisherImpl) {
+				select {
+				case err := <-publisher.StartAsync():
+					if err != nil {
+						t.Error("expected error to be nil, got " + err.Error())
+					}
+				case <-time.After(100 * time.Millisecond):
+					t.Error("timed out waiting for publisher to start")
+				}
+			},
+			terminate: func(publisher *requestReplyMessagePublisherImpl) {
+				select {
+				case err := <-publisher.TerminateAsync(gracePeriod):
+					if err != nil {
+						t.Error("expected error to be nil, got " + err.Error())
+					}
+				case <-time.After(gracePeriod + 5*time.Second):
+					t.Error("timed out waiting for publisher to terminate")
+				}
+			},
+		},
+		{
+			start: func(publisher *requestReplyMessagePublisherImpl) {
+				done := make(chan struct{})
+				publisher.StartAsyncCallback(func(retPub solace.RequestReplyMessagePublisher, err error) {
+					if publisher != retPub {
+						t.Error("got a different publisher returned to the start callback")
+					}
+					if err != nil {
+						t.Error("expected error to be nil, got " + err.Error())
+					}
+					close(done)
+				})
+				select {
+				case <-done:
+					// success
+				case <-time.After(100 * time.Millisecond):
+					t.Error("timed out waiting for request reply publisher to start")
+				}
+			},
+			terminate: func(publisher *requestReplyMessagePublisherImpl) {
+				done := make(chan struct{})
+				publisher.TerminateAsyncCallback(gracePeriod, func(err error) {
+					if err != nil {
+						t.Error("expected error to be nil, got " + err.Error())
+					}
+					close(done)
+				})
+				select {
+				case <-done:
+					// success
+				case <-time.After(100 * time.Millisecond):
+					t.Error("timed out waiting for request reply publisher to start")
+				}
+			},
+		},
+	}
+	for _, fns := range startAndTerminatFunctions {
+		publisher := &requestReplyMessagePublisherImpl{}
+		publisher.construct(&mockInternalPublisher{}, backpressureConfigurationWait, 1)
+		eventExecutor := &mockEventExecutor{}
+		taskBuffer := &mockTaskBuffer{}
+		publisher.eventExecutor = eventExecutor
+		publisher.taskBuffer = taskBuffer
+		// pre start
+		if publisher.IsReady() {
+			t.Error("expected publisher to not be ready")
+		}
+		if publisher.IsRunning() {
+			t.Error("expected publisher to not be running")
+		}
+		if publisher.IsTerminating() {
+			t.Error("expected terminating to be false, was true")
+		}
+		if publisher.IsTerminated() {
+			t.Error("expected publisher to not yet be terminated")
+		}
+
+		// start
+		eventExecutorStarted := make(chan struct{})
+		eventExecutor.run = func() {
+			close(eventExecutorStarted)
+		}
+		taskBufferStarted := make(chan struct{})
+		taskBuffer.run = func() {
+			close(taskBufferStarted)
+		}
+		fns.start(publisher)
+		// check started
+		select {
+		case <-eventExecutorStarted:
+			// success
+		case <-time.After(100 * time.Millisecond):
+			t.Error("timed out waiting for event executor to start")
+		}
+		select {
+		case <-taskBufferStarted:
+			// success
+		case <-time.After(100 * time.Millisecond):
+			t.Error("timed out waiting for event executor to start")
+		}
+		// check started states
+		if !publisher.IsReady() {
+			t.Error("expected publisher to be ready, it was not")
+		}
+		if !publisher.IsRunning() {
+			t.Error("expected publisher to be running, it was not")
+		}
+		if publisher.IsTerminating() {
+			t.Error("expected terminating to be false, was true")
+		}
+		if publisher.IsTerminated() {
+			t.Error("expected publisher to not yet be terminated")
+		}
+
+		// terminate
+		eventExecutorTerminated := make(chan struct{})
+		eventExecutor.awaitTermination = func() {
+			close(eventExecutorTerminated)
+		}
+		taskBufferTerminated := make(chan struct{})
+		taskBuffer.terminate = func(timer *time.Timer) bool {
+			// this should be shutdown first
+			select {
+			case <-eventExecutorTerminated:
+				t.Error("expected task buffer to be shutdown first")
+			default:
+				// success
+			}
+			// check terminating state
+			if publisher.IsReady() {
+				t.Error("expected publisher to not be ready")
+			}
+			if publisher.IsRunning() {
+				t.Error("expected publisher to not be running")
+			}
+			if publisher.IsTerminated() {
+				t.Error("expected publisher to not yet be terminated")
+			}
+			if !publisher.IsTerminating() {
+				t.Error("expected publisher to be terminating")
+			}
+			close(taskBufferTerminated)
+			return true
+		}
+		fns.terminate(publisher)
+		// check terminated
+		select {
+		case <-eventExecutorTerminated:
+			// success
+		case <-time.After(100 * time.Millisecond):
+			t.Error("timed out waiting for event executor to terminate")
+		}
+		select {
+		case <-taskBufferTerminated:
+			// success
+		case <-time.After(100 * time.Millisecond):
+			t.Error("timed out waiting for task buffer to terminate")
+		}
+		select {
+		case <-publisher.requestCorrelateComplete:
+			//success
+		case <-time.After(100 * time.Millisecond):
+			t.Error("timed out waiting for correlation request to terminate")
+		}
+		select {
+		case <-publisher.correlationComplete:
+			//success
+		case <-time.After(100 * time.Millisecond):
+			t.Error("timed out waiting for correlation table empty channel to terminate")
+		}
+		// check terminated states
+		if publisher.IsReady() {
+			t.Error("expected publisher to not be ready")
+		}
+		if publisher.IsRunning() {
+			t.Error("expected publisher to not be running")
+		}
+		if publisher.IsTerminating() {
+			t.Error("expected publisher to not be terminating")
+		}
+		if !publisher.IsTerminated() {
+			t.Error("expected publisher to be terminated")
+		}
+	}
+}
+
+func TestRequestReplyMessagePublisherImplLifecycleNoBuffer(t *testing.T) {
+	publisher := &requestReplyMessagePublisherImpl{}
+	publisher.construct(&mockInternalPublisher{}, backpressureConfigurationDirect, 1)
+	eventExecutor := &mockEventExecutor{}
+	taskBuffer := &mockTaskBuffer{}
+	publisher.eventExecutor = eventExecutor
+	publisher.taskBuffer = taskBuffer
+
+	// start
+	eventExecutorStarted := make(chan struct{})
+	eventExecutor.run = func() {
+		close(eventExecutorStarted)
+	}
+	taskBufferStarted := make(chan struct{})
+	taskBuffer.run = func() {
+		close(taskBufferStarted)
+	}
+	err := publisher.Start()
+	if err != nil {
+		t.Error("expected error to be nil, got " + err.Error())
+	}
+	// check started
+	select {
+	case <-eventExecutorStarted:
+		// success
+	case <-time.After(100 * time.Millisecond):
+		t.Error("timed out waiting for event executor to start")
+	}
+	select {
+	case <-taskBufferStarted:
+		t.Error("did not expect task buffer to start")
+	case <-time.After(100 * time.Millisecond):
+		// success
+	}
+
+	// terminate
+	gracePeriod := 10 * time.Second
+	eventExecutorTerminated := make(chan struct{})
+	eventExecutor.awaitTermination = func() {
+		close(eventExecutorTerminated)
+	}
+	taskBufferTerminated := make(chan struct{})
+	taskBuffer.terminate = func(timer *time.Timer) bool {
+		// this should be shutdown first
+		select {
+		case <-eventExecutorTerminated:
+			t.Error("expected task buffer to be shutdown first")
+		default:
+			// success
+		}
+		close(taskBufferTerminated)
+		return true
+	}
+	err = publisher.Terminate(gracePeriod)
+	// check terminated
+	select {
+	case <-eventExecutorTerminated:
+		// success
+	case <-time.After(100 * time.Millisecond):
+		t.Error("timed out waiting for event executor to terminate")
+	}
+	select {
+	case <-taskBufferTerminated:
+		t.Error("did not expect task buffer to be terminated as it was never started")
+	case <-time.After(100 * time.Millisecond):
+		// success
+	}
+	select {
+	case <-publisher.requestCorrelateComplete:
+		//success
+	case <-time.After(100 * time.Millisecond):
+		t.Error("timed out waiting for correlation request to terminate")
+	}
+	select {
+	case <-publisher.correlationComplete:
+		//success
+	case <-time.After(100 * time.Millisecond):
+		t.Error("timed out waiting for correlation table empty channel to terminate")
+	}
+	// check terminated states
+	if err != nil {
+		t.Error("expected error to be nil, got " + err.Error())
+	}
+}
+
+func TestRequestReplyMessagePublisherLifecycleIdempotence(t *testing.T) {
+	publisher := &requestReplyMessagePublisherImpl{}
+	publisher.construct(&mockInternalPublisher{}, backpressureConfigurationWait, 1)
+	eventExecutor := &mockEventExecutor{}
+	taskBuffer := &mockTaskBuffer{}
+	publisher.eventExecutor = eventExecutor
+	publisher.taskBuffer = taskBuffer
+
+	// expect channels to be closed on second call only
+	eventExecutorStarted := make(chan interface{}, 2)
+	eventExecutor.run = func() {
+		eventExecutorStarted <- nil
+	}
+	taskBufferStarted := make(chan interface{}, 2)
+	taskBuffer.run = func() {
+		taskBufferStarted <- nil
+	}
+
+	// start
+	err := publisher.Start()
+	if err != nil {
+		t.Error("expected error to be nil, got " + err.Error())
+	}
+	// check started
+	select {
+	case <-eventExecutorStarted:
+		// success
+	case <-time.After(100 * time.Millisecond):
+		t.Error("timed out waiting for event executor to start")
+	}
+	select {
+	case <-taskBufferStarted:
+		// success
+	case <-time.After(100 * time.Millisecond):
+		t.Error("timed out waiting for event executor to start")
+	}
+
+	// start again
+	err = publisher.Start()
+	if err != nil {
+		t.Error("did not expect an error on subsequent start, got " + err.Error())
+	}
+	select {
+	case <-eventExecutorStarted:
+		t.Error("did not expect event executor to be run on subsequent starts")
+	case <-time.After(100 * time.Millisecond):
+		// success
+	}
+	select {
+	case <-taskBufferStarted:
+		t.Error("did not expect task buffer to be run on subsequent starts")
+	case <-time.After(100 * time.Millisecond):
+		// success
+	}
+
+	// check started states
+	if !publisher.IsReady() {
+		t.Error("expected publisher to be ready, it was not")
+	}
+	if !publisher.IsRunning() {
+		t.Error("expected publisher to be running, it was not")
+	}
+	if publisher.IsTerminating() {
+		t.Error("expected terminating to be false, was true")
+	}
+	if publisher.IsTerminated() {
+		t.Error("expected publisher to not yet be terminated")
+	}
+
+	// terminate functions
+	eventExecutorTerminated := make(chan interface{}, 2)
+	eventExecutor.awaitTermination = func() {
+		eventExecutorTerminated <- nil
+	}
+	taskBufferTerminated := make(chan interface{}, 2)
+	taskBuffer.terminate = func(timer *time.Timer) bool {
+		taskBufferTerminated <- nil
+		return true
+	}
+
+	gracePeriod := 10 * time.Second
+	// terminate
+	err = publisher.Terminate(gracePeriod)
+	if err != nil {
+		t.Error("expected error to be nil, got " + err.Error())
+	}
+	// make sure termiante was called
+	select {
+	case <-eventExecutorTerminated:
+		// success
+	case <-time.After(100 * time.Millisecond):
+		t.Error("timed out waiting for event executor to termiante")
+	}
+	select {
+	case <-taskBufferTerminated:
+		// success
+	case <-time.After(100 * time.Millisecond):
+		t.Error("timed out waiting for event executor to terminate")
+	}
+	select {
+	case <-publisher.requestCorrelateComplete:
+		//success
+	case <-time.After(100 * time.Millisecond):
+		t.Error("timed out waiting for correlation request to terminate")
+	}
+	select {
+	case <-publisher.correlationComplete:
+		//success
+	case <-time.After(100 * time.Millisecond):
+		t.Error("timed out waiting for correlation table empty channel to terminate")
+	}
+
+	err = publisher.Terminate(gracePeriod)
+	// check terminated states
+	if err != nil {
+		t.Error("expected error to be nil, got " + err.Error())
+	}
+	// check terminated
+	select {
+	case <-eventExecutorTerminated:
+		t.Error("did not expect event executor to be terminated again")
+	case <-time.After(100 * time.Millisecond):
+		// success
+	}
+	select {
+	case <-taskBufferTerminated:
+		t.Error("did not expect task buffer to be terminated again")
+	case <-time.After(100 * time.Millisecond):
+		// success
+	}
+	select {
+	case <-publisher.requestCorrelateComplete:
+		//success
+	case <-time.After(100 * time.Millisecond):
+		t.Error("timed out waiting for correlation request to terminate")
+	}
+	select {
+	case <-publisher.correlationComplete:
+		//success
+	case <-time.After(100 * time.Millisecond):
+		t.Error("timed out waiting for correlation table empty channel to terminate")
+	}
+}
+
+func TestRequestReplyMessagePublisherTerminateWithUnpublishedMessages(t *testing.T) {
+	internalPublisher := &mockInternalPublisher{}
+	publisher := &requestReplyMessagePublisherImpl{}
+	publisher.construct(internalPublisher, backpressureConfigurationWait, 10)
+	eventExecutor := &mockEventExecutor{}
+	taskBuffer := &mockTaskBuffer{}
+	publisher.eventExecutor = eventExecutor
+	publisher.taskBuffer = taskBuffer
+
+	unpublishedCount := 2
+	metricsIncremented := false
+	internalPublisher.incrementMetric = func(metric core.NextGenMetric, amount uint64) {
+		if metric != core.MetricPublishMessagesTerminationDiscarded {
+			t.Errorf("expected metric %d to be incremented, got %d", core.MetricPublishMessagesTerminationDiscarded, metric)
+		}
+		if amount != uint64(unpublishedCount) {
+			t.Errorf("expected %d unpublished messages, got %d", unpublishedCount, amount)
+		}
+		metricsIncremented = true
+	}
+
+	publisher.Start()
+	for i := 0; i < unpublishedCount; i++ {
+		unpublished := &publishable{}
+		unpublished.message = &message.OutboundMessageImpl{}
+		publisher.buffer <- unpublished
+	}
+	err := publisher.Terminate(10 * time.Second)
+	expected := fmt.Sprintf(constants.IncompleteMessageDeliveryMessage, unpublishedCount)
+	if err == nil || err.Error() != expected {
+		t.Errorf("did not get expected error. Expected '%s', got '%s'", expected, err)
+	}
+	if !metricsIncremented {
+		t.Error("IncrementMetric not called")
+	}
+}
+
+func TestRequestReplyMessagePublisherUnsolicitedTerminationWithUnpublishedMessages(t *testing.T) {
+	internalPublisher := &mockInternalPublisher{}
+	publisher := &requestReplyMessagePublisherImpl{}
+	publisher.construct(internalPublisher, backpressureConfigurationWait, 10)
+	eventExecutor := &mockEventExecutor{}
+	taskBuffer := &mockTaskBuffer{}
+	publisher.eventExecutor = eventExecutor
+	publisher.taskBuffer = taskBuffer
+
+	unpublishedCount := 2
+	metricsIncremented := false
+	internalPublisher.incrementMetric = func(metric core.NextGenMetric, amount uint64) {
+		if metric != core.MetricPublishMessagesTerminationDiscarded {
+			t.Errorf("expected metric %d to be incremented, got %d", core.MetricPublishMessagesTerminationDiscarded, metric)
+		}
+		if amount != uint64(unpublishedCount) {
+			t.Errorf("expected %d unpublished messages, got %d", unpublishedCount, amount)
+		}
+		metricsIncremented = true
+	}
+
+	terminationListenerCalled := make(chan error)
+	publisher.SetTerminationNotificationListener(func(te solace.TerminationEvent) {
+		delta := time.Since(te.GetTimestamp())
+		if delta < 0 || delta > 100*time.Millisecond {
+			t.Errorf("Timestamp delta too large! Timestamp: %s, now: %s", te.GetTimestamp(), time.Now())
+		}
+		if !publisher.IsTerminated() {
+			t.Error("Expected publisher to be terminated when notification listener is called")
+		}
+		if te.GetMessage() == "" {
+			t.Error("Expected message in termination event")
+		}
+		terminationListenerCalled <- te.GetCause()
+	})
+
+	publisher.Start()
+
+	eventExecutorTerminated := make(chan interface{})
+	eventExecutor.terminate = func() {
+		close(eventExecutorTerminated)
+	}
+	taskBufferTerminated := make(chan interface{})
+	taskBuffer.terminateNow = func() {
+		close(taskBufferTerminated)
+	}
+
+	for i := 0; i < unpublishedCount; i++ {
+		unpublished := &publishable{}
+		unpublished.message = &message.OutboundMessageImpl{}
+		publisher.buffer <- unpublished
+	}
+	errForEvent := fmt.Errorf("some error")
+	publisher.onDownEvent(&mockEvent{err: errForEvent})
+
+	select {
+	case <-eventExecutorTerminated:
+		// success
+	case <-time.After(100 * time.Millisecond):
+		t.Error("timed out waiting for event executor to terminate")
+	}
+	select {
+	case <-taskBufferTerminated:
+		// success
+	case <-time.After(100 * time.Millisecond):
+		t.Error("timed out waiting for event executor to terminate")
+	}
+	select {
+	case err := <-terminationListenerCalled:
+		if err != errForEvent {
+			t.Errorf("expected %s, got %s", errForEvent, err)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Error("timed out waiting for termination listener to be called")
+	}
+	err := publisher.Terminate(100 * time.Millisecond)
+	if _, ok := err.(*solace.IncompleteMessageDeliveryError); !ok {
+		t.Error("expected to get incomplete message delivery error from subsequent calls to terminate")
+	}
+	if !metricsIncremented {
+		t.Error("IncrementMetrics not called")
+	}
+}
+
+func TestRequestReplyCallPublishWhenNotStarted(t *testing.T) {
+	publisher := &requestReplyMessagePublisherImpl{}
+	publisher.construct(&mockInternalPublisher{}, backpressureConfigurationWait, 1)
+	eventExecutor := &mockEventExecutor{}
+	taskBuffer := &mockTaskBuffer{}
+	publisher.eventExecutor = eventExecutor
+	publisher.taskBuffer = taskBuffer
+
+	testMessage, _ := message.NewOutboundMessage()
+	testTopic := resource.TopicOf("hello/world")
+	replyHandler := func(replyMsg apimessage.InboundMessage, context interface{}, err error) {}
+	err := publisher.Publish(testMessage, replyHandler, testTopic, 100*time.Millisecond, nil /* usercontext */, nil /* property provider */)
+	if err == nil {
+		t.Error("expected publish to fail when publisher not started")
+	}
+}
+
+func TestRequestReplyCallPublishWhenAlreadyTerminated(t *testing.T) {
+	publisher := &requestReplyMessagePublisherImpl{}
+	publisher.construct(&mockInternalPublisher{}, backpressureConfigurationWait, 1)
+	eventExecutor := &mockEventExecutor{}
+	taskBuffer := &mockTaskBuffer{}
+	publisher.eventExecutor = eventExecutor
+	publisher.taskBuffer = taskBuffer
+
+	publisher.Start()
+	publisher.Terminate(1 * time.Second)
+
+	testMessage, _ := message.NewOutboundMessage()
+	testTopic := resource.TopicOf("hello/world")
+	replyHandler := func(replyMsg apimessage.InboundMessage, context interface{}, err error) {}
+	err := publisher.Publish(testMessage, replyHandler, testTopic, 100*time.Millisecond, nil /* usercontext */, nil /* property provider */)
+	if err == nil {
+		t.Error("expected publish to fail when publisher already terminated")
+	}
+}
+
+func TestRequestReplyCallPublishWithBadPayload(t *testing.T) {
+	publisher := &requestReplyMessagePublisherImpl{}
+	publisher.construct(&mockInternalPublisher{}, backpressureConfigurationWait, 1)
+	eventExecutor := &mockEventExecutor{}
+	taskBuffer := &mockTaskBuffer{}
+	publisher.eventExecutor = eventExecutor
+	publisher.taskBuffer = taskBuffer
+
+	publisher.Start()
+
+	testTopic := resource.TopicOf("hello/world")
+	replyHandler := func(replyMsg apimessage.InboundMessage, context interface{}, err error) {}
+	err := publisher.Publish(nil, replyHandler, testTopic, 100*time.Millisecond, nil /* usercontext */, nil /* property provider */)
+	if err == nil {
+		t.Error("expected publish to fail when message parameter is nil")
+	}
+}
+
+func TestRequestReplyCallPublishWithBadReplyHandler(t *testing.T) {
+	publisher := &requestReplyMessagePublisherImpl{}
+	publisher.construct(&mockInternalPublisher{}, backpressureConfigurationWait, 1)
+	eventExecutor := &mockEventExecutor{}
+	taskBuffer := &mockTaskBuffer{}
+	publisher.eventExecutor = eventExecutor
+	publisher.taskBuffer = taskBuffer
+
+	publisher.Start()
+
+	testTopic := resource.TopicOf("hello/world")
+	timeoutDuration := 100 * time.Millisecond
+	pubFuncs := []func(pub solace.RequestReplyMessagePublisher) (string, error){
+		func(pub solace.RequestReplyMessagePublisher) (string, error) {
+			// pub message
+			testMessage, _ := message.NewOutboundMessage()
+			return "Message", pub.Publish(testMessage, nil /* replyHandler */, testTopic, timeoutDuration, nil /* usercontext */, nil /* property provider */)
+		},
+		func(pub solace.RequestReplyMessagePublisher) (string, error) {
+			// pub string
+			testString := "RequestReply"
+			return "String", pub.PublishString(testString, nil /* replyHandler */, testTopic, timeoutDuration, nil /* usercontext */)
+		},
+		func(pub solace.RequestReplyMessagePublisher) (string, error) {
+			// pub bytes
+			testBytes := []byte{0x01, 0x02, 0x03}
+			return "Bytes", pub.PublishBytes(testBytes, nil /* replyHandler */, testTopic, timeoutDuration, nil /* usercontext */)
+		},
+	}
+
+	for _, pubFunc := range pubFuncs {
+		description, err := pubFunc(publisher)
+		if err == nil {
+			t.Errorf("expected publish %s to fail when replyHandler parameter is nil", description)
+		}
+	}
+}
+
+func TestRequestReplyCallPublishWithNegativeDuration(t *testing.T) {
+	// test wait beahviour for negative timeouts
+	// expects no timeout error for any response with no replier
+	publisherReplyToTopic := "testReplyTopic"
+	testTopic := resource.TopicOf("hello/world")
+	var coreReplyHandler core.RequestorReplyHandler = nil
+	messagePublishedChan := make(chan bool, 1)
+	corePublisher := &mockInternalPublisher{}
+	corePublisher.requestor = func() core.Requestor {
+		mock := &mockRequestor{}
+		mock.addRequestorReplyHandler = func(handler core.RequestorReplyHandler) (string, func() (messageID uint64, correlationID string), core.ErrorInfo) {
+			count := uint64(0)
+			coreReplyHandler = handler
+			return publisherReplyToTopic, func() (uint64, string) {
+				count += 1
+				return count, fmt.Sprintf("TEST%d", count)
+			}, nil
+		}
+		return mock
+	}
+	corePublisher.publish = func(message core.Publishable) core.ErrorInfo {
+		messagePublishedChan <- true
+		return nil
+	}
+	publisher := &requestReplyMessagePublisherImpl{}
+	publisher.construct(corePublisher, backpressureConfigurationDirect, 0)
+
+	publisher.Start()
+
+	if coreReplyHandler == nil {
+		t.Error("coreReplyHandler was not set from call to start")
+	}
+
+	if publisher.replyToTopic != publisherReplyToTopic {
+		t.Error("replyToTopic was not set from start")
+	}
+
+	replyMessageResponseChan := make(chan error, 1)
+
+	replyHandler := func(replyMsg apimessage.InboundMessage, context interface{}, err error) {
+		replyMessageResponseChan <- err
+	}
+
+	err := publisher.PublishString("testPayload", replyHandler, testTopic, time.Duration(-1), nil /* usercontext */)
+	if err != nil {
+		t.Errorf("Error publishing request message with negative timeout, error: %s", err)
+	}
+
+	select {
+	case sent := <-messagePublishedChan:
+		if !sent {
+			t.Error("Message was not sent")
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Error("Timeout waiting for request message to publish")
+	}
+
+	terminateChan := publisher.TerminateAsync(1 * time.Second)
+
+	select {
+	case replyError := <-replyMessageResponseChan:
+		if replyError == nil {
+			t.Error("Publisher did not receive reply error response")
+		} else if _, ok := err.(*solace.TimeoutError); ok {
+			t.Error("Publisher received timeout error response")
+		}
+	case <-time.After(2 * time.Second):
+		t.Error("did not receive response after terminate completes")
+	}
+
+	select {
+	case termError := <-terminateChan:
+		// terminate compelete
+		if termError != nil {
+			t.Errorf("Got unexpected termination error %s", termError)
+		}
 	}
 }

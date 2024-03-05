@@ -424,7 +424,7 @@ func (publisher *requestReplyMessagePublisherImpl) PublishBytes(bytes []byte, re
 		return err
 	}
 	// we built the message so it is safe to cast
-	outcomeHandler, err := publisher.publish(msg.(*message.OutboundMessageImpl), replyMessageHandler, dest, replyTimeout, userContext)
+	outcomeHandler, err := publisher.publishAsync(msg.(*message.OutboundMessageImpl), replyMessageHandler, dest, replyTimeout, userContext)
 	if err != nil {
 		return err
 	}
@@ -444,7 +444,7 @@ func (publisher *requestReplyMessagePublisherImpl) PublishString(str string, rep
 		return err
 	}
 	// we built the message so it is safe to cast
-	outcomeHandler, err := publisher.publish(msg.(*message.OutboundMessageImpl), replyMessageHandler, dest, replyTimeout, userContext)
+	outcomeHandler, err := publisher.publishAsync(msg.(*message.OutboundMessageImpl), replyMessageHandler, dest, replyTimeout, userContext)
 	if err != nil {
 		return err
 	}
@@ -452,7 +452,7 @@ func (publisher *requestReplyMessagePublisherImpl) PublishString(str string, rep
 	return nil
 }
 
-// PublishWithProperties will publish the given message of type OutboundMessage
+// Publish will publish the given message of type OutboundMessage
 // with the given properties. These properties will override the properties on
 // the OutboundMessage instance if present. Possible errors include:
 // - solace/solace.*PubSubPlusClientError if the message could not be sent and all retry attempts failed.
@@ -478,7 +478,7 @@ func (publisher *requestReplyMessagePublisherImpl) Publish(msg apimessage.Outbou
 			return err
 		}
 	}
-	outcomeHandler, err := publisher.publish(msgDup, replyMessageHandler, dest, replyTimeout, userContext)
+	outcomeHandler, err := publisher.publishAsync(msgDup, replyMessageHandler, dest, replyTimeout, userContext)
 	if err != nil {
 		return err
 	}
@@ -512,6 +512,14 @@ func (publisher *requestReplyMessagePublisherImpl) PublishAwaitResponse(msg apim
 		return nil, err
 	}
 	return outcomeHandler()
+}
+
+func (publisher *requestReplyMessagePublisherImpl) publishAsync(msg *message.OutboundMessageImpl, replyMessageHandler solace.ReplyMessageHandler, dest *resource.Topic, replyTimeout time.Duration, userContext interface{}) (retOutcome ReplyOutcome, ret error) {
+	if replyMessageHandler == nil {
+		err := solace.NewError(&solace.IllegalArgumentError{}, constants.MissingReplyMessageHandler, nil)
+		return nil, err
+	}
+	return publisher.publish(msg, replyMessageHandler, dest, replyTimeout, userContext)
 }
 
 // publish impl taking a dup'd message, assuming state has been checked and we are running
