@@ -23,20 +23,20 @@ import (
 	"time"
 	//    "unsafe"
 
-	//    "solace.dev/go/messaging/internal/ccsmp"
+	"solace.dev/go/messaging/internal/ccsmp"
 
 	"solace.dev/go/messaging/internal/impl/core"
 	"solace.dev/go/messaging/internal/impl/message"
 
 	"solace.dev/go/messaging/internal/impl/constants"
 
-	//    "solace.dev/go/messaging/internal/impl/executor"
-	//    "solace.dev/go/messaging/internal/impl/publisher/buffer"
+	"solace.dev/go/messaging/internal/impl/executor"
+	"solace.dev/go/messaging/internal/impl/publisher/buffer"
 	"solace.dev/go/messaging/pkg/solace"
 	"solace.dev/go/messaging/pkg/solace/config"
 	apimessage "solace.dev/go/messaging/pkg/solace/message"
 	"solace.dev/go/messaging/pkg/solace/resource"
-	// "solace.dev/go/messaging/pkg/solace/subcode"
+	"solace.dev/go/messaging/pkg/solace/subcode"
 )
 
 func TestRequestReplyMessagePublisherBuilderWithValidBackpressure(t *testing.T) {
@@ -893,5 +893,506 @@ func TestRequestReplyCallPublishWithNegativeDuration(t *testing.T) {
 		if termError != nil {
 			t.Errorf("Got unexpected termination error %s", termError)
 		}
+	}
+}
+
+func TestRequestReplyMessagePublisherPublishFunctionalityBufferedWait(t *testing.T) {
+	publisher := &requestReplyMessagePublisherImpl{}
+	publisher.construct(&mockInternalPublisher{}, backpressureConfigurationWait, 1)
+	eventExecutor := &mockEventExecutor{}
+	taskBuffer := &mockTaskBuffer{}
+	publisher.eventExecutor = eventExecutor
+	publisher.taskBuffer = taskBuffer
+
+	publisher.Start()
+
+	taskBufferSubmitCalled := make(chan interface{}, 10)
+	taskBuffer.submit = func(task buffer.PublisherTask) bool {
+		taskBufferSubmitCalled <- nil
+		return true
+	}
+
+	testMessage, _ := message.NewOutboundMessage()
+	testTopic := resource.TopicOf("hello/world")
+	testReplyHandler := func(msg apimessage.InboundMessage, usercontext interface{}, err error) {}
+	testTimeout := time.Duration(-1) // forever
+	err := publisher.Publish(testMessage, testReplyHandler, testTopic, testTimeout, nil /*properties*/, nil /*usercontext*/)
+	if err != nil {
+		t.Error(err)
+	}
+
+	select {
+	case <-taskBufferSubmitCalled:
+		// success
+	default:
+		t.Error("Expect task buffer submit to be called")
+	}
+
+	publishComplete := make(chan struct{})
+	go func() {
+		// this should block
+		err := publisher.Publish(testMessage, testReplyHandler, testTopic, testTimeout, nil /*properties*/, nil /*usercontext*/)
+		if err != nil {
+			t.Error(err)
+		}
+		close(publishComplete)
+	}()
+
+	select {
+	case <-publishComplete:
+		t.Error("expected publish to block a while")
+	case <-time.After(50 * time.Millisecond):
+		// success
+	}
+	select {
+	case <-publisher.buffer:
+	default:
+		t.Error("expected message to be present in publisher buffer")
+	}
+
+	select {
+	case <-publishComplete:
+		// success
+	case <-time.After(100 * time.Millisecond):
+		t.Error("timed out waiting for publish to complete")
+	}
+
+	publishFailed := make(chan error)
+	go func() {
+		publishFailed <- publisher.Publish(testMessage, testReplyHandler, testTopic, testTimeout, nil /*properties*/, nil /*usercontext*/)
+	}()
+	select {
+	case <-publishFailed:
+		t.Error("expected to block indefinitely, returned")
+	case <-time.After(1 * time.Second):
+		// success
+	}
+
+	select {
+	case <-publisher.buffer:
+	default:
+		t.Error("expected message to be present in publisher buffer")
+	}
+	select {
+	case <-publishFailed:
+		// success
+	case <-time.After(1 * time.Second):
+		t.Error("expected long running block to successfully push message")
+	}
+	select {
+	case <-publisher.buffer:
+	default:
+		t.Error("expected message to be present in publisher buffer")
+	}
+	err = publisher.Publish(testMessage, testReplyHandler, testTopic, testTimeout, nil /*properties*/, nil /*usercontext*/)
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func TestRequestReplyMessagePublisherPublishFunctionalityBufferedReject(t *testing.T) {
+	publisher := &requestReplyMessagePublisherImpl{}
+	publisher.construct(&mockInternalPublisher{}, backpressureConfigurationReject, 1)
+	eventExecutor := &mockEventExecutor{}
+	taskBuffer := &mockTaskBuffer{}
+	publisher.eventExecutor = eventExecutor
+	publisher.taskBuffer = taskBuffer
+
+	publisher.Start()
+
+	taskBufferSubmitCalled := make(chan interface{}, 10)
+	taskBuffer.submit = func(task buffer.PublisherTask) bool {
+		taskBufferSubmitCalled <- nil
+		return true
+	}
+
+	testMessage, _ := message.NewOutboundMessage()
+	testTopic := resource.TopicOf("hello/world")
+	testReplyHandler := func(msg apimessage.InboundMessage, usercontext interface{}, err error) {}
+	testTimeout := time.Duration(-1) // forever
+	err := publisher.Publish(testMessage, testReplyHandler, testTopic, testTimeout, nil /*properties*/, nil /*usercontext*/)
+	if err != nil {
+		t.Error(err)
+	}
+
+	select {
+	case <-taskBufferSubmitCalled:
+		// success
+	default:
+		t.Error("Expect task buffer submit to be called")
+	}
+
+	err = publisher.Publish(testMessage, testReplyHandler, testTopic, testTimeout, nil /*properties*/, nil /*usercontext*/)
+	if err == nil {
+		t.Error("expected error, got nil")
+	}
+	if _, ok := err.(*solace.PublisherOverflowError); !ok {
+		t.Errorf("expected would block error, got %s", err)
+	}
+
+	select {
+	case <-publisher.buffer:
+	default:
+		t.Error("expected message to be present in publisher buffer")
+	}
+
+	err = publisher.Publish(testMessage, testReplyHandler, testTopic, testTimeout, nil /*properties*/, nil /*usercontext*/)
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func TestRequestReplyMessagePublisherPublishFunctionalityDirect(t *testing.T) {
+	publisher := &requestReplyMessagePublisherImpl{}
+	internalPublisher := &mockInternalPublisher{}
+	publisher.construct(internalPublisher, backpressureConfigurationDirect, 1)
+	eventExecutor := &mockEventExecutor{}
+	taskBuffer := &mockTaskBuffer{}
+	publisher.eventExecutor = eventExecutor
+	publisher.taskBuffer = taskBuffer
+
+	publisher.Start()
+
+	taskBufferSubmitCalled := make(chan struct{})
+	taskBuffer.submit = func(task buffer.PublisherTask) bool {
+		close(taskBufferSubmitCalled)
+		return true
+	}
+
+	publishCalled := false
+	internalPublisher.publish = func(message ccsmp.SolClientMessagePt) core.ErrorInfo {
+		publishCalled = true
+		return nil
+	}
+
+	testMessage, _ := message.NewOutboundMessage()
+	testTopic := resource.TopicOf("hello/world")
+	testReplyHandler := func(msg apimessage.InboundMessage, usercontext interface{}, err error) {}
+	testTimeout := time.Duration(-1) // forever
+	err := publisher.Publish(testMessage, testReplyHandler, testTopic, testTimeout, nil /*properties*/, nil /*usercontext*/)
+	if err != nil {
+		t.Error(err)
+	}
+	if !publishCalled {
+		t.Error("expected internal publisher's publish function to be called directly")
+	}
+
+	select {
+	case <-taskBufferSubmitCalled:
+		t.Error("Expect task buffer submit to not be called")
+	default:
+		// success
+	}
+
+	internalPublisher.publish = func(message ccsmp.SolClientMessagePt) core.ErrorInfo {
+		return &ccsmp.SolClientErrorInfoWrapper{
+			ReturnCode: ccsmp.SolClientReturnCodeWouldBlock,
+		}
+	}
+	err = publisher.Publish(testMessage, testReplyHandler, testTopic, testTimeout, nil /*properties*/, nil /*usercontext*/)
+	if err == nil {
+		t.Error("expected error, got nil")
+	}
+	if _, ok := err.(*solace.PublisherOverflowError); !ok {
+		t.Errorf("expected would block error, got %s", err)
+	}
+
+	subCode := 21 // ClientDeleteInProgress , note this subcode does not matter just need a subcode that is not OK.
+	internalPublisher.publish = func(message ccsmp.SolClientMessagePt) core.ErrorInfo {
+		return &ccsmp.SolClientErrorInfoWrapper{
+			ReturnCode: ccsmp.SolClientReturnCodeFail,
+			SubCode:    ccsmp.SolClientSubCode(subCode),
+		}
+	}
+
+	err = publisher.Publish(testMessage, testReplyHandler, testTopic, testTimeout, nil /*properties*/, nil /*usercontext*/)
+	if err == nil {
+		t.Error("expected error, got nil")
+	}
+	if msg, ok := err.(*solace.NativeError); ok {
+		if msg.SubCode() != subcode.Code(subCode) {
+			t.Errorf("expected sub code to be %d, got %d", subCode, msg.SubCode())
+		}
+	} else {
+		t.Errorf("expected pubsubplus client error, got %s", err)
+	}
+}
+
+func TestRequestReplyMessagePublisherTask(t *testing.T) {
+	publisher := &requestReplyMessagePublisherImpl{}
+	internalPublisher := &mockInternalPublisher{}
+	publisher.construct(internalPublisher, backpressureConfigurationWait, 1)
+	eventExecutor := &mockEventExecutor{}
+	taskBuffer := &mockTaskBuffer{}
+	publisher.eventExecutor = eventExecutor
+	publisher.taskBuffer = taskBuffer
+
+	err := publisher.Start()
+	if err != nil {
+		t.Error(err)
+	}
+
+	publishCalled := false
+	internalPublisher.publish = func(message ccsmp.SolClientMessagePt) core.ErrorInfo {
+		publishCalled = true
+		return nil
+	}
+
+	testMessage, _ := message.NewOutboundMessage()
+	testTopic := resource.TopicOf("hello/world")
+	testReplyHandler := func(msg apimessage.InboundMessage, usercontext interface{}, err error) {}
+	testTimeout := time.Duration(-1) // forever
+
+	sendTaskChannel := make(chan buffer.PublisherTask, 1)
+	taskBuffer.submit = func(task buffer.PublisherTask) bool {
+		sendTaskChannel <- task
+		return true
+	}
+	err = publisher.Publish(testMessage, testReplyHandler, testTopic, testTimeout, nil /*properties*/, nil /*usercontext*/)
+
+	if err != nil {
+		t.Error(err)
+	}
+
+	var sendTask buffer.PublisherTask
+	select {
+	case sendTask = <-sendTaskChannel:
+	default:
+		t.Error("did not encounter a send task")
+	}
+	sendTask(make(chan struct{}))
+	if !publishCalled {
+		t.Error("internal publisher publish was never called")
+	}
+}
+
+func TestRequestReplyMessagePublisherTaskWithWouldBlock(t *testing.T) {
+	publisher := &requestReplyMessagePublisherImpl{}
+	internalPublisher := &mockInternalPublisher{}
+	publisher.construct(internalPublisher, backpressureConfigurationWait, 1)
+	eventExecutor := &mockEventExecutor{}
+	taskBuffer := &mockTaskBuffer{}
+	publisher.eventExecutor = eventExecutor
+	publisher.taskBuffer = taskBuffer
+
+	publisher.Start()
+
+	publishCalled := false
+	publishRecalled := false
+	internalPublisher.publish = func(message ccsmp.SolClientMessagePt) core.ErrorInfo {
+		if !publishCalled {
+			publishCalled = true
+			return &ccsmp.SolClientErrorInfoWrapper{
+				ReturnCode: ccsmp.SolClientReturnCodeWouldBlock,
+			}
+		}
+		publishRecalled = true
+		// subsequent calls are successful
+		return nil
+	}
+
+	interruptChannel := make(chan struct{})
+	awaitWritableCalled := false
+	internalPublisher.awaitWritable = func(terminateSignal chan struct{}) error {
+		if interruptChannel != terminateSignal {
+			t.Error("expected terminate signal passed to awaitWritable to be the event executors terminate signal, it was not")
+		}
+		awaitWritableCalled = true
+		return nil
+	}
+
+	testMessage, _ := message.NewOutboundMessage()
+	testTopic := resource.TopicOf("hello/world")
+	testReplyHandler := func(msg apimessage.InboundMessage, usercontext interface{}, err error) {}
+	testTimeout := time.Duration(-1) // forever
+
+	taskBuffer.submit = func(task buffer.PublisherTask) bool {
+		task(interruptChannel)
+		return true
+	}
+
+	err := publisher.Publish(testMessage, testReplyHandler, testTopic, testTimeout, nil /*properties*/, nil /*usercontext*/)
+	if err != nil {
+		t.Error(err)
+	}
+	if !awaitWritableCalled {
+		t.Error("await writable not called despite being passed would block")
+	}
+	if !publishRecalled {
+		t.Error("expected redelivery to be attempted, it was not")
+	}
+}
+
+func TestRequestReplyMessagePublisherTaskWithWouldBlockInterrupted(t *testing.T) {
+	publisher := &requestReplyMessagePublisherImpl{}
+	internalPublisher := &mockInternalPublisher{}
+	publisher.construct(internalPublisher, backpressureConfigurationWait, 1)
+	eventExecutor := &mockEventExecutor{}
+	taskBuffer := &mockTaskBuffer{}
+	publisher.eventExecutor = eventExecutor
+	publisher.taskBuffer = taskBuffer
+
+	publisher.Start()
+
+	publishCalled := false
+	publishRecalled := false
+	internalPublisher.publish = func(message ccsmp.SolClientMessagePt) core.ErrorInfo {
+		if !publishCalled {
+			publishCalled = true
+			return &ccsmp.SolClientErrorInfoWrapper{
+				ReturnCode: ccsmp.SolClientReturnCodeWouldBlock,
+			}
+		}
+		t.Error("did not expect publisher's publish to be reattempted after returning error from awaitWritable")
+		// subsequent calls are successful
+		return nil
+	}
+
+	interruptChannel := make(chan struct{})
+	awaitWritableCalled := false
+	internalPublisher.awaitWritable = func(terminateSignal chan struct{}) error {
+		if interruptChannel != terminateSignal {
+			t.Error("expected terminate signal passed to awaitWritable to be the event executors terminate signal, it was not")
+		}
+		awaitWritableCalled = true
+		return fmt.Errorf("some error")
+	}
+
+	testMessage, _ := message.NewOutboundMessage()
+	testTopic := resource.TopicOf("hello/world")
+	testReplyHandler := func(msg apimessage.InboundMessage, usercontext interface{}, err error) {}
+	testTimeout := time.Duration(-1) // forever
+
+	taskBuffer.submit = func(task buffer.PublisherTask) bool {
+		task(interruptChannel)
+		return true
+	}
+
+	err := publisher.Publish(testMessage, testReplyHandler, testTopic, testTimeout, nil /*properties*/, nil /*usercontext*/)
+	if err != nil {
+		t.Error(err)
+	}
+	if !awaitWritableCalled {
+		t.Error("await writable not called despite being passed would block")
+	}
+	if publishRecalled {
+		t.Error("expected redelivery to not be attempted when an error was received from awaitWritable")
+	}
+}
+
+func TestRequestReplyMessagePublisherTaskFailureReplyOutcome(t *testing.T) {
+	publisherReplyToTopic := "testReplyTopic"
+
+	publisher := &requestReplyMessagePublisherImpl{}
+
+	internalPublisher := &mockInternalPublisher{}
+	internalPublisher.requestor = func() core.Requestor {
+		mock := &mockRequestor{}
+		mock.addRequestorReplyHandler = func(handler core.RequestorReplyHandler) (string, func() (messageID uint64, correlationID string), core.ErrorInfo) {
+			count := uint64(0)
+			return publisherReplyToTopic, func() (uint64, string) {
+				count += 1
+				return count, fmt.Sprintf("TEST%d", count)
+			}, nil
+		}
+		return mock
+	}
+
+	publisher.construct(internalPublisher, backpressureConfigurationWait, 1)
+	eventExecutor := &mockEventExecutor{}
+	taskBuffer := &mockTaskBuffer{}
+	publisher.eventExecutor = eventExecutor
+	publisher.taskBuffer = taskBuffer
+
+	publisher.Start()
+
+	subCode := 58 // MissingReplyTo, note this subcode does not matter and does not represent a real scenario
+	internalPublisher.publish = func(message ccsmp.SolClientMessagePt) core.ErrorInfo {
+		return &ccsmp.SolClientErrorInfoWrapper{
+			ReturnCode: ccsmp.SolClientReturnCodeFail,
+			SubCode:    ccsmp.SolClientSubCode(subCode),
+		}
+	}
+
+	testMessage, _ := message.NewOutboundMessage()
+	testTopic := resource.TopicOf("hello/world")
+	testTimeout := time.Duration(-1) // forever
+	testUserContext := uint64(27182)
+
+	testReplyHandler := func(msg apimessage.InboundMessage, usercontext interface{}, err error) {
+		if msg != nil {
+			t.Error("expected inbound reply message to be nil")
+		}
+		if usercontext != testUserContext {
+			t.Error("expected usercontext to match published context")
+		}
+
+		if err == nil {
+			t.Error("expected error to not be nil")
+		} else {
+			if casted, ok := err.(*solace.NativeError); ok {
+				if casted.SubCode() != subcode.Code(subCode) {
+					t.Errorf("expected sub code %d, got %d", subCode, casted.SubCode())
+				}
+			} else {
+				t.Errorf("expected to get a PubSubPlusClientError, got %T", err)
+			}
+		}
+	}
+
+	taskBuffer.submit = func(task buffer.PublisherTask) bool {
+		task(make(chan struct{}))
+		return true
+	}
+
+	eventExecutor.submit = func(event executor.Task) bool {
+		event()
+		return true
+	}
+
+	err := publisher.Publish(testMessage, testReplyHandler, testTopic, testTimeout, nil /*properties*/, testUserContext)
+	if err != nil {
+		t.Error(err)
+	}
+	publisher.Terminate(1 * time.Second)
+}
+
+func TestRequestReplyMessagePublisherReadinessListener(t *testing.T) {
+	publisher := &requestReplyMessagePublisherImpl{}
+	internalPublisher := &mockInternalPublisher{}
+	publisher.construct(internalPublisher, backpressureConfigurationReject, 1)
+	eventExecutor := &mockEventExecutor{}
+	taskBuffer := &mockTaskBuffer{}
+	publisher.eventExecutor = eventExecutor
+	publisher.taskBuffer = taskBuffer
+
+	publisher.Start()
+
+	testMessage, _ := message.NewOutboundMessage()
+	testTopic := resource.TopicOf("hello/world")
+	testReplyHandler := func(msg apimessage.InboundMessage, usercontext interface{}, err error) {}
+	testTimeout := time.Duration(-1) // forever
+
+	taskBuffer.submit = func(task buffer.PublisherTask) bool {
+		task(make(chan struct{}))
+		return true
+	}
+
+	eventExecutor.submit = func(event executor.Task) bool {
+		event()
+		return true
+	}
+
+	readinessCalled := false
+	publisher.SetPublisherReadinessListener(func() {
+		readinessCalled = true
+	})
+
+	err := publisher.Publish(testMessage, testReplyHandler, testTopic, testTimeout, nil /*properties*/, nil /*usercontext*/)
+	if err != nil {
+		t.Error(err)
+	}
+	if !readinessCalled {
+		t.Error("expected readiness listener to be called, it was not")
 	}
 }
