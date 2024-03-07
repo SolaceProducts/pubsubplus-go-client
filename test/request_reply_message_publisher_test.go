@@ -165,19 +165,15 @@ var _ = Describe("RequestReplyPublisher", func() {
 			publisherReplyHandler := func(message message.InboundMessage, userContext interface{}, err error) {
 				if err == nil { // Good, a reply was received
 					Expect(message).ToNot(BeNil())
-					payload, _ := message.GetPayloadAsString()
-					fmt.Printf("The reply inbound payload: %s\n", payload)
-				} else if terr, ok := err.(*solace.TimeoutError); ok { // Not good, a timeout occurred and no reply was received
+				} else {
 					// message should be nil
-					// This handles the situation that the requester application did not receive a reply for the published message within the specified timeout.
-					// This would be a good location for implementing resiliency or retry mechanisms.
-					fmt.Printf("The message reply timed out with %s\n", terr)
-				} else { // async error occurred.
+					Expect(message).To(BeNil())
 					Expect(err).ToNot(BeNil())
 				}
 			}
 
-			// A helper function to saturate a given publisher. Counts the number of published messages at the given int pointer
+			// A helper function to saturate a given publisher (fill up its internal buffers).
+			// Counts the number of published messages at the given int pointer
 			// Returns a channel that is closed when the publisher receives an error from a call to Publish
 			// Returns a channel that can be closed when the test completes, ie. if an error occurred
 			publisherSaturation := func(publisher solace.RequestReplyMessagePublisher, publishedMessages *int) (publisherComplete, testComplete chan struct{}) {
@@ -207,8 +203,6 @@ var _ = Describe("RequestReplyPublisher", func() {
 					}
 					close(publisherComplete)
 				}()
-				// allow the goroutine above to saturate the publisher
-				time.Sleep(100 * time.Millisecond)
 				return publisherComplete, testComplete
 			}
 
@@ -227,7 +221,13 @@ var _ = Describe("RequestReplyPublisher", func() {
 				defer close(testComplete)
 
 				// allow the goroutine above to saturate the publisher
-				time.Sleep(100 * time.Millisecond)
+				select {
+				case <-publisherComplete:
+					// block until publish complete
+					Fail("Expected publisher to not be complete")
+				case <-time.After(100 * time.Millisecond):
+					// allow the goroutine above to saturate the publisher
+				}
 
 				publisherTerminate := publisher.TerminateAsync(30 * time.Second)
 
@@ -263,6 +263,15 @@ var _ = Describe("RequestReplyPublisher", func() {
 
 				publisherComplete, testComplete := publisherSaturation(publisher, &publishedMessages)
 				defer close(testComplete)
+
+				// allow the goroutine above to saturate the publisher
+				select {
+				case <-publisherComplete:
+					// block until publish complete
+					Fail("Expected publisher to not be complete")
+				case <-time.After(100 * time.Millisecond):
+					// allow the goroutine above to saturate the publisher
+				}
 
 				publisherTerminate := publisher.TerminateAsync(0 * time.Second)
 				Eventually(publisherTerminate).Should(Receive(&err))
