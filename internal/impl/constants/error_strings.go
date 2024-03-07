@@ -175,5 +175,5 @@ const CouldNotConfirmSubscriptionServiceUnavailable = "could not confirm subscri
 // InvalidConfiguration error string
 const InvalidConfiguration = "invalid configuration provided: "
 
-// MissingReplyHandler error string
+// MissingReplyMessageHandler error string
 const MissingReplyMessageHandler = "got nil ReplyMessageHandler, ReplyMessageHandler is required for Publish"
