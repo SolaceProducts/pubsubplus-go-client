@@ -385,18 +385,30 @@ func (events *mockEvents) RemoveEventHandler(id uint) {
 }
 
 type mockRequestor struct {
+	createReplyToTopic          func(publisherID string) string
+	addRequestorReplyHandler    func(replyHandler core.RequestorReplyHandler) (string, func() (messageID uint64, correlationId string), core.ErrorInfo)
+	removeRequestorReplyHandler func(replyToTopic string) core.ErrorInfo
 }
 
 func (requestor *mockRequestor) CreateReplyToTopic(publisherID string) string {
+	if requestor.createReplyToTopic != nil {
+		return requestor.createReplyToTopic(publisherID)
+	}
 	return ""
 }
 
-func (requestor *mockRequestor) AddRequestorReplyHandler(replyHandler core.RequestorReplyHandler) (string, func() (messageId uint64, correlationId string), core.ErrorInfo) {
+func (requestor *mockRequestor) AddRequestorReplyHandler(replyHandler core.RequestorReplyHandler) (string, func() (messageID uint64, correlationID string), core.ErrorInfo) {
+	if requestor.addRequestorReplyHandler != nil {
+		return requestor.addRequestorReplyHandler(replyHandler)
+	}
 	return "", func() (uint64, string) {
 		return uint64(0), ""
 	}, nil
 }
 
 func (requestor *mockRequestor) RemoveRequestorReplyHandler(replyToTopic string) core.ErrorInfo {
+	if requestor.removeRequestorReplyHandler != nil {
+		return requestor.removeRequestorReplyHandler(replyToTopic)
+	}
 	return nil
 }

@@ -47,7 +47,7 @@ type correlationEntryImpl struct {
 	timeout     time.Duration
 	received    bool
 	result      chan core.Repliable
-	sentChan    chan bool
+	sentChan    chan error
 }
 
 type CorrelationEntry = *correlationEntryImpl
@@ -403,7 +403,7 @@ func (publisher *requestReplyMessagePublisherImpl) drainQueue(shutdownTime time.
 		// handle each unsent request
 		correlationID, ok := underliveredRef.message.GetCorrelationID()
 		if ok {
-			publisher.signalRequestCorrelationSent(correlationID, false)
+			publisher.signalRequestCorrelationSent(correlationID, err)
 		} else {
 			publisher.logger.Info(fmt.Sprintf("Failed to unblock unsent publish %p without correlationID, is the publisher terminated?", underliveredRef.message))
 		}
@@ -424,7 +424,7 @@ func (publisher *requestReplyMessagePublisherImpl) PublishBytes(bytes []byte, re
 		return err
 	}
 	// we built the message so it is safe to cast
-	outcomeHandler, err := publisher.publish(msg.(*message.OutboundMessageImpl), replyMessageHandler, dest, replyTimeout, userContext)
+	outcomeHandler, err := publisher.publishAsync(msg.(*message.OutboundMessageImpl), replyMessageHandler, dest, replyTimeout, userContext)
 	if err != nil {
 		return err
 	}
@@ -444,7 +444,7 @@ func (publisher *requestReplyMessagePublisherImpl) PublishString(str string, rep
 		return err
 	}
 	// we built the message so it is safe to cast
-	outcomeHandler, err := publisher.publish(msg.(*message.OutboundMessageImpl), replyMessageHandler, dest, replyTimeout, userContext)
+	outcomeHandler, err := publisher.publishAsync(msg.(*message.OutboundMessageImpl), replyMessageHandler, dest, replyTimeout, userContext)
 	if err != nil {
 		return err
 	}
@@ -452,7 +452,7 @@ func (publisher *requestReplyMessagePublisherImpl) PublishString(str string, rep
 	return nil
 }
 
-// PublishWithProperties will publish the given message of type OutboundMessage
+// Publish will publish the given message of type OutboundMessage
 // with the given properties. These properties will override the properties on
 // the OutboundMessage instance if present. Possible errors include:
 // - solace/solace.*PubSubPlusClientError if the message could not be sent and all retry attempts failed.
@@ -478,7 +478,7 @@ func (publisher *requestReplyMessagePublisherImpl) Publish(msg apimessage.Outbou
 			return err
 		}
 	}
-	outcomeHandler, err := publisher.publish(msgDup, replyMessageHandler, dest, replyTimeout, userContext)
+	outcomeHandler, err := publisher.publishAsync(msgDup, replyMessageHandler, dest, replyTimeout, userContext)
 	if err != nil {
 		return err
 	}
@@ -512,6 +512,14 @@ func (publisher *requestReplyMessagePublisherImpl) PublishAwaitResponse(msg apim
 		return nil, err
 	}
 	return outcomeHandler()
+}
+
+func (publisher *requestReplyMessagePublisherImpl) publishAsync(msg *message.OutboundMessageImpl, replyMessageHandler solace.ReplyMessageHandler, dest *resource.Topic, replyTimeout time.Duration, userContext interface{}) (retOutcome ReplyOutcome, ret error) {
+	if replyMessageHandler == nil {
+		err := solace.NewError(&solace.IllegalArgumentError{}, constants.MissingReplyMessageHandler, nil)
+		return nil, err
+	}
+	return publisher.publish(msg, replyMessageHandler, dest, replyTimeout, userContext)
 }
 
 // publish impl taking a dup'd message, assuming state has been checked and we are running
@@ -561,12 +569,14 @@ func (publisher *requestReplyMessagePublisherImpl) publish(msg *message.Outbound
 		defer msg.Dispose()
 		// publish directly with CCSMP
 		errorInfo := publisher.internalPublisher.Publish(message.GetOutboundMessagePointer(msg))
-		publisher.signalRequestCorrelationSent(correlationID, errorInfo == nil)
 		if errorInfo != nil {
+			publisher.signalRequestCorrelationSent(correlationID, core.ToNativeError(errorInfo, "encountered error while publishing message: "))
 			if errorInfo.ReturnCode == ccsmp.SolClientReturnCodeWouldBlock {
 				return nil, solace.NewError(&solace.PublisherOverflowError{}, constants.WouldBlock, nil)
 			}
 			return nil, core.ToNativeError(errorInfo)
+		} else {
+			publisher.signalRequestCorrelationSent(correlationID, nil)
 		}
 	} else {
 		// buffered backpressure scenarios
@@ -642,15 +652,17 @@ func (publisher *requestReplyMessagePublisherImpl) sendTask(msg *message.Outboun
 						// if we encountered an error while waiting for writable, the publisher will shut down
 						// and this task will not complete. The message queue will be drained by the caller of
 						// terminate, so we should not deal with the message.
-						publisher.signalRequestCorrelationSent(correlationID, false)
+						publisher.signalRequestCorrelationSent(correlationID, err)
 						return
 					}
 					continue
 					// otherwise we got another error, should deal with it accordingly
 				}
+				publisher.signalRequestCorrelationSent(correlationID, core.ToNativeError(errorInfo, "encountered error while publishing message: "))
+			} else {
+				// if there is no errorInfo then the message was sent.
+				publisher.signalRequestCorrelationSent(correlationID, nil)
 			}
-			// if there is no errorInfo then the message was sent.
-			publisher.signalRequestCorrelationSent(correlationID, errorInfo == nil)
 			// exit out of the loop if we succeeded or got an error
 			// we will only continue on would_block + AwaitWritable
 			break
@@ -699,7 +711,7 @@ func (entry CorrelationEntry) construct(userContext interface{}, timeout time.Du
 	entry.handler = handler
 	entry.received = false
 	entry.result = make(chan core.Repliable, 1)
-	entry.sentChan = make(chan bool, 1)
+	entry.sentChan = make(chan error, 1)
 }
 
 func (publisher *requestReplyMessagePublisherImpl) closeReplyCorrelation(correlationID string) {
@@ -744,14 +756,14 @@ func (publisher *requestReplyMessagePublisherImpl) closeReplyCorrelation(correla
 	}
 }
 
-func (publisher *requestReplyMessagePublisherImpl) signalRequestCorrelationSent(correlationID string, sent bool) {
+func (publisher *requestReplyMessagePublisherImpl) signalRequestCorrelationSent(correlationID string, sentErr error) {
 	publisher.rxLock.Lock()
 	defer publisher.rxLock.Unlock()
 	entry, ok := publisher.requestCorrelationMap[correlationID]
 	if !ok {
 		return
 	}
-	entry.sentChan <- sent
+	entry.sentChan <- sentErr
 }
 
 func (publisher *requestReplyMessagePublisherImpl) createReplyCorrelation(userContext interface{}, timeout time.Duration, handler solace.ReplyMessageHandler) (string, func() (apimessage.InboundMessage, error)) {
@@ -771,20 +783,20 @@ func (publisher *requestReplyMessagePublisherImpl) createReplyCorrelation(userCo
 	return correlationID, func() (retMsg apimessage.InboundMessage, retErr error) {
 		retErr = nil
 		var ok bool = true
-		var sent bool = false
+		var sentErr error = nil
 		// wait for request send
 		select {
-		case sent, ok = <-entry.sentChan:
+		case sentErr, ok = <-entry.sentChan:
 			if !ok {
-				sent = false
+				sentErr = solace.NewError(&solace.IllegalStateError{}, constants.RequestReplyPublisherCannotReceiveReplyAlreadyTerminated, nil)
 			}
 		case <-publisher.correlationComplete:
-			sent = false
+			sentErr = solace.NewError(&solace.IllegalStateError{}, constants.RequestReplyPublisherCannotReceiveReplyAlreadyTerminated, nil)
 		}
 
 		// if not sent dispatch outcome of reply
-		if !sent {
-			retErr = solace.NewError(&solace.IllegalStateError{}, constants.RequestReplyPublisherCannotReceiveReplyAlreadyTerminated, nil)
+		if sentErr != nil {
+			retErr = sentErr
 			goto DispatchOutcome
 		}
 
