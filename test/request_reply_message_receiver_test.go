@@ -178,7 +178,7 @@ var _ = Describe("RequestReplyReceiver", func() {
 					payload, _ := inboundMessage.GetPayloadAsString()
 					if replier != nil {
 						err := replier.Reply(helpers.NewMessage(messagingService, "Reply for: "+payload))
-						Expect(err).To(BeNil())
+						Expect(err).ToNot(BeNil()) // because the messaging service is diconnected
 					}
 				})
 
