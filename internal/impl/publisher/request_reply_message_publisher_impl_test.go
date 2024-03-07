@@ -887,13 +887,12 @@ func TestRequestReplyCallPublishWithNegativeDuration(t *testing.T) {
 		t.Error("did not receive response after terminate completes")
 	}
 
-	
 	termError := <-terminateChan
 	// terminate compelete
 	if termError != nil {
 		t.Errorf("Got unexpected termination error %s", termError)
-    }
-	
+	}
+
 }
 
 func TestRequestReplyMessagePublisherPublishFunctionalityBufferedWait(t *testing.T) {
