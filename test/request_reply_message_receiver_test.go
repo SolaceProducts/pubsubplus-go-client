@@ -189,7 +189,7 @@ var _ = Describe("RequestReplyReceiver", func() {
 
 				disconnectFunction(messagingService)
 
-				Eventually(receiver.IsTerminated, 10*time.Second).Should(BeTrue())
+				Eventually(receiver.IsTerminated(), 10*time.Second).Should(BeTrue())
 				Expect(receiver.IsRunning()).To(BeFalse()) // should not be in running state now
 
 				// unblock the receiver callback after we are marked as terminated
@@ -225,17 +225,19 @@ var _ = Describe("RequestReplyReceiver", func() {
 					}
 					if replier != nil {
 						payload, _ := racingMessage.GetPayloadAsString()
-						replier.Reply(helpers.NewMessage(messagingService, "Reply for: "+payload))
+						err = replier.Reply(helpers.NewMessage(messagingService, "Reply for: "+payload))
+						Expect(err).To(BeNil())
 					}
 				}
 
-				Eventually(receiver.IsTerminated, 10*time.Second).Should(BeTrue())
+				Eventually(receiver.IsTerminated(), 10*time.Second).Should(BeTrue())
 				Expect(receiver.IsRunning()).To(BeFalse()) // should not be in running state now
 				Eventually(terminationChannel).Should(Receive())
 
 				msg, replier, err := receiver.ReceiveMessage(-1)
 				Expect(msg).To(BeNil())
 				Expect(replier).To(BeNil()) // no more messages to reply to
+				Expect(err).ToNot(BeNil())
 				helpers.ValidateError(err, &solace.IllegalStateError{})
 
 				helpers.ValidateMetric(messagingService, metrics.ReceivedMessagesTerminationDiscarded, messagesPublished-uint64(discardOffset))
@@ -574,9 +576,13 @@ var _ = Describe("RequestReplyReceiver", func() {
 
 			errChan := receiver.TerminateAsync(gracePeriod)
 			// allow termination to start
-			time.Sleep(100 * time.Millisecond)
-
-			helpers.ValidateState(receiver, false, true, false)
+			select {
+			case <-errChan:
+				Fail("did not expect to receive error when callback is still running")
+			case <-time.After(20 * time.Millisecond):
+				// allow termination to start
+				helpers.ValidateState(receiver, false, true, false)
+			}
 
 			select {
 			case <-errChan:
