@@ -171,14 +171,14 @@ var _ = Describe("RequestReplyReceiver", func() {
 			It("terminates the receiver using async receive when disconnecting with "+testCase, func() {
 				blocker := make(chan struct{})
 				msgsReceived := make(chan message.InboundMessage, messagesPublished)
-
 				receiver.ReceiveAsync(func(inboundMessage message.InboundMessage, replier solace.Replier) {
 					<-blocker
 					msgsReceived <- inboundMessage
 
 					payload, _ := inboundMessage.GetPayloadAsString()
 					if replier != nil {
-						replier.Reply(helpers.NewMessage(messagingService, "Reply for: "+payload))
+						err := replier.Reply(helpers.NewMessage(messagingService, "Reply for: "+payload))
+						Expect(err).To(BeNil())
 					}
 				})
 
@@ -251,7 +251,6 @@ var _ = Describe("RequestReplyReceiver", func() {
 		var builder solace.RequestReplyMessageReceiverBuilder
 		const publishTimeOut = 3 * time.Second
 		const gracePeriod = 5 * time.Second
-		// const invalidTopicString = "//>"
 
 		BeforeEach(func() {
 			var err error
