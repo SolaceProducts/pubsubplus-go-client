@@ -78,6 +78,16 @@ type RequestReplyMessageReceiverBuilder interface {
 	// BuildWithSharedSubscription will build a new RequestReplyMessageReceiver with
 	// the given properties using a shared topic subscription and the shared name.
 	BuildWithSharedSubscription(requestTopicSubscription resource.Subscription, shareName *resource.ShareName) (messageReceiver RequestReplyMessageReceiver, err error)
+	// OnBackPressureDropLatest configures the receiver with the specified buffer size. If the buffer
+	// is full and a message arrives, the incoming message is discarded.
+	// A buffer of the given size will be statically allocated when the receiver is built.
+	// The bufferCapacity must be greater than or equal to 1.
+	OnBackPressureDropLatest(bufferCapacity uint) RequestReplyMessageReceiverBuilder
+	// OnBackPressureDropOldest configures the receiver with the specified buffer size, bufferCapacity. If the buffer
+	// is full and a message arrives, the oldest message in the buffer is discarded.
+	// A buffer of the given size will be statically allocated when the receiver is built.
+	// The value of bufferCapacity must be greater than or equal to 1.
+	OnBackPressureDropOldest(bufferCapacity uint) RequestReplyMessageReceiverBuilder
 	// FromConfigurationProvider will configure the request reply receiver with the given properties.
 	// Built in ReceiverPropertiesConfigurationProvider implementations include:
 	//   ReceiverPropertyMap, a map of ReceiverProperty keys to values
