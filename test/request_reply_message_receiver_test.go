@@ -910,8 +910,15 @@ var _ = Describe("RequestReplyReceiver", func() {
 
 					It("should be able to receive multiple messages successfully with "+receiverFunctionName+"() function", func() {
 						// send messages
-						sentMessage := 500
+						sentMessage := 1000
 						const publishTimeOut = 3 * time.Second
+
+						var err error
+						// we need to properly configure the receiver's buffer to handle > 50 published messages
+						receiver, err = builder.OnBackPressureDropLatest(uint(sentMessage)).Build(resource.TopicSubscriptionOf(topicString))
+						Expect(err).ToNot(HaveOccurred())
+						err = receiver.Start()
+						Expect(err).ToNot(HaveOccurred())
 
 						// publish the request messages
 						var publishReplyChan chan message.InboundMessage
@@ -920,7 +927,7 @@ var _ = Describe("RequestReplyReceiver", func() {
 						}()
 
 						receivedMsgChannel := receiverFunc(receiver, sentMessage)
-						Eventually(receivedMsgChannel, 25*time.Second).Should(HaveLen(sentMessage)) // replies should be sent back
+						Eventually(receivedMsgChannel).Should(HaveLen(sentMessage)) // replies should be sent back
 						// message in the channel should be a request message
 						receivedMessage := <-receivedMsgChannel
 						content, ok := receivedMessage.GetPayloadAsString()
@@ -934,7 +941,7 @@ var _ = Describe("RequestReplyReceiver", func() {
 							content, ok := replyMessage.GetPayloadAsString()
 							Expect(ok).To(BeTrue())
 							Expect(content).To(Equal("Pong"))
-						case <-time.After(10 * time.Second):
+						case <-time.After(15 * time.Second):
 							Fail("Timed out waiting to receive reply message")
 						}
 
@@ -970,13 +977,20 @@ var _ = Describe("RequestReplyReceiver", func() {
 					Expect(messagingService.Metrics().GetValue(metrics.DirectMessagesReceived)).To(Equal(uint64(3))) // 3 messages
 				})
 
-				It("should properly handle direct massages published to request-reply topic with the ReceiveAsync() function", func() {
+				It("should properly handle direct messages published to request-reply topic with the ReceiveAsync() function", func() {
 					rRMessagesCount := uint64(0)
 					directMessagesCount := uint64(0)
 
-					// apparently the test degrades as the number of published messages increases
-					publishedRRMessages := 300
-					publishedDirectMessages := 100
+					publishedRRMessages := 500
+					publishedDirectMessages := 500
+
+					// create a receiver with an adequate buffer size
+					var err error
+					// we need to properly configure the receiver's buffer to handle > 50 published messages
+					receiver, err = builder.OnBackPressureDropLatest(uint(1000)).Build(resource.TopicSubscriptionOf(topicString))
+					Expect(err).ToNot(HaveOccurred())
+					err = receiver.Start()
+					Expect(err).ToNot(HaveOccurred())
 
 					receiver.ReceiveAsync(func(inboundMessage message.InboundMessage, replier solace.Replier) {
 						Expect(inboundMessage).ToNot(BeNil()) // we should receive a message
@@ -1012,11 +1026,11 @@ var _ = Describe("RequestReplyReceiver", func() {
 					// check that the message & reply was sent via semp
 					Eventually(func() int64 {
 						return helpers.GetClient(messagingService).DataTxMsgCount
-					}).Should(BeNumerically(">", int64(publishedRRMessages)+int64(publishedDirectMessages)))
+					}).Should(BeNumerically("==", int64(publishedRRMessages*2)+int64(publishedDirectMessages)))
 
 					Eventually(func() uint64 {
 						return messagingService.Metrics().GetValue(metrics.DirectMessagesReceived)
-					}).Should(BeNumerically(">", uint64(publishedRRMessages)+uint64(publishedDirectMessages))) // the messages
+					}).Should(BeNumerically("==", uint64(publishedRRMessages*2)+uint64(publishedDirectMessages))) // the messages
 
 					Expect(atomic.LoadUint64(&rRMessagesCount)).To(BeNumerically("==", publishedRRMessages))
 					Expect(atomic.LoadUint64(&directMessagesCount)).To(BeNumerically("==", publishedDirectMessages))
