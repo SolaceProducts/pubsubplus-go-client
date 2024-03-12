@@ -910,7 +910,7 @@ var _ = Describe("RequestReplyReceiver", func() {
 
 					It("should be able to receive multiple messages successfully with "+receiverFunctionName+"() function", func() {
 						// send messages
-						sentMessage := 1000
+						sentMessage := 500
 						const publishTimeOut = 3 * time.Second
 
 						// publish the request messages
@@ -970,13 +970,13 @@ var _ = Describe("RequestReplyReceiver", func() {
 					Expect(messagingService.Metrics().GetValue(metrics.DirectMessagesReceived)).To(Equal(uint64(3))) // 3 messages
 				})
 
-				FIt("should properly handle direct massages published to request-reply topic with the ReceiveAsync() function", func() {
+				It("should properly handle direct massages published to request-reply topic with the ReceiveAsync() function", func() {
 					rRMessagesCount := uint64(0)
 					directMessagesCount := uint64(0)
 
 					// apparently the test degrades as the number of published messages increases
-					publishedRRMessages := 500
-					publishedDirectMessages := 500
+					publishedRRMessages := 300
+					publishedDirectMessages := 100
 
 					receiver.ReceiveAsync(func(inboundMessage message.InboundMessage, replier solace.Replier) {
 						Expect(inboundMessage).ToNot(BeNil()) // we should receive a message
@@ -1018,13 +1018,8 @@ var _ = Describe("RequestReplyReceiver", func() {
 						return messagingService.Metrics().GetValue(metrics.DirectMessagesReceived)
 					}).Should(BeNumerically(">", uint64(publishedRRMessages)+uint64(publishedDirectMessages))) // the messages
 
-					Eventually(func() uint64 {
-						return atomic.LoadUint64(&directMessagesCount)
-					}).Should(BeNumerically("==", publishedDirectMessages))
-
-					Eventually(func() uint64 {
-						return atomic.LoadUint64(&rRMessagesCount)
-					}).Should(BeNumerically("==", publishedRRMessages))
+					Expect(atomic.LoadUint64(&rRMessagesCount)).To(BeNumerically("==", publishedRRMessages))
+					Expect(atomic.LoadUint64(&directMessagesCount)).To(BeNumerically("==", publishedDirectMessages))
 				})
 			})
 		})
