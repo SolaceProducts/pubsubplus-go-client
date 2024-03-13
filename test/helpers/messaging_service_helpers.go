@@ -341,10 +341,10 @@ func PublishNRequestReplyMessages(messagingService solace.MessagingService, topi
 	}
 
 	// A handler for the request-reply publisher
-	ret := make(chan message.InboundMessage, n)
-	replyHandler := func(message message.InboundMessage, userContext interface{}, err error) {
+	replyChannel := make(chan message.InboundMessage)
+	replyHandler := func(inboundMessage message.InboundMessage, userContext interface{}, err error) {
 		go func() {
-			ret <- message
+			replyChannel <- inboundMessage
 		}()
 	}
 
@@ -352,21 +352,23 @@ func PublishNRequestReplyMessages(messagingService solace.MessagingService, topi
 	ExpectWithOffset(1, err).ToNot(HaveOccurred(), "Expected request-reply publisher to build without error")
 	ExpectWithOffset(1, publisher.Start()).ToNot(HaveOccurred(), "Expected request-reply publisher to start without error")
 
+	builder := messagingService.MessageBuilder()
+
 	for i := 0; i < n; i++ {
 		msgPayload := str
 		if len(template) == 0 {
 			msgPayload = fmt.Sprintf(str, i)
 		}
-		msg, err := messagingService.MessageBuilder().BuildWithStringPayload(msgPayload)
+		msg, err := builder.BuildWithStringPayload(msgPayload)
 		ExpectWithOffset(1, err).ToNot(HaveOccurred(), "Expected message to build without error")
 
-		pubErr := publisher.Publish(msg, replyHandler, resource.TopicOf(topic), timeOut, config.MessagePropertyMap{
+		err = publisher.Publish(msg, replyHandler, resource.TopicOf(topic), timeOut, config.MessagePropertyMap{
 			config.MessagePropertyCorrelationID: fmt.Sprint(i),
 		}, nil /* usercontext */)
-		ExpectWithOffset(1, pubErr).ToNot(HaveOccurred(), "Expected publish to be successful")
+		ExpectWithOffset(1, err).ToNot(HaveOccurred(), "Expected publish to be successful")
 	}
 	ExpectWithOffset(1, publisher.Terminate(10*time.Second)).ToNot(HaveOccurred(), "Expected request-reply publisher to terminate gracefully")
-	return ret
+	return replyChannel
 }
 
 // ReceiveOneMessage function
