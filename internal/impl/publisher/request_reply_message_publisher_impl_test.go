@@ -761,6 +761,36 @@ func TestRequestReplyCallPublishWhenAlreadyTerminated(t *testing.T) {
 	}
 }
 
+func TestRequestReplyStartFailedToGetReplyTo(t *testing.T) {
+	subCode := 58 // MissingReplyTo, note this subcode does not matter and does not represent a real scenario
+
+	publisher := &requestReplyMessagePublisherImpl{}
+
+	internalPublisher := &mockInternalPublisher{}
+	internalPublisher.requestor = func() core.Requestor {
+		mock := &mockRequestor{}
+		mock.addRequestorReplyHandler = func(handler core.RequestorReplyHandler) (string, func() (messageID uint64, correlationID string), core.ErrorInfo) {
+			return "", nil, &ccsmp.SolClientErrorInfoWrapper{
+				ReturnCode: ccsmp.SolClientReturnCodeFail,
+				SubCode:    ccsmp.SolClientSubCode(subCode),
+			}
+		}
+		return mock
+	}
+
+	publisher.construct(internalPublisher, backpressureConfigurationWait, 1)
+	//eventExecutor := &mockEventExecutor{}
+	//taskBuffer := &mockTaskBuffer{}
+	//publisher.eventExecutor = eventExecutor
+	//publisher.taskBuffer = taskBuffer
+
+	err := publisher.Start()
+	if err == nil {
+		t.Error("Failed to get error on start when replyto topic was not acquired by publisher")
+	}
+	publisher.Terminate(1 * time.Second)
+}
+
 func TestRequestReplyCallPublishWithBadPayload(t *testing.T) {
 	publisher := &requestReplyMessagePublisherImpl{}
 	publisher.construct(&mockInternalPublisher{}, backpressureConfigurationWait, 1)
@@ -776,6 +806,10 @@ func TestRequestReplyCallPublishWithBadPayload(t *testing.T) {
 	err := publisher.Publish(nil, replyHandler, testTopic, 100*time.Millisecond, nil /* usercontext */, nil /* property provider */)
 	if err == nil {
 		t.Error("expected publish to fail when message parameter is nil")
+	}
+	_, err = publisher.PublishAwaitResponse(nil, testTopic, 100*time.Millisecond, nil /* property provider */)
+	if err == nil {
+		t.Error("expected publish await response to fail when message parameter is nil")
 	}
 }
 
@@ -880,7 +914,7 @@ func TestRequestReplyCallPublishWithNegativeDuration(t *testing.T) {
 	case replyError := <-replyMessageResponseChan:
 		if replyError == nil {
 			t.Error("Publisher did not receive reply error response")
-		} else if _, ok := err.(*solace.TimeoutError); ok {
+		} else if _, ok := replyError.(*solace.TimeoutError); ok {
 			t.Error("Publisher received timeout error response")
 		}
 	case <-time.After(2 * time.Second):
@@ -893,6 +927,298 @@ func TestRequestReplyCallPublishWithNegativeDuration(t *testing.T) {
 		t.Errorf("Got unexpected termination error %s", termError)
 	}
 
+}
+
+func TestRequestReplyMessagePublisherPublishFailureFromTimeout(t *testing.T) {
+	// test wait beahviour for negative timeouts
+	// expects no timeout error for any response with no replier
+	publisherReplyToTopic := "testReplyTopic"
+	testTopic := resource.TopicOf("hello/world")
+	var coreReplyHandler core.RequestorReplyHandler = nil
+	messagePublishedChan := make(chan bool, 1)
+	corePublisher := &mockInternalPublisher{}
+	corePublisher.requestor = func() core.Requestor {
+		mock := &mockRequestor{}
+		mock.addRequestorReplyHandler = func(handler core.RequestorReplyHandler) (string, func() (messageID uint64, correlationID string), core.ErrorInfo) {
+			count := uint64(0)
+			coreReplyHandler = handler
+			return publisherReplyToTopic, func() (uint64, string) {
+				count += 1
+				return count, fmt.Sprintf("TEST%d", count)
+			}, nil
+		}
+		return mock
+	}
+	corePublisher.publish = func(message core.Publishable) core.ErrorInfo {
+		messagePublishedChan <- true
+		return nil
+	}
+	publisher := &requestReplyMessagePublisherImpl{}
+	publisher.construct(corePublisher, backpressureConfigurationDirect, 0)
+
+	publisher.Start()
+
+	if coreReplyHandler == nil {
+		t.Error("coreReplyHandler was not set from call to start")
+	}
+
+	if publisher.replyToTopic != publisherReplyToTopic {
+		t.Error("replyToTopic was not set from start")
+	}
+
+	timeout := 1 * time.Millisecond // set to timeout imemdiately
+
+	// test timeout from reply handler
+	replyMessageResponseChan := make(chan error, 1)
+
+	replyHandler := func(replyMsg apimessage.InboundMessage, context interface{}, err error) {
+		replyMessageResponseChan <- err
+	}
+
+	err := publisher.PublishString("testPayload", replyHandler, testTopic, timeout, nil /* usercontext */)
+	if err != nil {
+		t.Errorf("Error publishing request message with negative timeout, error: %s", err)
+	}
+
+	select {
+	case sent := <-messagePublishedChan:
+		if !sent {
+			t.Error("Message was not sent")
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Error("Timeout waiting for request message to publish")
+	}
+
+	select {
+	case replyError := <-replyMessageResponseChan:
+		if replyError == nil {
+			t.Error("Publisher did not receive reply error response")
+		} else if _, ok := replyError.(*solace.TimeoutError); !ok {
+			t.Errorf("Publisher received error response that was not timeout. Error %s", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Error("did not receive response after expected timeout")
+	}
+
+	// test timeout for publishAwaitResponse
+	// make message
+	builder := message.NewOutboundMessageBuilder()
+	outMsg, err := builder.BuildWithStringPayload("testpayload", nil)
+	if err != nil {
+		t.Error("Failed to build message to publish with PublishAwaitResponse")
+	}
+
+	go func() {
+		_, pubErr := publisher.PublishAwaitResponse(outMsg, testTopic, timeout, nil /* properties */)
+		replyMessageResponseChan <- pubErr
+	}()
+
+	select {
+	case sent := <-messagePublishedChan:
+		if !sent {
+			t.Error("Message was not sent")
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Error("Timeout waiting for request message to publish")
+	}
+
+	select {
+	case replyError := <-replyMessageResponseChan:
+		if replyError == nil {
+			t.Error("Publisher did not receive reply error response")
+		} else if _, ok := replyError.(*solace.TimeoutError); !ok {
+			t.Errorf("Publisher received error response that was not timeout. Error %s", replyError)
+		}
+	case <-time.After(2 * time.Second):
+		t.Error("did not receive response after expected timout")
+	}
+
+	// terminate the publisher
+	terminateChan := publisher.TerminateAsync(1 * time.Second)
+
+	termError := <-terminateChan
+	// terminate compelete
+	if termError != nil {
+		t.Errorf("Got unexpected termination error %s", termError)
+	}
+}
+
+func TestRequestReplyMessagePublisherPublishReplyByCorrelation(t *testing.T) {
+	// publish request message
+	// then receive a reply message without matching correlation id, expect no reply in handler
+	// then receive a reply message with matching correlation id, expect reply message in handler
+	// then receive a reply message the matching correlation id, expect no reply in handler
+	// this test can mock a reply message by calling publisher the reply handler from addRequestHandler in core requestor.
+	// the mock reply messages can be constructed by setting the following fields:
+	//  - correlation id
+	// in real scenario more fields are required:
+	//  - smf header bit
+	//  - destination set as the reply to destination for the publisher
+
+	publisherReplyToTopic := "testReplyTopic"
+	testTopic := resource.TopicOf("hello/world")
+	var coreReplyHandler core.RequestorReplyHandler = nil
+	messagePublishedChan := make(chan string, 1)
+	corePublisher := &mockInternalPublisher{}
+	corePublisher.requestor = func() core.Requestor {
+		mock := &mockRequestor{}
+		mock.addRequestorReplyHandler = func(handler core.RequestorReplyHandler) (string, func() (messageID uint64, correlationID string), core.ErrorInfo) {
+			count := uint64(0)
+			coreReplyHandler = handler
+			return publisherReplyToTopic, func() (uint64, string) {
+				count += 1
+				return count, fmt.Sprintf("TEST%d", count)
+			}, nil
+		}
+		return mock
+	}
+	corePublisher.publish = func(message core.Publishable) core.ErrorInfo {
+		id, errinfo := ccsmp.SolClientMessageGetCorrelationID(message)
+		if errinfo == nil {
+			messagePublishedChan <- id
+		}
+		return nil
+	}
+
+	publisher := &requestReplyMessagePublisherImpl{}
+	publisher.construct(corePublisher, backpressureConfigurationDirect, 0)
+
+	createRepliable := func(correlationID string, destination string, setReplyHeaderFlag bool) core.Repliable {
+		// construct inbound message with both fields
+		// use outbound message to construct the message
+		builder := message.NewOutboundMessageBuilder()
+		// set correlationID
+		outMsg, err := builder.WithCorrelationID(correlationID).BuildWithStringPayload("testpayload", nil)
+		if err != nil {
+			t.Error("Failed to build message with correlation id")
+		}
+		outMsgImpl, ok := outMsg.(*message.OutboundMessageImpl)
+		if !ok {
+			t.Error("Failed to access internal outbound message impl struct")
+		}
+		// set reply to destination
+		err = message.SetDestination(outMsgImpl, destination)
+		if err != nil {
+			t.Error("Failed to set the replyTo destination")
+		}
+		msgP, errInfo := ccsmp.SolClientMessageDup(message.GetOutboundMessagePointer(outMsgImpl))
+		if errInfo != nil {
+			t.Error("Failed to extract duplicate core message from constructed message")
+		}
+		return msgP
+	}
+
+	publisher.Start()
+
+	if coreReplyHandler == nil {
+		t.Error("coreReplyHandler was not set from call to start")
+	}
+
+	if publisher.replyToTopic != publisherReplyToTopic {
+		t.Error("replyToTopic was not set from start")
+	}
+
+	replyMessageResponseChan := make(chan apimessage.InboundMessage, 1)
+	replyMessageErrorResponseChan := make(chan error, 1)
+
+	replyHandler := func(replyMsg apimessage.InboundMessage, context interface{}, err error) {
+		if err != nil {
+			replyMessageErrorResponseChan <- err
+		}
+		if replyMsg != nil {
+			replyMessageResponseChan <- replyMsg
+		}
+	}
+
+	err := publisher.PublishString("testPayload", replyHandler, testTopic, time.Duration(-1), nil /* usercontext */)
+	if err != nil {
+		t.Errorf("Error publishing request message with negative timeout, error: %s", err)
+	}
+
+	coreReplyHandlerChannel := make(chan string, 1)
+
+	// mock ccsmp context thread pushing replies
+	go func() {
+		for {
+			replyCorrelationID, ok := <-coreReplyHandlerChannel
+			if !ok {
+				return
+			}
+			repliable := createRepliable(replyCorrelationID, publisherReplyToTopic, true)
+			takeMsg := coreReplyHandler(repliable, replyCorrelationID)
+			if !takeMsg {
+				// cleanup repliable like ccsmp context thread would
+				ccsmp.SolClientMessageFree(&repliable)
+			}
+		}
+	}()
+
+	var publishedID string
+	select {
+	case publishedID = <-messagePublishedChan:
+		if len(publishedID) < 1 {
+			t.Error("Message was not sent and could not get correlation ID")
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Error("Timeout waiting for request message to publish")
+	}
+
+	// push reply with mismatch correlation id
+	coreReplyHandlerChannel <- "NotAPublisherCorrelationID"
+
+	select {
+	case replyError := <-replyMessageErrorResponseChan:
+		if replyError != nil {
+			t.Errorf("Publisher did receive reply error response. Error %s", replyError)
+		}
+	case replyMessage := <-replyMessageResponseChan:
+		if cID, present := replyMessage.GetCorrelationID(); present {
+			t.Errorf("Received replyMessage for published correlation ID[%s] for mismatch reply correlation ID[%s]", publishedID, cID)
+		} else {
+			t.Errorf("Got replyMessage for correlationID[%s] without a correlation id", publishedID)
+		}
+	case <-time.After(100 * time.Millisecond):
+		// success did not receive any reply message
+	}
+
+	// push reply with mathcing correlation id
+	coreReplyHandlerChannel <- publishedID
+	select {
+	case replyError := <-replyMessageErrorResponseChan:
+		if replyError != nil {
+			t.Errorf("Publisher did receive reply error response. Error %s", replyError)
+		}
+	case replyMessage := <-replyMessageResponseChan:
+		if cID, present := replyMessage.GetCorrelationID(); present {
+			if cID != publishedID {
+				t.Errorf("Received replyMessage for published correlation ID[%s] for matching reply correlation ID[%s] did not match", publishedID, cID)
+			}
+		} else {
+			t.Errorf("Got replyMessage for correlationID[%s] without a correlation id", publishedID)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Error("Failed to get reply outcome in time")
+	}
+
+	// push reply with matching correlation id again should get no reply
+	coreReplyHandlerChannel <- publishedID
+	select {
+	case replyError := <-replyMessageErrorResponseChan:
+		if replyError != nil {
+			t.Errorf("Publisher did receive unexpected reply error response. Error %s", replyError)
+		}
+	case replyMessage := <-replyMessageResponseChan:
+		if cID, present := replyMessage.GetCorrelationID(); present {
+			t.Errorf("Received second replyMessage for published correlation ID[%s] for matching reply correlation ID[%s]", publishedID, cID)
+		} else {
+			t.Errorf("Got second replyMessage for correlationID[%s] without a correlation id", publishedID)
+		}
+	case <-time.After(100 * time.Millisecond):
+		// success did not receive any reply message
+	}
+
+	close(coreReplyHandlerChannel)
+	publisher.Terminate(1)
 }
 
 func TestRequestReplyMessagePublisherPublishFunctionalityBufferedWait(t *testing.T) {
