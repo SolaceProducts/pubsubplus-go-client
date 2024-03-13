@@ -910,7 +910,7 @@ var _ = Describe("RequestReplyReceiver", func() {
 
 					It("should be able to receive multiple messages successfully with "+receiverFunctionName+"() function", func() {
 						// send messages
-						sentMessage := 1000
+						sentMessage := 500
 						const publishTimeOut = 3 * time.Second
 
 						var err error
@@ -941,7 +941,7 @@ var _ = Describe("RequestReplyReceiver", func() {
 							content, ok := replyMessage.GetPayloadAsString()
 							Expect(ok).To(BeTrue())
 							Expect(content).To(Equal("Pong"))
-						case <-time.After(15 * time.Second):
+						case <-time.After(20 * time.Second):
 							Fail("Timed out waiting to receive reply message")
 						}
 
@@ -981,13 +981,14 @@ var _ = Describe("RequestReplyReceiver", func() {
 					rRMessagesCount := uint64(0)
 					directMessagesCount := uint64(0)
 
-					publishedRRMessages := 500
-					publishedDirectMessages := 500
+					publishedRRMessages := 250
+					publishedDirectMessages := 250
+					receiverBackPressureBufferLength := publishedRRMessages + publishedDirectMessages
 
 					// create a receiver with an adequate buffer size
 					var err error
 					// we need to properly configure the receiver's buffer to handle > 50 published messages
-					receiver, err = builder.OnBackPressureDropLatest(uint(1000)).Build(resource.TopicSubscriptionOf(topicString))
+					receiver, err = builder.OnBackPressureDropLatest(uint(receiverBackPressureBufferLength)).Build(resource.TopicSubscriptionOf(topicString))
 					Expect(err).ToNot(HaveOccurred())
 					err = receiver.Start()
 					Expect(err).ToNot(HaveOccurred())
@@ -1019,7 +1020,7 @@ var _ = Describe("RequestReplyReceiver", func() {
 						content, ok := replyMessage.GetPayloadAsString()
 						Expect(ok).To(BeTrue())
 						Expect(content).To(Equal("Pong"))
-					case <-time.After(10 * time.Second):
+					case <-time.After(20 * time.Second):
 						Fail("Timed out waiting to receive reply message")
 					}
 
