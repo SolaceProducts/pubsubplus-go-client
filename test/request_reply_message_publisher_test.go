@@ -176,7 +176,9 @@ var _ = Describe("RequestReplyPublisher", func() {
 			// Counts the number of published messages at the given int pointer
 			// Returns a channel that is closed when the publisher receives an error from a call to Publish
 			// Returns a channel that can be closed when the test completes, ie. if an error occurred
-			publisherSaturation := func(publisher solace.RequestReplyMessagePublisher, publishedMessages *int) (publisherComplete, testComplete chan struct{}) {
+			publisherSaturation := func(publisher solace.RequestReplyMessagePublisher, bufferSize uint, publishedMessages *int) (publisherSaturated, publisherComplete, testComplete chan struct{}) {
+				isSaturated := false
+				publisherSaturated = make(chan struct{})
 				publisherComplete = make(chan struct{})
 				testComplete = make(chan struct{})
 
@@ -200,10 +202,16 @@ var _ = Describe("RequestReplyPublisher", func() {
 						} else {
 							(*publishedMessages)++
 						}
+
+						// buffer is at least halfway filled
+						if !isSaturated && (uint(*publishedMessages) > bufferSize/2) {
+							close(publisherSaturated)
+							isSaturated = true
+						}
 					}
 					close(publisherComplete)
 				}()
-				return publisherComplete, testComplete
+				return publisherSaturated, publisherComplete, testComplete
 			}
 
 			It("should publish all messages on graceful termination (no waiting for reply messages)", func() {
@@ -217,7 +225,7 @@ var _ = Describe("RequestReplyPublisher", func() {
 				Expect(err).ToNot(HaveOccurred())
 				defer publisher.Terminate(0)
 
-				publisherComplete, testComplete := publisherSaturation(publisher, &publishedMessages)
+				publisherSaturated, publisherComplete, testComplete := publisherSaturation(publisher, bufferSize, &publishedMessages)
 				defer close(testComplete)
 
 				// allow the goroutine above to saturate the publisher
@@ -225,8 +233,11 @@ var _ = Describe("RequestReplyPublisher", func() {
 				case <-publisherComplete:
 					// block until publish complete
 					Fail("Expected publisher to not be complete")
+				case <-publisherSaturated:
+					// allow the goroutine above to saturate the publisher (at least halfway filled)
 				case <-time.After(100 * time.Millisecond):
-					// allow the goroutine above to saturate the publisher
+					// should not timeout while saturating the publisher
+					Fail("Not expected to timeout while saturating publisher; Should not get here")
 				}
 
 				publisherTerminate := publisher.TerminateAsync(30 * time.Second)
@@ -250,7 +261,7 @@ var _ = Describe("RequestReplyPublisher", func() {
 				Expect(messagingService.Metrics().GetValue(metrics.DirectMessagesSent)).To(BeNumerically("==", publishedMessages))
 			})
 
-			It("should have undelivered messages on ungraceful termination (no waiting for reply messages)", func() {
+			FIt("should have undelivered messages on ungraceful termination (no waiting for reply messages)", func() {
 				publishedMessages := 0
 
 				bufferSize := uint(10000)
@@ -261,7 +272,7 @@ var _ = Describe("RequestReplyPublisher", func() {
 				Expect(err).ToNot(HaveOccurred())
 				defer publisher.Terminate(0)
 
-				publisherComplete, testComplete := publisherSaturation(publisher, &publishedMessages)
+				publisherSaturated, publisherComplete, testComplete := publisherSaturation(publisher, bufferSize, &publishedMessages)
 				defer close(testComplete)
 
 				// allow the goroutine above to saturate the publisher
@@ -269,8 +280,11 @@ var _ = Describe("RequestReplyPublisher", func() {
 				case <-publisherComplete:
 					// block until publish complete
 					Fail("Expected publisher to not be complete")
-				case <-time.After(100 * time.Millisecond):
-					// allow the goroutine above to saturate the publisher
+				case <-publisherSaturated:
+					// allow the goroutine above to saturate the publisher (at least halfway filled)
+				case <-time.After(1 * time.Second):
+					// should not timeout while saturating the publisher
+					Fail("Not expected to timeout while saturating publisher; Should not get here")
 				}
 
 				publisherTerminate := publisher.TerminateAsync(0 * time.Second)
@@ -302,7 +316,7 @@ var _ = Describe("RequestReplyPublisher", func() {
 					terminationListenerCalled <- te
 				})
 
-				publisherComplete, testComplete := publisherSaturation(publisher, &publishedMessages)
+				_, publisherComplete, testComplete := publisherSaturation(publisher, bufferSize, &publishedMessages)
 				defer close(testComplete)
 
 				shutdownTime := time.Now()
@@ -342,7 +356,7 @@ var _ = Describe("RequestReplyPublisher", func() {
 					terminationListenerCalled <- te
 				})
 
-				publisherComplete, testComplete := publisherSaturation(publisher, &publishedMessages)
+				_, publisherComplete, testComplete := publisherSaturation(publisher, bufferSize, &publishedMessages)
 				defer close(testComplete)
 
 				shutdownTime := time.Now()
