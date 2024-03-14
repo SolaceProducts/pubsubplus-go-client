@@ -332,6 +332,45 @@ func PublishNPersistentMessages(messagingService solace.MessagingService, topic 
 	ExpectWithOffset(1, publisher.Terminate(10*time.Second)).ToNot(HaveOccurred(), "Expected publisher to terminate gracefully")
 }
 
+// PublishNRequestReplyMessages will publish N request-reply messages to the given topic using the given messaging service with an
+// optional template attached as a string template. If no string template is provided, "hello world %d" is used.
+func PublishNRequestReplyMessages(messagingService solace.MessagingService, topic string, timeOut time.Duration, n int, template ...string) chan message.InboundMessage {
+	str := "hello world %d"
+	if len(template) > 0 {
+		str = template[0]
+	}
+
+	// A handler for the request-reply publisher
+	replyChannel := make(chan message.InboundMessage)
+	replyHandler := func(inboundMessage message.InboundMessage, userContext interface{}, err error) {
+		go func() {
+			replyChannel <- inboundMessage
+		}()
+	}
+
+	publisher, err := messagingService.RequestReply().CreateRequestReplyMessagePublisherBuilder().OnBackPressureReject(0).Build()
+	ExpectWithOffset(1, err).ToNot(HaveOccurred(), "Expected request-reply publisher to build without error")
+	ExpectWithOffset(1, publisher.Start()).ToNot(HaveOccurred(), "Expected request-reply publisher to start without error")
+
+	builder := messagingService.MessageBuilder()
+
+	for i := 0; i < n; i++ {
+		msgPayload := str
+		if len(template) == 0 {
+			msgPayload = fmt.Sprintf(str, i)
+		}
+		msg, err := builder.BuildWithStringPayload(msgPayload)
+		ExpectWithOffset(1, err).ToNot(HaveOccurred(), "Expected message to build without error")
+
+		err = publisher.Publish(msg, replyHandler, resource.TopicOf(topic), timeOut, config.MessagePropertyMap{
+			config.MessagePropertyCorrelationID: fmt.Sprint(i),
+		}, nil /* usercontext */)
+		ExpectWithOffset(1, err).ToNot(HaveOccurred(), "Expected publish to be successful")
+	}
+	ExpectWithOffset(1, publisher.Terminate(10*time.Second)).ToNot(HaveOccurred(), "Expected request-reply publisher to terminate gracefully")
+	return replyChannel
+}
+
 // ReceiveOneMessage function
 func ReceiveOneMessage(messagingService solace.MessagingService, topic string) chan message.InboundMessage {
 	receiver, err := messagingService.CreateDirectMessageReceiverBuilder().WithSubscriptions(resource.TopicSubscriptionOf(topic)).Build()

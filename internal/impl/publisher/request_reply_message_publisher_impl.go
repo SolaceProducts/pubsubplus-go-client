@@ -139,9 +139,13 @@ func (publisher *requestReplyMessagePublisherImpl) Start() (err error) {
 		// if we are direct, we want to register to receive can send events
 		publisher.canSendEventHandlerID = publisher.internalPublisher.Events().AddEventHandler(core.SolClientEventCanSend, publisher.onCanSend)
 	}
-	publisher.replyToTopic, publisher.nextCorrelationID, _ = publisher.internalPublisher.Requestor().AddRequestorReplyHandler(func(msg core.Repliable, correlationId string) bool {
+	var errorInfo core.ErrorInfo
+	publisher.replyToTopic, publisher.nextCorrelationID, errorInfo = publisher.internalPublisher.Requestor().AddRequestorReplyHandler(func(msg core.Repliable, correlationId string) bool {
 		return publisher.handleReplyMessage(msg, correlationId)
 	})
+	if errorInfo != nil {
+		return core.ToNativeError(errorInfo, "encountered error while adding publisher reply message callback: ")
+	}
 	go publisher.eventExecutor.Run()
 	return nil
 }
