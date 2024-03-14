@@ -261,7 +261,7 @@ var _ = Describe("RequestReplyPublisher", func() {
 				Expect(messagingService.Metrics().GetValue(metrics.DirectMessagesSent)).To(BeNumerically("==", publishedMessages))
 			})
 
-			FIt("should have undelivered messages on ungraceful termination (no waiting for reply messages)", func() {
+			It("should have undelivered messages on ungraceful termination (no waiting for reply messages)", func() {
 				publishedMessages := 0
 
 				bufferSize := uint(10000)
