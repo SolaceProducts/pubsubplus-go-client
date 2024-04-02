@@ -56,6 +56,9 @@ uintptr_to_void_p(solClient_uint64_t ptr);
 
 /**
  * Macro for determining if a message correlation has the solclientgo correlation prefix
+ * corrId_p correlation id pointer/expression, must not be NULL.
+ *          Should be a utf8 null terminal string, any string that is not null terminal must
+ *          have a buffer size greater then 4.
  */
 #define SOLCLIENTGO_HAS_REPLY_CORRELATION_ID_PREFIX(corrId_p) (   \
     (corrId_p)[0] == (SOLCLIENTGO_REPLY_CORRELATION_PREFIX)[0] && \
