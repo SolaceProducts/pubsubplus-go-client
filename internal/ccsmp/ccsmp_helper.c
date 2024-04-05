@@ -37,7 +37,7 @@ solClientgo_msg_isRequestReponseMsg(solClient_opaqueMsg_pt msg_p, char **correla
         return rc;
     }
     if (!SOLCLIENTGO_HAS_REPLY_CORRELATION_ID_PREFIX(correlationId)) {
-        return rc;
+        return SOLCLIENT_FAIL;
     }
     // This string is a direct read from the message backing memory and shoud be copied into go memory for persistent use.
     *correlationId_p = (char *)correlationId;
