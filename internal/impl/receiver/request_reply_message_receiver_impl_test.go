@@ -26,9 +26,11 @@ import (
 
 	"solace.dev/go/messaging/internal/ccsmp"
 
+	"solace.dev/go/messaging/internal/impl/constants"
 	"solace.dev/go/messaging/internal/impl/core"
 	"solace.dev/go/messaging/internal/impl/message"
 
+	"solace.dev/go/messaging/pkg/solace"
 	"solace.dev/go/messaging/pkg/solace/config"
 	"solace.dev/go/messaging/pkg/solace/resource"
 )
@@ -54,13 +56,13 @@ func TestReplierFailedSendReply(t *testing.T) {
 	replier := &replierImpl{}
 	internalReplier := &mockReplier{}
 
-	replyErr := core.ToNativeError(&ccsmp.SolClientErrorInfoWrapper{
+	replyErrInfo := &ccsmp.SolClientErrorInfoWrapper{
 		ReturnCode: ccsmp.SolClientReturnCodeFail,
 		SubCode:    ccsmp.SolClientSubCode(subCode),
-	}, "test native error return:")
+	}
 
-	internalReplier.sendReply = func(replyMsg core.ReplyPublishable) error {
-		return replyErr
+	internalReplier.sendReply = func(replyMsg core.ReplyPublishable) core.ErrorInfo {
+		return replyErrInfo
 	}
 	replier.construct(testCorrelationID, testReplyToTopic, internalReplier)
 	testReplyMessage, _ := message.NewOutboundMessage()
@@ -68,8 +70,39 @@ func TestReplierFailedSendReply(t *testing.T) {
 	if err == nil {
 		t.Error("Expected error from Reply call with failure to publish")
 	}
-	if err != replyErr {
-		t.Error("Error return was was not the expected error")
+	if _, ok := err.(*solace.NativeError); !ok {
+		t.Error("Error returned was not the expected error type")
+	} else if err.Error() != constants.ReplierFailureToPublishReply {
+		t.Errorf("Error returned was not the expect error message. Expected: '%s' got: '%s'", constants.ReplierFailureToPublishReply, err.Error())
+	}
+}
+
+func TestReplierWouldBlockSendReply(t *testing.T) {
+	subCode := 0 // ok as last error is not set on solclient would block return
+	testCorrelationID := "#TEST0"
+	testReplyToTopic := "testReplyToDestination"
+	replier := &replierImpl{}
+	internalReplier := &mockReplier{}
+
+	replyErrInfo := &ccsmp.SolClientErrorInfoWrapper{
+		ReturnCode: ccsmp.SolClientReturnCodeWouldBlock,
+		SubCode:    ccsmp.SolClientSubCode(subCode),
+	}
+
+	internalReplier.sendReply = func(replyMsg core.ReplyPublishable) core.ErrorInfo {
+		return replyErrInfo
+	}
+	replier.construct(testCorrelationID, testReplyToTopic, internalReplier)
+	testReplyMessage, _ := message.NewOutboundMessage()
+	err := replier.Reply(testReplyMessage)
+	if err == nil {
+		t.Error("Expected error from Reply call with failure to publish")
+	}
+
+	if _, ok := err.(*solace.PublisherOverflowError); !ok {
+		t.Error("Error returned was not the expected error type PublisherOverflowError")
+	} else if err.Error() != constants.WouldBlock {
+		t.Errorf("Error returned was not the expect error message. Expected: '%s' got: '%s'", constants.WouldBlock, err.Error())
 	}
 }
 
@@ -82,7 +115,7 @@ func TestReplierMessageParametersOnReply(t *testing.T) {
 	var replyMsgCorrelationID string
 	var replyMsgCorrelationIDOk bool = false
 	// extract fields in the sendReplyFunction
-	internalReplier.sendReply = func(replyMsg core.ReplyPublishable) error {
+	internalReplier.sendReply = func(replyMsg core.ReplyPublishable) core.ErrorInfo {
 		// grab the prepare reply message and turn into a message that can access fields
 		testReplyMsg := message.NewInboundMessage(replyMsg, false)
 		replyMsgDestination = testReplyMsg.GetDestinationName()

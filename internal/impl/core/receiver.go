@@ -39,8 +39,8 @@ type SubscriptionEvent interface {
 
 // Replier interface
 type Replier interface {
-	//CreateReplyPublishable(replyMsg apimessage.OutboundMessage, replyToDestination string, correlationID string) (ReplyPublishable, error)
-	SendReply(replyMsg ReplyPublishable) error
+	// SendReply will send a reply publishable
+	SendReply(replyMsg ReplyPublishable) ErrorInfo
 }
 
 // Receiver interface
@@ -183,12 +183,8 @@ func (receiver *ccsmpBackedReceiver) Replier() Replier {
 }
 
 // Send the ReplyPublishable through the ccsmp session
-func (receiver *ccsmpBackedReceiver) SendReply(replyMsg ReplyPublishable) error {
-	errInfo := receiver.session.SolClientSessionPublish(replyMsg)
-	if errInfo != nil {
-		return ToNativeError(errInfo, "error publishing reply msg: ")
-	}
-	return nil
+func (receiver *ccsmpBackedReceiver) SendReply(replyMsg ReplyPublishable) ErrorInfo {
+	return receiver.session.SolClientSessionPublish(replyMsg)
 }
 
 func (receiver *ccsmpBackedReceiver) Events() Events {

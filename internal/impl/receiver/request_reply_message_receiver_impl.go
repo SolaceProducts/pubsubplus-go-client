@@ -21,8 +21,9 @@ import (
 	"runtime"
 	"time"
 
+	"solace.dev/go/messaging/internal/ccsmp"
+	"solace.dev/go/messaging/internal/impl/constants"
 	"solace.dev/go/messaging/internal/impl/core"
-	//"solace.dev/go/messaging/internal/impl/logging"
 	"solace.dev/go/messaging/internal/impl/message"
 	"solace.dev/go/messaging/pkg/solace"
 	"solace.dev/go/messaging/pkg/solace/config"
@@ -251,7 +252,15 @@ func (replier *replierImpl) Reply(msg apimessage.OutboundMessage) error {
 	if err = message.SetAsReplyMessage(replyMsg, replier.replyToDestination, replier.correlationID); err != nil {
 		return err
 	}
-	err = replier.internalReplier.SendReply(message.GetOutboundMessagePointer(replyMsg))
+	if errInfo := replier.internalReplier.SendReply(message.GetOutboundMessagePointer(replyMsg)); errInfo != nil {
+		// error info would block return code for simple transport reject back pressure from replier
+		if errInfo.ReturnCode == ccsmp.SolClientReturnCodeWouldBlock {
+			err = solace.NewError(&solace.PublisherOverflowError{}, constants.WouldBlock, nil)
+		} else {
+			err = core.ToNativeError(errInfo, constants.ReplierFailureToPublishReply)
+		}
+	}
+
 	runtime.KeepAlive(replyMsg)
 	return err
 }

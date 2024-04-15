@@ -444,10 +444,10 @@ func (events *mockEvents) RemoveEventHandler(id uint) {
 }
 
 type mockReplier struct {
-	sendReply func(replyMsg core.ReplyPublishable) error
+	sendReply func(replyMsg core.ReplyPublishable) core.ErrorInfo
 }
 
-func (replier *mockReplier) SendReply(replyMsg core.ReplyPublishable) error {
+func (replier *mockReplier) SendReply(replyMsg core.ReplyPublishable) core.ErrorInfo {
 	if replier.sendReply != nil {
 		return replier.sendReply(replyMsg)
 	}

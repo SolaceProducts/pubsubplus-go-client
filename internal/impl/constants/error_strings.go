@@ -177,3 +177,6 @@ const InvalidConfiguration = "invalid configuration provided: "
 
 // MissingReplyMessageHandler error string
 const MissingReplyMessageHandler = "got nil ReplyMessageHandler, ReplyMessageHandler is required for Publish"
+
+// ReplierFailureToPublishReply error string
+const ReplierFailureToPublishReply = "Publish Reply Error: "
