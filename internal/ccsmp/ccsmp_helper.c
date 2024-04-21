@@ -15,8 +15,51 @@
 // limitations under the License.
 
 #include "./ccsmp_helper.h"
+#include "solclient/solClient.h"
+
+//
+// external callbacks defined in ccsmp_callbacks.c
+//
+solClient_rxMsgCallback_returnCode_t
+messageReceiveCallback(solClient_opaqueSession_pt opaqueSession_p, solClient_opaqueMsg_pt msg_p, void *user_p);
 
 void *uintptr_to_void_p(solClient_uint64_t ptr)
 {
     return (void *)ptr;
+}
+
+solClient_returnCode_t  SessionTopicSubscribe(
+                        solClient_opaqueSession_pt opaqueSession_p,
+                        const char                *topicSubscription_p,
+                        void                      *dispatchId_p,
+                        void                      *correlationTag_p) 
+{
+    solClient_session_rxMsgDispatchFuncInfo_t dispatchInfo;      /* msg dispatch callback to set */
+    dispatchInfo.dispatchType = SOLCLIENT_DISPATCH_TYPE_CALLBACK;
+    dispatchInfo.callback_p = messageReceiveCallback;
+    dispatchInfo.user_p = dispatchId_p;
+    dispatchInfo.rfu_p = NULL;
+    return solClient_session_topicSubscribeWithDispatch ( opaqueSession_p,
+                                                          SOLCLIENT_SUBSCRIBE_FLAGS_REQUEST_CONFIRM,
+                                                          topicSubscription_p,
+                                                          &dispatchInfo,
+                                                          correlationTag_p);
+}
+
+solClient_returnCode_t  SessionTopicUnsubscribe(
+                        solClient_opaqueSession_pt opaqueSession_p,
+                        const char                *topicSubscription_p,
+                        void                      *dispatchId_p,
+                        void                      *correlationTag_p) 
+{
+    solClient_session_rxMsgDispatchFuncInfo_t dispatchInfo;      /* msg dispatch callback to set */
+    dispatchInfo.dispatchType = SOLCLIENT_DISPATCH_TYPE_CALLBACK;
+    dispatchInfo.callback_p = messageReceiveCallback;
+    dispatchInfo.user_p = dispatchId_p;
+    dispatchInfo.rfu_p = NULL;
+    return solClient_session_topicUnsubscribeWithDispatch ( opaqueSession_p,
+                                                            SOLCLIENT_SUBSCRIBE_FLAGS_REQUEST_CONFIRM,
+                                                            topicSubscription_p,
+                                                            &dispatchInfo,
+                                                            correlationTag_p);
 }

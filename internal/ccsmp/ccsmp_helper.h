@@ -48,5 +48,15 @@ typedef struct solClient_errorInfo_wrapper
  */
 void *
 uintptr_to_void_p(solClient_uint64_t ptr);
+solClient_returnCode_t  SessionTopicSubscribe(
+                        solClient_opaqueSession_pt opaqueSession_p,
+                        const char                *topicSubscription_p,
+                        void                      *dispatchId_p,
+                        void                      *correlationTag_p);
+solClient_returnCode_t  SessionTopicUnsubscribe(
+                        solClient_opaqueSession_pt opaqueSession_p,
+                        const char                *topicSubscription_p,
+                        void                      *dispatchId_p,
+                        void                      *correlationTag_p);
 
 #endif
