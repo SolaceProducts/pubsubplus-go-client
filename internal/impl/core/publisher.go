@@ -162,7 +162,7 @@ func (publisher *ccsmpBackedPublisher) AddRequestorReplyHandler(replyHandler Req
 	// add local dispatch only subscription after adding entry into publisherRxReplyMap to handle reply messages
 
 	// create dispatch entry
-	dispatch, dispatchPointer := ccsmp.NewSessionReplyDispatch(pubID)
+	dispatchPointer := ccsmp.NewSessionReplyDispatch(pubID)
 	replyEntry := &ccsmpReplyCorrelation{
 		handler:      replyHandler,
 		replyToTopic: replyToTopic,
@@ -176,7 +176,7 @@ func (publisher *ccsmpBackedPublisher) AddRequestorReplyHandler(replyHandler Req
 	publisher.rxLock.Unlock()
 
 	// subscribe using local dispatch only
-	errorInfo := publisher.session.SolClientSessionSubscribeWithLocalDispatchOnly(replyToTopic, dispatch, 0)
+	errorInfo := publisher.session.SolClientSessionSubscribeReplyTopic(replyToTopic, dispatchPointer, 0)
 
 	// handle subscription error
 	if errorInfo != nil {
@@ -216,10 +216,10 @@ func (publisher *ccsmpBackedPublisher) RemoveRequestorReplyHandler(replyToTopic 
 		return nil
 	}
 	// convert pubID into pubIndex by creating dispatch used to unsubscribe
-	dispatch, pubIndex := ccsmp.NewSessionReplyDispatch(pubID)
+	pubIndex := ccsmp.NewSessionReplyDispatch(pubID)
 
 	// call unsubscribe on reply to topic to halt messaging
-	errorInfo := publisher.session.SolClientSessionUnsubscribeWithLocalDispatchOnly(replyToTopic, dispatch, 0)
+	errorInfo := publisher.session.SolClientSessionUnsubscribeReplyTopic(replyToTopic, pubIndex, 0)
 
 	if errorInfo != nil {
 		return errorInfo
@@ -287,8 +287,8 @@ func (publisher *ccsmpBackedPublisher) terminateRequestor() {
 	// call unsubscribe for any outstanding publisher reply to topics
 	// note this shuold only occur if there is no call to RemoveRequestorReplyHandler
 	for index = 0; index < len(unsubIDList); index++ {
-		dispatch, _ := ccsmp.NewSessionReplyDispatch(unsubIDList[index])
-		publisher.session.SolClientSessionUnsubscribeWithLocalDispatchOnly(unsubEntryList[index].replyToTopic, dispatch, 0)
+		dispatchID := ccsmp.NewSessionReplyDispatch(unsubIDList[index])
+		publisher.session.SolClientSessionUnsubscribeReplyTopic(unsubEntryList[index].replyToTopic, dispatchID, 0)
 	}
 
 }

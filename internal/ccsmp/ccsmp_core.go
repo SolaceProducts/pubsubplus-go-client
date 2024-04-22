@@ -344,43 +344,79 @@ func (session *SolClientSession) SolClientSessionPublish(message SolClientMessag
 }
 
 // solClientSessionSubscribeWithFlags wraps solClient_session_topicSubscribeWithDispatch
-func (session *SolClientSession) solClientSessionSubscribeWithFlags(topic string, flags C.solClient_uint32_t, dispatch *SolClientSessionRxMsgDispatchFuncInfo, correlationID uintptr) *SolClientErrorInfoWrapper {
+func (session *SolClientSession) solClientSessionSubscribeWithFlags(topic string, flags C.solClient_subscribeFlags_t, dispatchID uintptr, correlationID uintptr) *SolClientErrorInfoWrapper {
 	return handleCcsmpError(func() SolClientReturnCode {
 		cString := C.CString(topic)
 		defer C.free(unsafe.Pointer(cString))
 		// This is not an unsafe usage of unsafe.Pointer as we are using correlationId as data, not as a pointer
-		return C.solClient_session_topicSubscribeWithDispatch(session.pointer, flags, cString, dispatch, C.uintptr_to_void_p(C.solClient_uint64_t(correlationID)))
+		return C.SessionTopicSubscribeWithFlags(session.pointer,
+			cString,
+            flags,
+			C.uintptr_to_void_p(C.solClient_uint64_t(dispatchID)),
+			C.uintptr_to_void_p(C.solClient_uint64_t(correlationID)))
 	})
+}
+
+// solClientSessionSubscribeWithFlags wraps solClient_session_topicSubscribeWithDispatch
+func (session *SolClientSession) solClientSessionSubscribeReplyTopicWithFlags(topic string, flags C.solClient_subscribeFlags_t, dispatchID uintptr, correlationID uintptr) *SolClientErrorInfoWrapper {
+    return handleCcsmpError(func() SolClientReturnCode {
+        cString := C.CString(topic)
+        defer C.free(unsafe.Pointer(cString))
+        // This is not an unsafe usage of unsafe.Pointer as we are using correlationId as data, not as a pointer
+        return C.SessionReplyTopicSubscribeWithFlags(session.pointer,
+            cString,
+            flags,
+            C.uintptr_to_void_p(C.solClient_uint64_t(dispatchID)),
+            C.uintptr_to_void_p(C.solClient_uint64_t(correlationID)))
+    })
 }
 
 // solClientSessionUnsubscribeWithFlags wraps solClient_session_topicUnsubscribeWithDispatch
-func (session *SolClientSession) solClientSessionUnsubscribeWithFlags(topic string, flags C.solClient_uint32_t, dispatch *SolClientSessionRxMsgDispatchFuncInfo, correlationID uintptr) *SolClientErrorInfoWrapper {
+func (session *SolClientSession) solClientSessionUnsubscribeWithFlags(topic string, flags C.solClient_subscribeFlags_t, dispatchID uintptr, correlationID uintptr) *SolClientErrorInfoWrapper {
 	return handleCcsmpError(func() SolClientReturnCode {
 		cString := C.CString(topic)
 		defer C.free(unsafe.Pointer(cString))
 		// This is not an unsafe usage of unsafe.Pointer as we are using correlationId as data, not as a pointer
-		return C.solClient_session_topicUnsubscribeWithDispatch(session.pointer, flags, cString, dispatch, C.uintptr_to_void_p(C.solClient_uint64_t(correlationID)))
+        return C.SessionTopicUnsubscribeWithFlags(session.pointer,
+            cString,
+            flags,
+            C.uintptr_to_void_p(C.solClient_uint64_t(dispatchID)),
+            C.uintptr_to_void_p(C.solClient_uint64_t(correlationID)))
 	})
 }
 
-// SolClientSessionSubscribeWithLocalDispatchOnly wraps solClient_session_topicSubscribeWithDispatch
-func (session *SolClientSession) SolClientSessionSubscribeWithLocalDispatchOnly(topic string, dispatch *SolClientSessionRxMsgDispatchFuncInfo, correlationID uintptr) *SolClientErrorInfoWrapper {
-	return session.solClientSessionSubscribeWithFlags(topic, C.SOLCLIENT_SUBSCRIBE_FLAGS_LOCAL_DISPATCH_ONLY, dispatch, correlationID)
+// solClientSessionUnsubscribeReplyTopicWithFlags wraps solClient_session_topicUnsubscribeWithDispatch
+func (session *SolClientSession) solClientSessionUnsubscribeReplyTopicWithFlags(topic string, flags C.solClient_subscribeFlags_t, dispatchID uintptr, correlationID uintptr) *SolClientErrorInfoWrapper {
+    return handleCcsmpError(func() SolClientReturnCode {
+        cString := C.CString(topic)
+        defer C.free(unsafe.Pointer(cString))
+        // This is not an unsafe usage of unsafe.Pointer as we are using correlationId as data, not as a pointer
+        return C.SessionReplyTopicUnsubscribeWithFlags(session.pointer,
+            cString,
+            flags,
+            C.uintptr_to_void_p(C.solClient_uint64_t(dispatchID)),
+            C.uintptr_to_void_p(C.solClient_uint64_t(correlationID)))
+    })
 }
 
-// SolClientSessionUnsubscribeWithLocalDispatchOnly wraps solClient_session_topicUnsubscribeWithDispatch
-func (session *SolClientSession) SolClientSessionUnsubscribeWithLocalDispatchOnly(topic string, dispatch *SolClientSessionRxMsgDispatchFuncInfo, correlationID uintptr) *SolClientErrorInfoWrapper {
-	return session.solClientSessionUnsubscribeWithFlags(topic, C.SOLCLIENT_SUBSCRIBE_FLAGS_LOCAL_DISPATCH_ONLY, dispatch, correlationID)
+// SolClientSessionSubscribeReplyTopic wraps solClient_session_topicSubscribeWithDispatch
+func (session *SolClientSession) SolClientSessionSubscribeReplyTopic(topic string, dispatchID uintptr, correlationID uintptr) *SolClientErrorInfoWrapper {
+	return session.solClientSessionSubscribeReplyTopicWithFlags(topic, C.SOLCLIENT_SUBSCRIBE_FLAGS_LOCAL_DISPATCH_ONLY, dispatchID, correlationID)
+}
+
+// SolClientSessionUnsubscribeReplyTopic wraps solClient_session_topicUnsubscribeWithDispatch
+func (session *SolClientSession) SolClientSessionUnsubscribeReplyTopic(topic string, dispatchID uintptr, correlationID uintptr) *SolClientErrorInfoWrapper {
+	return session.solClientSessionUnsubscribeReplyTopicWithFlags(topic, C.SOLCLIENT_SUBSCRIBE_FLAGS_LOCAL_DISPATCH_ONLY, dispatchID, correlationID)
 }
 
 // SolClientSessionSubscribe wraps solClient_session_topicSubscribeWithDispatch
-func (session *SolClientSession) SolClientSessionSubscribe(topic string, dispatch *SolClientSessionRxMsgDispatchFuncInfo, correlationID uintptr) *SolClientErrorInfoWrapper {
-	return session.solClientSessionSubscribeWithFlags(topic, C.SOLCLIENT_SUBSCRIBE_FLAGS_REQUEST_CONFIRM, dispatch, correlationID)
+func (session *SolClientSession) SolClientSessionSubscribe(topic string, dispatchID uintptr, correlationID uintptr) *SolClientErrorInfoWrapper {
+	return session.solClientSessionSubscribeWithFlags(topic, C.SOLCLIENT_SUBSCRIBE_FLAGS_REQUEST_CONFIRM, dispatchID, correlationID)
 }
 
 // SolClientSessionUnsubscribe wraps solClient_session_topicUnsubscribeWithDispatch
-func (session *SolClientSession) SolClientSessionUnsubscribe(topic string, dispatch *SolClientSessionRxMsgDispatchFuncInfo, correlationID uintptr) *SolClientErrorInfoWrapper {
-	return session.solClientSessionUnsubscribeWithFlags(topic, C.SOLCLIENT_SUBSCRIBE_FLAGS_REQUEST_CONFIRM, dispatch, correlationID)
+func (session *SolClientSession) SolClientSessionUnsubscribe(topic string, dispatchID uintptr, correlationID uintptr) *SolClientErrorInfoWrapper {
+	return session.solClientSessionUnsubscribeWithFlags(topic, C.SOLCLIENT_SUBSCRIBE_FLAGS_REQUEST_CONFIRM, dispatchID, correlationID)
 }
 
 // SolClientEndpointProvision wraps solClient_session_endpointProvision
@@ -540,17 +576,11 @@ func NewSessionDispatch(id uint64) (*SolClientSessionRxMsgDispatchFuncInfo, uint
 }
 
 // NewSessionReplyDispatch function
-func NewSessionReplyDispatch(id uint64) (*SolClientSessionRxMsgDispatchFuncInfo, uintptr) {
+func NewSessionReplyDispatch(id uint64) ( uintptr) {
 	// This is not a misuse of unsafe.Pointer as we are not storing a pointer.
 	// CGO defines void* as unsafe.Pointer, however it is just arbitrary data.
 	// We want to store a number at void*
-	ptr := uintptr(id)
-	return &SolClientSessionRxMsgDispatchFuncInfo{
-		dispatchType: C.SOLCLIENT_DISPATCH_TYPE_CALLBACK,
-		callback_p:   (C.solClient_session_rxMsgCallbackFunc_t)(unsafe.Pointer(C.requestResponseReplyMessageReceiveCallback)),
-		user_p:       C.uintptr_to_void_p(C.solClient_uint64_t(ptr)),
-		rfu_p:        nil,
-	}, ptr
+    return uintptr(id)
 }
 
 // GetLastErrorInfo should NOT be called in most cases as it is dependent on the thread.
