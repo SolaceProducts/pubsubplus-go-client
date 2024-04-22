@@ -80,7 +80,8 @@ jobs:
       - name: Runs staticcheck
         if: ${{ success() }}
         run: |
-          go install honnef.co/go/tools/cmd/staticcheck@v0.3.3
+          # use pinned version of the tool but check if this needs an update on go version bump
+          go install honnef.co/go/tools/cmd/staticcheck@v0.4.7
           OUTPUT=$(staticcheck --checks=all ./...)
           if [ ! -z "$OUTPUT" ]; then
             echo "staticcheck failed on the following:"
