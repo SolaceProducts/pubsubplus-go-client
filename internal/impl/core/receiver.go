@@ -106,9 +106,9 @@ type ccsmpBackedReceiver struct {
 	session *ccsmp.SolClientSession
 	running int32
 	// TODO if performance becomes a concern, consider substituting maps and mutex for sync.Map
-	rxLock      sync.RWMutex
-	rxMap       map[uintptr]RxCallback
-	dispatchID  uint64
+	rxLock     sync.RWMutex
+	rxMap      map[uintptr]RxCallback
+	dispatchID uint64
 	//
 	subscriptionCorrelationLock sync.Mutex
 	subscriptionCorrelation     map[SubscriptionCorrelationID]chan SubscriptionEvent
