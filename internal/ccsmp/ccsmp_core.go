@@ -303,22 +303,28 @@ func (session *SolClientSession) SolClientSessionPublish(message SolClientMessag
 }
 
 // SolClientSessionSubscribe wraps solClient_session_topicSubscribeWithDispatch
-func (session *SolClientSession) SolClientSessionSubscribe(topic string, dispatch *SolClientSessionRxMsgDispatchFuncInfo, correlationID uintptr) *SolClientErrorInfoWrapper {
+func (session *SolClientSession) SolClientSessionSubscribe(topic string, dispatchID uintptr, correlationID uintptr) *SolClientErrorInfoWrapper {
 	return handleCcsmpError(func() SolClientReturnCode {
 		cString := C.CString(topic)
 		defer C.free(unsafe.Pointer(cString))
 		// This is not an unsafe usage of unsafe.Pointer as we are using correlationId as data, not as a pointer
-		return C.solClient_session_topicSubscribeWithDispatch(session.pointer, C.SOLCLIENT_SUBSCRIBE_FLAGS_REQUEST_CONFIRM, cString, dispatch, C.uintptr_to_void_p(C.solClient_uint64_t(correlationID)))
+		return C.SessionTopicSubscribe(session.pointer,
+			cString,
+			C.uintptr_to_void_p(C.solClient_uint64_t(dispatchID)),
+			C.uintptr_to_void_p(C.solClient_uint64_t(correlationID)))
 	})
 }
 
 // SolClientSessionUnsubscribe wraps solClient_session_topicUnsubscribeWithDispatch
-func (session *SolClientSession) SolClientSessionUnsubscribe(topic string, dispatch *SolClientSessionRxMsgDispatchFuncInfo, correlationID uintptr) *SolClientErrorInfoWrapper {
+func (session *SolClientSession) SolClientSessionUnsubscribe(topic string, dispatchID uintptr, correlationID uintptr) *SolClientErrorInfoWrapper {
 	return handleCcsmpError(func() SolClientReturnCode {
 		cString := C.CString(topic)
 		defer C.free(unsafe.Pointer(cString))
 		// This is not an unsafe usage of unsafe.Pointer as we are using correlationId as data, not as a pointer
-		return C.solClient_session_topicUnsubscribeWithDispatch(session.pointer, C.SOLCLIENT_SUBSCRIBE_FLAGS_REQUEST_CONFIRM, cString, dispatch, C.uintptr_to_void_p(C.solClient_uint64_t(correlationID)))
+		return C.SessionTopicUnsubscribe(session.pointer,
+			cString,
+			C.uintptr_to_void_p(C.solClient_uint64_t(dispatchID)),
+			C.uintptr_to_void_p(C.solClient_uint64_t(correlationID)))
 	})
 }
 
