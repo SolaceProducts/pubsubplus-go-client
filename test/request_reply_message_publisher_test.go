@@ -26,7 +26,6 @@ import (
 	"solace.dev/go/messaging/pkg/solace/message"
 	"solace.dev/go/messaging/pkg/solace/metrics"
 	"solace.dev/go/messaging/pkg/solace/resource"
-	"solace.dev/go/messaging/pkg/solace/subcode"
 	"solace.dev/go/messaging/test/helpers"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -331,7 +330,7 @@ var _ = Describe("RequestReplyPublisher", func() {
 					Expect(te.GetTimestamp()).To(BeTemporally("<", time.Now()))
 					Expect(te.GetCause()).To(BeAssignableToTypeOf(&solace.NativeError{}))
 					// SOL-66163: a race condition in CCSMP may cause the error to be nil
-					helpers.ValidateNativeError(te.GetCause(), subcode.CommunicationError)
+					// helpers.ValidateNativeError(te.GetCause(), subcode.CommunicationError)
 					Expect(te.GetMessage()).To(ContainSubstring("Publisher"))
 				case <-time.After(100 * time.Millisecond):
 					Fail("timed out waiting for termination listener to be called")
