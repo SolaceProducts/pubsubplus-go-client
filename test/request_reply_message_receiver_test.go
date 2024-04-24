@@ -705,7 +705,7 @@ var _ = Describe("RequestReplyReceiver", func() {
 				Eventually(terminateChannel).Should(Receive(BeNil()))
 			})
 
-			FIt("should wait to terminate until all messages are processed with async receive", func() {
+			It("should wait to terminate until all messages are processed with async receive", func() {
 				blocker := make(chan struct{})
 				receiver.ReceiveAsync(func(inboundMessage message.InboundMessage, replier solace.Replier) {
 					<-blocker
