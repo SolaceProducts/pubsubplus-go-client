@@ -16,7 +16,7 @@
 
 // Package solace contains the main type definitions for the various messaging services.
 // You can use MessagingServiceBuilder to create a client-based messaging service.
-// If you want to  use secure socket layer (SSL) endpoints, OpenSSL 1.1.1 must installed on the systems
+// If you want to  use secure socket layer (SSL) endpoints, OpenSSL must installed on the systems
 // that run your client applications. Client applications secure connections to an event broker (or broker) using
 // SSL endpoints. For example on PubSub+ software event brokers, you can use
 // SMF TLS/SSL (default port of 55443) and Web Transport TLS/SSL connectivity (default port 1443)
