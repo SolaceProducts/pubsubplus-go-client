@@ -2,7 +2,7 @@
 *
 * @file solClient.h include file for the Solace Corporation Messaging API for C
 *
-* Copyright 2007-2024 Solace Corporation. All rights reserved.
+* Copyright 2007-2023 Solace Corporation. All rights reserved.
 *
 * This include file provides the public constants and API calls for clients
 * connecting to a Solace messaging broker.
@@ -2030,13 +2030,13 @@ typedef struct solClient_uuid
 #define SOLCLIENT_GLOBAL_PROP_DEFAULT_GSS_KRB_LIB_AIX    "libgssapi_krb5.a(libgssapi_krb5.a.so)" /**< The default GSS Kerberos library name for AIX. */
 #define SOLCLIENT_GLOBAL_PROP_DEFAULT_IBM_CODESET        "TPF_CCSID_IBM1047"  /**< The default IBM character set in use by the application */
 #define SOLCLIENT_GLOBAL_PROP_DEFAULT_SSL_LIB_UNIX       "libssl.so"          /**< The default SSL library name for Unix (including Linux and AIX) */
-#define SOLCLIENT_GLOBAL_PROP_DEFAULT_SSL_LIB_MACOSX     "libssl.1.1.dylib"       /**< The default SSL library name for MacOSX */
+#define SOLCLIENT_GLOBAL_PROP_DEFAULT_SSL_LIB_MACOSX     "libssl.3.dylib"       /**< The default SSL library name for MacOSX */
 #define SOLCLIENT_GLOBAL_PROP_DEFAULT_SSL_LIB_VMS        "SSL1$LIBSSL_SHR.EXE"      /**< The default SSL library name for OpenVMS */
-#define SOLCLIENT_GLOBAL_PROP_DEFAULT_SSL_LIB_WINDOWS    "libssl-1_1.dll"       /**< The default SSL library name for Windows */
+#define SOLCLIENT_GLOBAL_PROP_DEFAULT_SSL_LIB_WINDOWS    "libssl-3.dll"       /**< The default SSL library name for Windows */
 #define SOLCLIENT_GLOBAL_PROP_DEFAULT_CRYPTO_LIB_UNIX    "libcrypto.so"       /**< The default crypto library name for Unix (including Linux and AIX). */
-#define SOLCLIENT_GLOBAL_PROP_DEFAULT_CRYPTO_LIB_MACOSX  "libcrypto.1.1.dylib"    /**< The default crypto library name for MacOSX. */
+#define SOLCLIENT_GLOBAL_PROP_DEFAULT_CRYPTO_LIB_MACOSX  "libcrypto.3.dylib"    /**< The default crypto library name for MacOSX. */
 #define SOLCLIENT_GLOBAL_PROP_DEFAULT_CRYPTO_LIB_VMS     "SSL1$LIBCRYPTO_SHR.EXE"   /**< The default crypto library name for OpenVMS. */
-#define SOLCLIENT_GLOBAL_PROP_DEFAULT_CRYPTO_LIB_WINDOWS "libcrypto-1_1.dll"      /**< The default crypto library name for Windows. */
+#define SOLCLIENT_GLOBAL_PROP_DEFAULT_CRYPTO_LIB_WINDOWS "libcrypto-3.dll"      /**< The default crypto library name for Windows. */
 
 /*@}*/
 
@@ -5651,8 +5651,6 @@ solClient_transactedSession_createFlow (solClient_propertyArray_pt props,
                                         solClient_flow_createFuncInfo_t *funcInfo_p,
                                         size_t funcInfoSize);
 
-#define SOLCLIENT_TRANSACTEDSESSION_MAX_SESSION_NAME_LENGTH 64 /**< The maximum transacted session name length. */
-
 /** Retrieve Transacted Session name
  * @see @ref transacted-session
  *
@@ -5664,6 +5662,8 @@ solClient_transactedSession_createFlow (solClient_propertyArray_pt props,
  * @subcodes
  * @see ::solClient_subCode for a description of subcodes.
  */
+#define SOLCLIENT_TRANSACTEDSESSION_MAX_SESSION_NAME_LENGTH 64 /**< The maximum transacted session name length. */
+
 solClient_dllExport solClient_returnCode_t
 solClient_transactedSession_getSessionName(
     solClient_opaqueTransactedSession_pt  transactedSession_p,
