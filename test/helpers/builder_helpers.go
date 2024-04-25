@@ -104,3 +104,46 @@ func NewMessage(messagingService solace.MessagingService, payload ...string) mes
 	ExpectWithOffset(1, err).ToNot(HaveOccurred(), "An error occurred while building a new outbound message")
 	return msg
 }
+
+// NewRequestReplyMessageReceiver function
+func NewRequestReplyMessageReceiver(
+	messagingService solace.MessagingService,
+	subscription *resource.TopicSubscription,
+	configurationProviders ...config.ReceiverPropertiesConfigurationProvider,
+) solace.RequestReplyMessageReceiver {
+	builder := messagingService.RequestReply().CreateRequestReplyMessageReceiverBuilder()
+	if len(configurationProviders) > 0 {
+		for _, configurationProvider := range configurationProviders {
+			builder.FromConfigurationProvider(configurationProvider)
+		}
+	}
+	receiver, err := builder.Build(subscription)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred(), "Encountered error while building receiver")
+	return receiver
+}
+
+// StartRequestReplyMessageReceiverWithDefault function
+func StartRequestReplyMessageReceiverWithDefault(
+	messagingService solace.MessagingService,
+	receiver solace.RequestReplyMessageReceiver,
+) {
+
+	err := receiver.Start()
+	ExpectWithOffset(1, err).ToNot(HaveOccurred(), "Encountered error while starting receiver")
+	Expect(receiver.IsRunning()).To(BeTrue()) // running state should be true
+	messageHandler := func(message message.InboundMessage, replier solace.Replier) {
+		if replier == nil { // the replier is only set when received message is request message that would be replied to
+			return
+		}
+		builder := messagingService.MessageBuilder()
+		replyMsg, err := builder.BuildWithStringPayload("hello world reply")
+		ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+		replyErr := replier.Reply(replyMsg)
+		ExpectWithOffset(1, replyErr).ToNot(HaveOccurred())
+	}
+	// have receiver push request messages to request message handler
+	regErr := receiver.ReceiveAsync(messageHandler)
+	ExpectWithOffset(1, regErr).ToNot(HaveOccurred())
+	// return receiver
+}

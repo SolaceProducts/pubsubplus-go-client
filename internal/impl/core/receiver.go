@@ -37,10 +37,18 @@ type SubscriptionEvent interface {
 	GetError() error
 }
 
+// Replier interface
+type Replier interface {
+	// SendReply will send a reply publishable
+	SendReply(replyMsg ReplyPublishable) ErrorInfo
+}
+
 // Receiver interface
 type Receiver interface {
 	// checks if the internal receiver is running
 	IsRunning() bool
+	// Replier returns SolClientReplier
+	Replier() Replier
 	// Events returns SolClientEvents
 	Events() Events
 	// Register an RX callback, returns a correlation pointer used when adding and removing subscriptions
@@ -84,6 +92,9 @@ type PersistentReceiver interface {
 
 // Receivable type defined
 type Receivable = ccsmp.SolClientMessagePt
+
+// ReplyPublishable type defined
+type ReplyPublishable = ccsmp.SolClientMessagePt
 
 // MessageID type defined
 type MessageID = ccsmp.SolClientMessageID
@@ -162,6 +173,16 @@ func (receiver *ccsmpBackedReceiver) terminate() {
 // checks if the internal receiver is running
 func (receiver *ccsmpBackedReceiver) IsRunning() bool {
 	return atomic.LoadInt32(&receiver.running) == 1
+}
+
+func (receiver *ccsmpBackedReceiver) Replier() Replier {
+	// use ccsmpBackedReceiver struct for now seperate later if needed
+	return receiver
+}
+
+// Send the ReplyPublishable through the ccsmp session
+func (receiver *ccsmpBackedReceiver) SendReply(replyMsg ReplyPublishable) ErrorInfo {
+	return receiver.session.SolClientSessionPublish(replyMsg)
 }
 
 func (receiver *ccsmpBackedReceiver) Events() Events {

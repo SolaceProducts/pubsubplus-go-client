@@ -65,6 +65,10 @@ type MessagingService interface {
 	// used to build messages to send via a message publisher.
 	MessageBuilder() OutboundMessageBuilder
 
+	// RequestReply creates a RequestReplyMessagingService that inherits
+	// the configuration of this MessagingService instance.
+	RequestReply() RequestReplyMessagingService
+
 	// Disconnect disconnects the messaging service.
 	// The messaging service must be connected to disconnect.
 	// This function blocks until the disconnection attempt is completed.
@@ -142,6 +146,17 @@ type MessagingService interface {
 	//     be modified in the current service state.
 	// - solace/errors.*NativeError: If other transport or communication related errors occur.
 	UpdateProperty(property config.ServiceProperty, value interface{}) error
+}
+
+// RequestReplyMessagingService allows access to request reply behaviour.
+type RequestReplyMessagingService interface {
+	// CreateRequestReplyMessagePublisherBuilder creates a new request reply message publisher
+	// builder that can be used to configure request reply publisher instances.
+	CreateRequestReplyMessagePublisherBuilder() RequestReplyMessagePublisherBuilder
+
+	// CreateRequestReplyMessageReceiverBuilder creates a new request reply message receiver
+	// builder that can be used to configure request reply receiver instances.
+	CreateRequestReplyMessageReceiverBuilder() RequestReplyMessageReceiverBuilder
 }
 
 // MessagingServiceBuilder is used to configure and build MessagingService instances.
