@@ -10,6 +10,7 @@ cp ${LOAD}/Linux-aarch64_opt/solclient/lib/libsolclient.a ./internal/ccsmp/lib/l
 cp ${LOAD}/Darwin-universal2_opt/solclient/lib/libsolclient.a ./internal/ccsmp/lib/darwin/
 
 cp ${LOAD}/Linux26-x86_64_opt/solclient/include/solclient/solClient*.h ./internal/ccsmp/lib/include/solclient/
+rm internal/ccsmp/lib/include/solclient/solClientIPC.h
 
 pushd internal/ccsmp/
 SOLCLIENT_H=`realpath ./lib/include/solclient/solClient.h`  go generate
@@ -19,5 +20,4 @@ SOLCLIENT_H=`realpath ../../../internal/ccsmp/lib/include/solclient/solClient.h`
 popd
 
 cp ${LOAD}/Linux26-x86_64_opt/solclient/lib/licenses.txt  ./internal/ccsmp/lib/
-rm internal/ccsmp/lib/include/solclient/solClientIPC.h
 
