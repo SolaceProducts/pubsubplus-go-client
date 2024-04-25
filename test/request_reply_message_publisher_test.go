@@ -328,7 +328,7 @@ var _ = Describe("RequestReplyPublisher", func() {
 				case te := <-terminationListenerCalled:
 					Expect(te.GetTimestamp()).To(BeTemporally(">", shutdownTime))
 					Expect(te.GetTimestamp()).To(BeTemporally("<", time.Now()))
-					Expect(te.GetCause()).To(BeAssignableToTypeOf(&solace.NativeError{}))
+					// Expect(te.GetCause()).To(BeAssignableToTypeOf(&solace.NativeError{}))
 					// SOL-66163: a race condition in CCSMP may cause the error to be nil
 					// helpers.ValidateNativeError(te.GetCause(), subcode.CommunicationError)
 					Expect(te.GetMessage()).To(ContainSubstring("Publisher"))
