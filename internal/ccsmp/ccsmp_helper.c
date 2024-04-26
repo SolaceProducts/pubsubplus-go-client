@@ -67,7 +67,7 @@ _SessionTopicSubscribeWithFlags( solClient_opaqueSession_pt opaqueSession_p,
     dispatchInfo.user_p = dispatchId_p;
     dispatchInfo.rfu_p = NULL;
     return solClient_session_topicSubscribeWithDispatch ( opaqueSession_p,
-                                                          SOLCLIENT_SUBSCRIBE_FLAGS_REQUEST_CONFIRM,
+                                                          flags,
                                                           topicSubscription_p,
                                                           &dispatchInfo,
                                                           correlationTag_p);
