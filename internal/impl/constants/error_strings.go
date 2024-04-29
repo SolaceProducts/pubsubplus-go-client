@@ -46,6 +46,12 @@ const UnableToTerminatePublisher = "cannot terminate the publisher as it has not
 // UnableToStartPublisher error string
 const UnableToStartPublisher = "cannot start the publisher as it has already been terminated"
 
+// RequestReplyPublisherCannotReceiveReplyAlreadyTerminated error string
+const RequestReplyPublisherCannotReceiveReplyAlreadyTerminated = "publisher has been terminated, no reply messages to receive"
+
+// RequestReplyPublisherTimedOutWaitingForReply error string
+const RequestReplyPublisherTimedOutWaitingForReply = "timed out waiting for reply message for request publish"
+
 // UnableToStartPublisherParentServiceNotStarted error string
 const UnableToStartPublisherParentServiceNotStarted = "cannot start publisher unless parent MessagingService is connected"
 
@@ -168,3 +174,9 @@ const CouldNotConfirmSubscriptionServiceUnavailable = "could not confirm subscri
 
 // InvalidConfiguration error string
 const InvalidConfiguration = "invalid configuration provided: "
+
+// MissingReplyMessageHandler error string
+const MissingReplyMessageHandler = "got nil ReplyMessageHandler, ReplyMessageHandler is required for Publish"
+
+// ReplierFailureToPublishReply error string
+const ReplierFailureToPublishReply = "Publish Reply Error: "

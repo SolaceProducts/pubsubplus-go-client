@@ -332,6 +332,119 @@ func PublishNPersistentMessages(messagingService solace.MessagingService, topic 
 	ExpectWithOffset(1, publisher.Terminate(10*time.Second)).ToNot(HaveOccurred(), "Expected publisher to terminate gracefully")
 }
 
+// PublishNRequestReplyMessages will publish N request-reply messages to the given topic using the given messaging service with an
+// optional template attached as a string template. If no string template is provided, "hello world %d" is used.
+func PublishNRequestReplyMessages(messagingService solace.MessagingService, topic string, timeOut time.Duration, n int, template ...string) chan message.InboundMessage {
+	// A handler for the request-reply publisher
+	replyChannel := make(chan message.InboundMessage)
+	replyHandler := func(inboundMessage message.InboundMessage, userContext interface{}, err error) {
+		go func() {
+			replyChannel <- inboundMessage
+		}()
+	}
+
+	publisher, err := messagingService.RequestReply().CreateRequestReplyMessagePublisherBuilder().OnBackPressureReject(0).Build()
+	ExpectWithOffset(1, err).ToNot(HaveOccurred(), "Expected request-reply publisher to build without error")
+	ExpectWithOffset(1, publisher.Start()).ToNot(HaveOccurred(), "Expected request-reply publisher to start without error")
+
+	builder := messagingService.MessageBuilder()
+
+	for i := 0; i < n; i++ {
+
+		msgPayload := fmt.Sprintf("hello world %d", i)
+		if len(template) > 0 {
+			msgPayload = template[0]
+		}
+
+		msg, err := builder.BuildWithStringPayload(msgPayload)
+		ExpectWithOffset(1, err).ToNot(HaveOccurred(), "Expected message to build without error")
+
+		err = publisher.Publish(msg, replyHandler, resource.TopicOf(topic), timeOut, config.MessagePropertyMap{
+			config.MessagePropertyCorrelationID: fmt.Sprint(i),
+		}, nil /* usercontext */)
+		ExpectWithOffset(1, err).ToNot(HaveOccurred(), "Expected publish to be successful")
+	}
+	ExpectWithOffset(1, publisher.Terminate(10*time.Second)).ToNot(HaveOccurred(), "Expected request-reply publisher to terminate gracefully")
+	return replyChannel
+}
+
+// PublishRequestReplyMessages will publish N request-reply messages to the given topic using the given messaging service with an
+// optional template attached as a string template. If no string template is provided, "hello world %d" is used.
+func PublishRequestReplyMessages(messagingService solace.MessagingService, topic string, timeOut time.Duration, bufferSize uint, publishedMessages *int, template ...string) (publisherReplies chan message.InboundMessage, publisherSaturated, publisherComplete chan struct{}) {
+	isSaturated := false
+	publisherReplies = make(chan message.InboundMessage)
+	publisherSaturated = make(chan struct{})
+	publisherComplete = make(chan struct{})
+	testComplete := make(chan struct{})
+
+	// A handler for the request-reply publisher
+	publisherReplyHandler := func(message message.InboundMessage, userContext interface{}, err error) {
+		if err == nil { // Good, a reply was received
+			ExpectWithOffset(1, message).ToNot(BeNil())
+			publisherReplies <- message
+		} else {
+			// message should be nil
+			ExpectWithOffset(1, message).To(BeNil())
+			ExpectWithOffset(1, err).ToNot(BeNil())
+		}
+	}
+
+	publisher, err := messagingService.RequestReply().CreateRequestReplyMessagePublisherBuilder().OnBackPressureReject(0).Build()
+	ExpectWithOffset(1, err).ToNot(HaveOccurred(), "Expected request-reply publisher to build without error")
+	ExpectWithOffset(1, publisher.Start()).ToNot(HaveOccurred(), "Expected request-reply publisher to start without error")
+
+	builder := messagingService.MessageBuilder()
+
+	go func() {
+		defer GinkgoRecover()
+	loop:
+		for {
+			select {
+			case <-testComplete:
+				break loop
+			default:
+			}
+
+			msgPayload := fmt.Sprintf("hello world %d", *publishedMessages)
+			if len(template) > 0 {
+				msgPayload = template[0]
+			}
+
+			msg, err := builder.BuildWithStringPayload(msgPayload)
+			ExpectWithOffset(1, err).ToNot(HaveOccurred(), "Expected message to build without error")
+
+			err = publisher.Publish(msg, publisherReplyHandler, resource.TopicOf(topic), timeOut, config.MessagePropertyMap{
+				config.MessagePropertyCorrelationID: fmt.Sprint(*publishedMessages),
+			}, nil /* usercontext */)
+			ExpectWithOffset(1, err).ToNot(HaveOccurred(), "Expected publish to be successful")
+
+			if err != nil {
+				ExpectWithOffset(1, err).To(BeAssignableToTypeOf(&solace.IllegalStateError{}))
+				break loop
+			} else {
+				(*publishedMessages)++
+			}
+
+			// buffer is at least halfway filled
+			if !isSaturated && (uint(*publishedMessages) > bufferSize/2) {
+				close(publisherSaturated)
+				isSaturated = true
+			}
+
+			// all message have been published now
+			if uint(*publishedMessages) >= bufferSize {
+				close(testComplete)
+			}
+		}
+		close(publisherComplete)
+		// terminate the publisher after closing the channel
+		ExpectWithOffset(1, publisher.Terminate(10*time.Second)).ToNot(HaveOccurred(), "Expected request-reply publisher to terminate gracefully")
+
+	}()
+
+	return publisherReplies, publisherSaturated, publisherComplete
+}
+
 // ReceiveOneMessage function
 func ReceiveOneMessage(messagingService solace.MessagingService, topic string) chan message.InboundMessage {
 	receiver, err := messagingService.CreateDirectMessageReceiverBuilder().WithSubscriptions(resource.TopicSubscriptionOf(topic)).Build()

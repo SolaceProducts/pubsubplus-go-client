@@ -52,6 +52,12 @@ const SolClientMessageTracingInjectionStandardTypeSMF = C.SOLCLIENT_INJECTION_ST
 // SolClientMessageTracingInjectionStandardTypeW3C is assigned a value
 const SolClientMessageTracingInjectionStandardTypeW3C = C.SOLCLIENT_INJECTION_STANDARD_W3C
 
+// TraceIDSize is the expected size/length of the traceID
+const TraceIDSize = 16
+
+// SpanIDSize is the expected size/length of the spanID
+const SpanIDSize = 8
+
 // TODO the calls to handleCcsmpError are slow since they lock the thread.
 // Ideally, we wrap these calls in C such that the golang scheduler cannot
 // interrupt us, and then there is no need to lock the thread. This should
@@ -60,12 +66,14 @@ const SolClientMessageTracingInjectionStandardTypeW3C = C.SOLCLIENT_INJECTION_ST
 // Distributed tracing properties
 
 // SolClientMessageGetTraceContextTraceID function
-func SolClientMessageGetTraceContextTraceID(messageP SolClientMessagePt, contextType SolClientMessageTracingContextType) ([16]byte, *SolClientErrorInfoWrapper) {
-	// to hold the traceID property
-	var cChar C.solClient_uint8_t
+func SolClientMessageGetTraceContextTraceID(messageP SolClientMessagePt, contextType SolClientMessageTracingContextType) ([TraceIDSize]byte, *SolClientErrorInfoWrapper) {
+	// buffer to hold the traceID property
+	bufferSize := C.ulong(TraceIDSize)
+	traceIDBuffer := (*C.solClient_uint8_t)(C.malloc(bufferSize))
+	defer C.free(unsafe.Pointer(traceIDBuffer))
 
 	errorInfo := handleCcsmpError(func() SolClientReturnCode {
-		return C.solClient_msg_tracing_getTraceIdByte(messageP, contextType, &cChar, C.size_t(16))
+		return C.solClient_msg_tracing_getTraceIdByte(messageP, contextType, traceIDBuffer, bufferSize)
 	})
 	if errorInfo != nil {
 		if errorInfo.ReturnCode == SolClientReturnCodeFail {
@@ -75,15 +83,16 @@ func SolClientMessageGetTraceContextTraceID(messageP SolClientMessagePt, context
 					errorInfo.GetMessageAsString(),
 					errorInfo.SubCode))
 		}
-		return [16]byte{}, errorInfo
+		return [TraceIDSize]byte{}, errorInfo
 	}
 
-	traceID := *(*[16]byte)(unsafe.Pointer(&cChar))
+	var traceID [TraceIDSize]byte = [TraceIDSize]byte{} // default value of traceID
+	copy(traceID[:], C.GoBytes(unsafe.Pointer(traceIDBuffer), C.int(bufferSize)))
 	return traceID, errorInfo
 }
 
 // SolClientMessageSetTraceContextTraceID function
-func SolClientMessageSetTraceContextTraceID(messageP SolClientMessagePt, traceID [16]byte, contextType SolClientMessageTracingContextType) *SolClientErrorInfoWrapper {
+func SolClientMessageSetTraceContextTraceID(messageP SolClientMessagePt, traceID [TraceIDSize]byte, contextType SolClientMessageTracingContextType) *SolClientErrorInfoWrapper {
 	if len(traceID) > 0 {
 		cTraceID := (*C.solClient_uint8_t)(C.CBytes(traceID[:]))
 
@@ -98,12 +107,14 @@ func SolClientMessageSetTraceContextTraceID(messageP SolClientMessagePt, traceID
 }
 
 // SolClientMessageGetTraceContextSpanID function
-func SolClientMessageGetTraceContextSpanID(messageP SolClientMessagePt, contextType SolClientMessageTracingContextType) ([8]byte, *SolClientErrorInfoWrapper) {
-	// to hold the spanID property
-	var cChar C.solClient_uint8_t
+func SolClientMessageGetTraceContextSpanID(messageP SolClientMessagePt, contextType SolClientMessageTracingContextType) ([SpanIDSize]byte, *SolClientErrorInfoWrapper) {
+	// buffer to hold the spanID property
+	bufferSize := C.ulong(SpanIDSize)
+	spanIDBuffer := (*C.solClient_uint8_t)(C.malloc(bufferSize))
+	defer C.free(unsafe.Pointer(spanIDBuffer))
 
 	errorInfo := handleCcsmpError(func() SolClientReturnCode {
-		return C.solClient_msg_tracing_getSpanIdByte(messageP, contextType, &cChar, C.size_t(8))
+		return C.solClient_msg_tracing_getSpanIdByte(messageP, contextType, spanIDBuffer, bufferSize)
 	})
 	if errorInfo != nil {
 		if errorInfo.ReturnCode == SolClientReturnCodeFail {
@@ -113,15 +124,16 @@ func SolClientMessageGetTraceContextSpanID(messageP SolClientMessagePt, contextT
 					errorInfo.GetMessageAsString(),
 					errorInfo.SubCode))
 		}
-		return [8]byte{}, errorInfo
+		return [SpanIDSize]byte{}, errorInfo
 	}
 
-	spanID := *(*[8]byte)(unsafe.Pointer(&cChar))
+	var spanID [SpanIDSize]byte = [SpanIDSize]byte{} // default value of spanID
+	copy(spanID[:], C.GoBytes(unsafe.Pointer(spanIDBuffer), C.int(bufferSize)))
 	return spanID, errorInfo
 }
 
 // SolClientMessageSetTraceContextSpanID function
-func SolClientMessageSetTraceContextSpanID(messageP SolClientMessagePt, spanID [8]byte, contextType SolClientMessageTracingContextType) *SolClientErrorInfoWrapper {
+func SolClientMessageSetTraceContextSpanID(messageP SolClientMessagePt, spanID [SpanIDSize]byte, contextType SolClientMessageTracingContextType) *SolClientErrorInfoWrapper {
 	if len(spanID) > 0 {
 		cSpanID := (*C.solClient_uint8_t)(C.CBytes(spanID[:]))
 
@@ -212,25 +224,25 @@ func SolClientMessageSetTraceContextTraceState(messageP SolClientMessagePt, trac
 // For the Creation Context
 
 // SolClientMessageGetCreationTraceContextTraceID function
-func SolClientMessageGetCreationTraceContextTraceID(messageP SolClientMessagePt) ([16]byte, *SolClientErrorInfoWrapper) {
+func SolClientMessageGetCreationTraceContextTraceID(messageP SolClientMessagePt) ([TraceIDSize]byte, *SolClientErrorInfoWrapper) {
 	// return the traceID property for the creation trace context
 	return SolClientMessageGetTraceContextTraceID(messageP, SolClientContextTypeCreationContext)
 }
 
 // SolClientMessageSetCreationTraceContextTraceID function
-func SolClientMessageSetCreationTraceContextTraceID(messageP SolClientMessagePt, traceID [16]byte) *SolClientErrorInfoWrapper {
+func SolClientMessageSetCreationTraceContextTraceID(messageP SolClientMessagePt, traceID [TraceIDSize]byte) *SolClientErrorInfoWrapper {
 	// Sets the traceID property for the creation trace context
 	return SolClientMessageSetTraceContextTraceID(messageP, traceID, SolClientContextTypeCreationContext)
 }
 
 // SolClientMessageGetCreationTraceContextSpanID function
-func SolClientMessageGetCreationTraceContextSpanID(messageP SolClientMessagePt) ([8]byte, *SolClientErrorInfoWrapper) {
+func SolClientMessageGetCreationTraceContextSpanID(messageP SolClientMessagePt) ([SpanIDSize]byte, *SolClientErrorInfoWrapper) {
 	// return the spanID property for the creation trace context
 	return SolClientMessageGetTraceContextSpanID(messageP, SolClientContextTypeCreationContext)
 }
 
 // SolClientMessageSetCreationTraceContextSpanID function
-func SolClientMessageSetCreationTraceContextSpanID(messageP SolClientMessagePt, spanID [8]byte) *SolClientErrorInfoWrapper {
+func SolClientMessageSetCreationTraceContextSpanID(messageP SolClientMessagePt, spanID [SpanIDSize]byte) *SolClientErrorInfoWrapper {
 	// Sets the spanID property for the creation trace context
 	return SolClientMessageSetTraceContextSpanID(messageP, spanID, SolClientContextTypeCreationContext)
 }
@@ -262,25 +274,25 @@ func SolClientMessageSetCreationTraceContextTraceState(messageP SolClientMessage
 // For the Transport Context
 
 // SolClientMessageGetTransportTraceContextTraceID function
-func SolClientMessageGetTransportTraceContextTraceID(messageP SolClientMessagePt) ([16]byte, *SolClientErrorInfoWrapper) {
+func SolClientMessageGetTransportTraceContextTraceID(messageP SolClientMessagePt) ([TraceIDSize]byte, *SolClientErrorInfoWrapper) {
 	// return the traceID property for the transport trace context
 	return SolClientMessageGetTraceContextTraceID(messageP, SolClientContextTypeTransportContext)
 }
 
 // SolClientMessageSetTransportTraceContextTraceID function
-func SolClientMessageSetTransportTraceContextTraceID(messageP SolClientMessagePt, traceID [16]byte) *SolClientErrorInfoWrapper {
+func SolClientMessageSetTransportTraceContextTraceID(messageP SolClientMessagePt, traceID [TraceIDSize]byte) *SolClientErrorInfoWrapper {
 	// Sets the traceID property for the transport trace context
 	return SolClientMessageSetTraceContextTraceID(messageP, traceID, SolClientContextTypeTransportContext)
 }
 
 // SolClientMessageGetTransportTraceContextSpanID function
-func SolClientMessageGetTransportTraceContextSpanID(messageP SolClientMessagePt) ([8]byte, *SolClientErrorInfoWrapper) {
+func SolClientMessageGetTransportTraceContextSpanID(messageP SolClientMessagePt) ([SpanIDSize]byte, *SolClientErrorInfoWrapper) {
 	// return the spanID property for the transport trace context
 	return SolClientMessageGetTraceContextSpanID(messageP, SolClientContextTypeTransportContext)
 }
 
 // SolClientMessageSetTransportTraceContextSpanID function
-func SolClientMessageSetTransportTraceContextSpanID(messageP SolClientMessagePt, spanID [8]byte) *SolClientErrorInfoWrapper {
+func SolClientMessageSetTransportTraceContextSpanID(messageP SolClientMessagePt, spanID [SpanIDSize]byte) *SolClientErrorInfoWrapper {
 	// Sets the spanID property for the transport trace context
 	return SolClientMessageSetTraceContextSpanID(messageP, spanID, SolClientContextTypeTransportContext)
 }

@@ -37,10 +37,18 @@ type SubscriptionEvent interface {
 	GetError() error
 }
 
+// Replier interface
+type Replier interface {
+	// SendReply will send a reply publishable
+	SendReply(replyMsg ReplyPublishable) ErrorInfo
+}
+
 // Receiver interface
 type Receiver interface {
 	// checks if the internal receiver is running
 	IsRunning() bool
+	// Replier returns SolClientReplier
+	Replier() Replier
 	// Events returns SolClientEvents
 	Events() Events
 	// Register an RX callback, returns a correlation pointer used when adding and removing subscriptions
@@ -85,6 +93,9 @@ type PersistentReceiver interface {
 // Receivable type defined
 type Receivable = ccsmp.SolClientMessagePt
 
+// ReplyPublishable type defined
+type ReplyPublishable = ccsmp.SolClientMessagePt
+
 // MessageID type defined
 type MessageID = ccsmp.SolClientMessageID
 
@@ -106,10 +117,9 @@ type ccsmpBackedReceiver struct {
 	session *ccsmp.SolClientSession
 	running int32
 	// TODO if performance becomes a concern, consider substituting maps and mutex for sync.Map
-	rxLock      sync.RWMutex
-	rxMap       map[uintptr]RxCallback
-	dispatchMap map[uintptr]*ccsmp.SolClientSessionRxMsgDispatchFuncInfo
-	dispatchID  uint64
+	rxLock     sync.RWMutex
+	rxMap      map[uintptr]RxCallback
+	dispatchID uint64
 	//
 	subscriptionCorrelationLock sync.Mutex
 	subscriptionCorrelation     map[SubscriptionCorrelationID]chan SubscriptionEvent
@@ -125,7 +135,6 @@ func newCcsmpReceiver(session *ccsmp.SolClientSession, events *ccsmpBackedEvents
 	receiver.session = session
 	receiver.running = 0
 	receiver.rxMap = make(map[uintptr]RxCallback)
-	receiver.dispatchMap = make(map[uintptr]*ccsmp.SolClientSessionRxMsgDispatchFuncInfo)
 	receiver.dispatchID = 0
 	receiver.subscriptionCorrelation = make(map[SubscriptionCorrelationID]chan SubscriptionEvent)
 	receiver.subscriptionCorrelationID = 0
@@ -166,6 +175,16 @@ func (receiver *ccsmpBackedReceiver) IsRunning() bool {
 	return atomic.LoadInt32(&receiver.running) == 1
 }
 
+func (receiver *ccsmpBackedReceiver) Replier() Replier {
+	// use ccsmpBackedReceiver struct for now seperate later if needed
+	return receiver
+}
+
+// Send the ReplyPublishable through the ccsmp session
+func (receiver *ccsmpBackedReceiver) SendReply(replyMsg ReplyPublishable) ErrorInfo {
+	return receiver.session.SolClientSessionPublish(replyMsg)
+}
+
 func (receiver *ccsmpBackedReceiver) Events() Events {
 	return receiver.events
 }
@@ -185,19 +204,17 @@ func (receiver *ccsmpBackedReceiver) rxCallback(msg Receivable, userP unsafe.Poi
 
 // Register an RX callback, returns a correlation pointer used when adding and removing subscriptions
 func (receiver *ccsmpBackedReceiver) RegisterRXCallback(msgCallback RxCallback) uintptr {
-	dispatch, dispatchPointer := ccsmp.NewSessionDispatch(atomic.AddUint64(&receiver.dispatchID, 1))
+	dispatchPointer := atomic.AddUint64(&receiver.dispatchID, 1)
 	receiver.rxLock.Lock()
 	defer receiver.rxLock.Unlock()
-	receiver.dispatchMap[dispatchPointer] = dispatch
-	receiver.rxMap[dispatchPointer] = msgCallback
-	return dispatchPointer
+	receiver.rxMap[uintptr(dispatchPointer)] = msgCallback
+	return uintptr(dispatchPointer)
 }
 
 // Remove the callback allowing GC to cleanup the function registered
 func (receiver *ccsmpBackedReceiver) UnregisterRXCallback(ptr uintptr) {
 	receiver.rxLock.Lock()
 	defer receiver.rxLock.Unlock()
-	delete(receiver.dispatchMap, ptr)
 	delete(receiver.rxMap, ptr)
 }
 
@@ -205,9 +222,8 @@ func (receiver *ccsmpBackedReceiver) UnregisterRXCallback(ptr uintptr) {
 func (receiver *ccsmpBackedReceiver) Subscribe(topic string, ptr uintptr) (SubscriptionCorrelationID, <-chan SubscriptionEvent, ErrorInfo) {
 	receiver.rxLock.RLock()
 	defer receiver.rxLock.RUnlock()
-	dispatch := receiver.dispatchMap[ptr]
 	id, c := receiver.newSubscriptionCorrelation()
-	errInfo := receiver.session.SolClientSessionSubscribe(topic, dispatch, id)
+	errInfo := receiver.session.SolClientSessionSubscribe(topic, ptr, id)
 	if errInfo != nil {
 		receiver.ClearSubscriptionCorrelation(id)
 		return 0, nil, errInfo
@@ -219,9 +235,8 @@ func (receiver *ccsmpBackedReceiver) Subscribe(topic string, ptr uintptr) (Subsc
 func (receiver *ccsmpBackedReceiver) Unsubscribe(topic string, ptr uintptr) (SubscriptionCorrelationID, <-chan SubscriptionEvent, ErrorInfo) {
 	receiver.rxLock.RLock()
 	defer receiver.rxLock.RUnlock()
-	dispatch := receiver.dispatchMap[ptr]
 	id, c := receiver.newSubscriptionCorrelation()
-	errInfo := receiver.session.SolClientSessionUnsubscribe(topic, dispatch, id)
+	errInfo := receiver.session.SolClientSessionUnsubscribe(topic, ptr, id)
 	if errInfo != nil {
 		receiver.ClearSubscriptionCorrelation(id)
 		return 0, nil, errInfo
