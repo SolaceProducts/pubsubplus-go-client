@@ -567,6 +567,7 @@ func NewSessionDispatch(id uint64) (*SolClientSessionRxMsgDispatchFuncInfo, uint
 	// CGO defines void* as unsafe.Pointer, however it is just arbitrary data.
 	// We want to store a number at void*
 	ptr := uintptr(id)
+	// this function should be deprecated in favor allocating the dispatch struct on the C heap
 	return &SolClientSessionRxMsgDispatchFuncInfo{
 		dispatchType: C.SOLCLIENT_DISPATCH_TYPE_CALLBACK,
 		callback_p:   (C.solClient_session_rxMsgCallbackFunc_t)(unsafe.Pointer(C.messageReceiveCallback)),
