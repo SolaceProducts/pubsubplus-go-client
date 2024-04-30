@@ -27,11 +27,6 @@ messageReceiveCallback(solClient_opaqueSession_pt opaqueSession_p, solClient_opa
 solClient_rxMsgCallback_returnCode_t
 requestResponseReplyMessageReceiveCallback(solClient_opaqueSession_pt opaqueSession_p, solClient_opaqueMsg_pt msg_p, void *user_p);
 
-void *uintptr_to_void_p(solClient_uint64_t ptr)
-{
-    return (void *)ptr;
-}
-
 solClient_returnCode_t
 solClientgo_msg_isRequestReponseMsg(solClient_opaqueMsg_pt msg_p, char **correlationId_p) {
     solClient_returnCode_t rc = SOLCLIENT_FAIL;
@@ -54,54 +49,95 @@ solClientgo_msg_isRequestReponseMsg(solClient_opaqueMsg_pt msg_p, char **correla
 }
 
 solClient_returnCode_t  
-_SessionTopicSubscribeWithFlags( solClient_opaqueSession_pt opaqueSession_p,
-                                const char                *topicSubscription_p,
+SessionFlowCreate( solClient_opaqueSession_pt   opaqueSession_p,
+                    solClient_propertyArray_pt  flowPropsP,
+                    solClient_opaqueFlow_pt         *opaqueFlow_p,
+                    solClient_flow_createFuncInfo_t *funcInfo_p,
+                    solClient_uint64_t              flowID) 
+{
+    /* set the flowID in the flow create struct */
+    funcInfo_p->rxMsgInfo.user_p = (void *) flowID;
+	funcInfo_p->eventInfo.user_p = (void *) flowID;
+
+    return solClient_session_createFlow(flowPropsP, opaqueSession_p, opaqueFlow_p, funcInfo_p, sizeof(*funcInfo_p));
+}
+
+solClient_returnCode_t  
+FlowTopicSubscribeWithDispatch( solClient_opaqueFlow_pt opaqueFlow_p,
                                 solClient_subscribeFlags_t flags,
-                                solClient_session_rxMsgCallbackFunc_t callback_p,
-                                void                      *dispatchId_p,
-                                void                      *correlationTag_p) 
+                                const char              *topicSubscription_p,
+                                solClient_flow_rxMsgDispatchFuncInfo_t *dispatchFuncInfo_p,
+                                solClient_uint64_t      correlationTag) 
+{
+    return solClient_flow_topicSubscribeWithDispatch( opaqueFlow_p,
+                                                        flags,
+                                                        topicSubscription_p,
+                                                        dispatchFuncInfo_p,
+                                                        (void *)correlationTag);
+}
+
+solClient_returnCode_t  
+FlowTopicUnsubscribeWithDispatch(  solClient_opaqueFlow_pt opaqueFlow_p,
+                                    solClient_subscribeFlags_t flags,
+                                    const char              *topicSubscription_p,
+                                    solClient_flow_rxMsgDispatchFuncInfo_t *dispatchFuncInfo_p,
+                                    solClient_uint64_t      correlationTag) 
+{
+    return solClient_flow_topicUnsubscribeWithDispatch( opaqueFlow_p,
+                                                        flags,
+                                                        topicSubscription_p,
+                                                        dispatchFuncInfo_p,
+                                                        (void *)correlationTag);
+}
+
+solClient_returnCode_t  
+_SessionTopicSubscribeWithFlags( solClient_opaqueSession_pt             opaqueSession_p,
+                                const char                              *topicSubscription_p,
+                                solClient_subscribeFlags_t              flags,
+                                solClient_session_rxMsgCallbackFunc_t   callback_p,
+                                solClient_uint64_t                      dispatchId,
+                                solClient_uint64_t                      correlationTag) 
 {
     solClient_session_rxMsgDispatchFuncInfo_t dispatchInfo;      /* msg dispatch callback to set */
     dispatchInfo.dispatchType = SOLCLIENT_DISPATCH_TYPE_CALLBACK;
     dispatchInfo.callback_p = callback_p;
-    dispatchInfo.user_p = dispatchId_p;
+    dispatchInfo.user_p = (void *)dispatchId;
     dispatchInfo.rfu_p = NULL;
     return solClient_session_topicSubscribeWithDispatch ( opaqueSession_p,
                                                           flags,
                                                           topicSubscription_p,
                                                           &dispatchInfo,
-                                                          correlationTag_p);
+                                                          (void *)correlationTag);
 }
-
 
 solClient_returnCode_t
 SessionTopicSubscribeWithFlags( solClient_opaqueSession_pt opaqueSession_p,
                                 const char                *topicSubscription_p,
                                 solClient_subscribeFlags_t flags,
-                                void                      *dispatchId_p,
-                                void                      *correlationTag_p)
+                                solClient_uint64_t  dispatchId,
+                                solClient_uint64_t  correlationTag)
 {
     return _SessionTopicSubscribeWithFlags ( opaqueSession_p,
                                             topicSubscription_p,
                                             flags,
                                             messageReceiveCallback,
-                                            dispatchId_p,
-                                            correlationTag_p );
+                                            dispatchId,
+                                            correlationTag );
 }
 
 solClient_returnCode_t
 SessionReplyTopicSubscribeWithFlags( solClient_opaqueSession_pt opaqueSession_p,
                                 const char                *topicSubscription_p,
                                 solClient_subscribeFlags_t flags,
-                                void                      *dispatchId_p,
-                                void                      *correlationTag_p)
+                                solClient_uint64_t      dispatchId,
+                                solClient_uint64_t      correlationTag)
 {
     return _SessionTopicSubscribeWithFlags ( opaqueSession_p,
                                             topicSubscription_p,
                                             flags,
                                             requestResponseReplyMessageReceiveCallback,
-                                            dispatchId_p,
-                                            correlationTag_p );
+                                            dispatchId,
+                                            correlationTag );
 }
 
 solClient_returnCode_t  
@@ -109,48 +145,61 @@ _SessionTopicUnsubscribeWithFlags(   solClient_opaqueSession_pt opaqueSession_p,
                                     const char                *topicSubscription_p,
                                     solClient_subscribeFlags_t flags,
                                     solClient_session_rxMsgCallbackFunc_t callback_p,
-                                    void                      *dispatchId_p,
-                                    void                      *correlationTag_p) 
+                                    solClient_uint64_t      dispatchId,
+                                    solClient_uint64_t      correlationTag) 
 {
     solClient_session_rxMsgDispatchFuncInfo_t dispatchInfo;      /* msg dispatch callback to set */
     dispatchInfo.dispatchType = SOLCLIENT_DISPATCH_TYPE_CALLBACK;
     dispatchInfo.callback_p = callback_p;
-    dispatchInfo.user_p = dispatchId_p;
+    dispatchInfo.user_p = (void *)dispatchId;
     dispatchInfo.rfu_p = NULL;
     return solClient_session_topicUnsubscribeWithDispatch ( opaqueSession_p,
                                                             flags,
                                                             topicSubscription_p,
                                                             &dispatchInfo,
-                                                            correlationTag_p);
+                                                            (void *)correlationTag);
 }
 
 solClient_returnCode_t 
 SessionTopicUnsubscribeWithFlags(   solClient_opaqueSession_pt opaqueSession_p,
                                     const char                *topicSubscription_p,
                                     solClient_subscribeFlags_t flags,
-                                    void                      *dispatchId_p,
-                                    void                      *correlationTag_p)
+                                    solClient_uint64_t      dispatchId,
+                                    solClient_uint64_t      correlationTag)
 {
     return _SessionTopicUnsubscribeWithFlags ( opaqueSession_p,
                                             topicSubscription_p,
                                             flags,
                                             messageReceiveCallback,
-                                            dispatchId_p,
-                                            correlationTag_p );
+                                            dispatchId,
+                                            correlationTag );
 }
 
 solClient_returnCode_t
 SessionReplyTopicUnsubscribeWithFlags(  solClient_opaqueSession_pt opaqueSession_p,
                                         const char                *topicSubscription_p,
                                         solClient_subscribeFlags_t flags,
-                                        void                      *dispatchId_p,
-                                        void                      *correlationTag_p)
+                                        solClient_uint64_t      dispatchId,
+                                        solClient_uint64_t      correlationTag)
 {
     return _SessionTopicUnsubscribeWithFlags ( opaqueSession_p,
                                             topicSubscription_p,
                                             flags,
                                             requestResponseReplyMessageReceiveCallback,
-                                            dispatchId_p,
-                                            correlationTag_p );
+                                            dispatchId,
+                                            correlationTag );
 }
 
+solClient_returnCode_t  
+SessionTopicEndpointUnsubscribeWithFlags(  solClient_opaqueSession_pt opaqueSession_p,
+                                    solClient_propertyArray_pt  endpointProps,
+                                    solClient_subscribeFlags_t flags,
+                                    const char              *topicSubscription_p,
+                                    solClient_uint64_t      correlationTag) 
+{
+    return solClient_session_endpointTopicUnsubscribe( endpointProps,
+                                                        opaqueSession_p,
+                                                        flags,
+                                                        topicSubscription_p,
+                                                        (void *)correlationTag);
+}
