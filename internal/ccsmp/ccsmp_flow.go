@@ -33,9 +33,6 @@ import (
 #include "solclient/solClient.h"
 #include "solclient/solClientMsg.h"
 #include "./ccsmp_helper.h"
-
-solClient_rxMsgCallback_returnCode_t flowMessageReceiveCallback ( solClient_opaqueFlow_pt opaqueFlow_p, solClient_opaqueMsg_pt msg_p, void *user_p );
-void flowEventCallback ( solClient_opaqueFlow_pt opaqueFlow_p, solClient_flow_eventCallbackInfo_pt eventInfo_p, void *user_p );
 */
 import "C"
 
@@ -104,11 +101,10 @@ func (session *SolClientSession) SolClientSessionCreateFlow(properties []string,
 	flow := &SolClientFlow{}
 	flow.userP = flowID
 	err := handleCcsmpError(func() SolClientReturnCode {
-		var flowCreateFuncInfo C.solClient_flow_createFuncInfo_t
+		// this will register the goFlowMessageReceiveCallback and goFlowEventCallback callbacks with the flowID
 		return C.SessionFlowCreate(session.pointer,
 			flowPropsP,
 			&flow.pointer,
-			&flowCreateFuncInfo,
 			C.solClient_uint64_t(flowID))
 	})
 	if err != nil {

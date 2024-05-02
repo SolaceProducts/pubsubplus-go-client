@@ -57,16 +57,19 @@ solClient_returnCode_t
 SessionFlowCreate( solClient_opaqueSession_pt   opaqueSession_p,
                     solClient_propertyArray_pt  flowPropsP,
                     solClient_opaqueFlow_pt     *opaqueFlow_p,
-                    solClient_flow_createFuncInfo_t *flowCreateFuncInfo,
                     solClient_uint64_t          flowID) 
 {
     /* set the flowID in the flow create struct */
-	flowCreateFuncInfo->rxMsgInfo.user_p = (void *)flowID;
-	flowCreateFuncInfo->eventInfo.user_p = (void *)flowID;
-    flowCreateFuncInfo->rxMsgInfo.callback_p = flowMessageReceiveCallback;
-    flowCreateFuncInfo->eventInfo.callback_p = (solClient_flow_eventCallbackFunc_t)flowEventCallback;
+    solClient_flow_createFuncInfo_t flowCreateFuncInfo;
+	flowCreateFuncInfo.rxMsgInfo.callback_p = flowMessageReceiveCallback;
+	flowCreateFuncInfo.rxMsgInfo.user_p = (void *)flowID;
+	flowCreateFuncInfo.eventInfo.callback_p = (solClient_flow_eventCallbackFunc_t)flowEventCallback;
+	flowCreateFuncInfo.eventInfo.user_p = (void *)flowID;
+    // allocate these struct fields too
+	flowCreateFuncInfo.rxInfo.user_p = NULL;
+	flowCreateFuncInfo.rxInfo.callback_p = NULL;
 
-    return solClient_session_createFlow(flowPropsP, opaqueSession_p, opaqueFlow_p, flowCreateFuncInfo, sizeof(*flowCreateFuncInfo));
+    return solClient_session_createFlow(flowPropsP, opaqueSession_p, opaqueFlow_p, &flowCreateFuncInfo, sizeof(flowCreateFuncInfo));
 }
 
 solClient_returnCode_t  
