@@ -50,7 +50,7 @@ solClient_returnCode_t  SessionFlowCreate(
                         solClient_opaqueSession_pt      opaqueSession_p,
                         solClient_propertyArray_pt      flowPropsP,
                         solClient_opaqueFlow_pt         *opaqueFlow_p,
-                        solClient_flow_createFuncInfo_t *funcInfo_p,
+                        solClient_flow_createFuncInfo_t *flowCreateFuncInfo,
                         solClient_uint64_t              flowID_p);
 
 solClient_returnCode_t  FlowTopicSubscribeWithDispatch(

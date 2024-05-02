@@ -27,6 +27,11 @@ messageReceiveCallback(solClient_opaqueSession_pt opaqueSession_p, solClient_opa
 solClient_rxMsgCallback_returnCode_t
 requestResponseReplyMessageReceiveCallback(solClient_opaqueSession_pt opaqueSession_p, solClient_opaqueMsg_pt msg_p, void *user_p);
 
+solClient_rxMsgCallback_returnCode_t
+flowMessageReceiveCallback(solClient_opaqueFlow_pt opaqueFlow_p, solClient_opaqueMsg_pt msg_p, void *user_p);
+
+void flowEventCallback(solClient_opaqueFlow_pt opaqueFlow_p, solClient_flow_eventCallbackInfo_pt eventInfo_p, void *user_p);
+
 solClient_returnCode_t
 solClientgo_msg_isRequestReponseMsg(solClient_opaqueMsg_pt msg_p, char **correlationId_p) {
     solClient_returnCode_t rc = SOLCLIENT_FAIL;
@@ -51,15 +56,17 @@ solClientgo_msg_isRequestReponseMsg(solClient_opaqueMsg_pt msg_p, char **correla
 solClient_returnCode_t  
 SessionFlowCreate( solClient_opaqueSession_pt   opaqueSession_p,
                     solClient_propertyArray_pt  flowPropsP,
-                    solClient_opaqueFlow_pt         *opaqueFlow_p,
-                    solClient_flow_createFuncInfo_t *funcInfo_p,
-                    solClient_uint64_t              flowID) 
+                    solClient_opaqueFlow_pt     *opaqueFlow_p,
+                    solClient_flow_createFuncInfo_t *flowCreateFuncInfo,
+                    solClient_uint64_t          flowID) 
 {
     /* set the flowID in the flow create struct */
-    funcInfo_p->rxMsgInfo.user_p = (void *) flowID;
-	funcInfo_p->eventInfo.user_p = (void *) flowID;
+	flowCreateFuncInfo->rxMsgInfo.user_p = (void *)flowID;
+	flowCreateFuncInfo->eventInfo.user_p = (void *)flowID;
+    flowCreateFuncInfo->rxMsgInfo.callback_p = flowMessageReceiveCallback;
+    flowCreateFuncInfo->eventInfo.callback_p = (solClient_flow_eventCallbackFunc_t)flowEventCallback;
 
-    return solClient_session_createFlow(flowPropsP, opaqueSession_p, opaqueFlow_p, funcInfo_p, sizeof(*funcInfo_p));
+    return solClient_session_createFlow(flowPropsP, opaqueSession_p, opaqueFlow_p, flowCreateFuncInfo, sizeof(*flowCreateFuncInfo));
 }
 
 solClient_returnCode_t  

@@ -297,9 +297,9 @@ func (context *SolClientContext) SolClientSessionCreate(properties []string) (se
 
 	var sessionFuncInfo C.solClient_session_createFuncInfo_t
 	sessionFuncInfo.rxMsgInfo.callback_p = (C.solClient_session_rxMsgCallbackFunc_t)(unsafe.Pointer(C.defaultMessageReceiveCallback))
-	sessionFuncInfo.rxMsgInfo.user_p = nil // <-- if this should be set; it should be done in C (the ccsmp_helper.c)
+	sessionFuncInfo.rxMsgInfo.user_p = nil
 	sessionFuncInfo.eventInfo.callback_p = (C.solClient_session_eventCallbackFunc_t)(unsafe.Pointer(C.eventCallback))
-	sessionFuncInfo.eventInfo.user_p = nil // <-- if this should be set; it should be done in C (the ccsmp_helper.c)
+	sessionFuncInfo.eventInfo.user_p = nil
 
 	solClientErrorInfo := handleCcsmpError(func() SolClientReturnCode {
 		return C.solClient_session_create(sessionPropsP, context.pointer, &sessionP, &sessionFuncInfo, (C.size_t)(unsafe.Sizeof(sessionFuncInfo)))
@@ -348,7 +348,6 @@ func (session *SolClientSession) solClientSessionSubscribeWithFlags(topic string
 	return handleCcsmpError(func() SolClientReturnCode {
 		cString := C.CString(topic)
 		defer C.free(unsafe.Pointer(cString))
-		// This is not an unsafe usage of unsafe.Pointer as we are using dispatchID and correlationID as data, not as pointers
 		return C.SessionTopicSubscribeWithFlags(session.pointer,
 			cString,
 			flags,
@@ -362,7 +361,6 @@ func (session *SolClientSession) solClientSessionSubscribeReplyTopicWithFlags(to
 	return handleCcsmpError(func() SolClientReturnCode {
 		cString := C.CString(topic)
 		defer C.free(unsafe.Pointer(cString))
-		// This is not an unsafe usage of unsafe.Pointer as we are using dispatchID and correlationID as data, not as pointers
 		return C.SessionReplyTopicSubscribeWithFlags(session.pointer,
 			cString,
 			flags,
@@ -376,7 +374,6 @@ func (session *SolClientSession) solClientSessionUnsubscribeWithFlags(topic stri
 	return handleCcsmpError(func() SolClientReturnCode {
 		cString := C.CString(topic)
 		defer C.free(unsafe.Pointer(cString))
-		// This is not an unsafe usage of unsafe.Pointer as we are using dispatchID and correlationID as data, not as pointers
 		return C.SessionTopicUnsubscribeWithFlags(session.pointer,
 			cString,
 			flags,
@@ -390,7 +387,6 @@ func (session *SolClientSession) solClientSessionUnsubscribeReplyTopicWithFlags(
 	return handleCcsmpError(func() SolClientReturnCode {
 		cString := C.CString(topic)
 		defer C.free(unsafe.Pointer(cString))
-		// This is not an unsafe usage of unsafe.Pointer as we are using dispatchID and correlationID as data, not as pointers
 		return C.SessionReplyTopicUnsubscribeWithFlags(session.pointer,
 			cString,
 			flags,
@@ -435,7 +431,6 @@ func (session *SolClientSession) SolClientEndpointUnsusbcribe(properties []strin
 		defer C.free(unsafe.Pointer(cString))
 		endpointProps, endpointFree := ToCArray(properties, true)
 		defer endpointFree()
-		// This is not an unsafe usage of unsafe.Pointer as we are using correlationId as data, not as a pointer
 		return C.SessionTopicEndpointUnsubscribeWithFlags(session.pointer,
 			endpointProps,
 			C.SOLCLIENT_SUBSCRIBE_FLAGS_REQUEST_CONFIRM,
@@ -570,11 +565,10 @@ func NewSessionDispatch(id uint64) (*SolClientSessionRxMsgDispatchFuncInfo, uint
 	// CGO defines void* as unsafe.Pointer, however it is just arbitrary data.
 	// We want to store a number at void*
 	ptr := uintptr(id)
-	// this function should be deprecated in favor allocating the dispatch struct on the C heap
 	return &SolClientSessionRxMsgDispatchFuncInfo{
 		dispatchType: C.SOLCLIENT_DISPATCH_TYPE_CALLBACK,
 		callback_p:   (C.solClient_session_rxMsgCallbackFunc_t)(unsafe.Pointer(C.messageReceiveCallback)),
-		user_p:       nil, // <-- if this should be set; it should be done in C (the ccsmp_helper.c)
+		user_p:       nil, // this should be set to the uintptr
 		rfu_p:        nil,
 	}, ptr
 }
