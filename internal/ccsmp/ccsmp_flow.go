@@ -33,9 +33,6 @@ import (
 #include "solclient/solClient.h"
 #include "solclient/solClientMsg.h"
 #include "./ccsmp_helper.h"
-
-solClient_rxMsgCallback_returnCode_t flowMessageReceiveCallback ( solClient_opaqueFlow_pt opaqueFlow_p, solClient_opaqueMsg_pt msg_p, void *user_p );
-void flowEventCallback ( solClient_opaqueFlow_pt opaqueFlow_p, solClient_flow_eventCallbackInfo_pt eventInfo_p, void *user_p );
 */
 import "C"
 
@@ -96,15 +93,7 @@ func (session *SolClientSession) SolClientSessionCreateFlow(properties []string,
 	flowPropsP, sessionPropertiesFreeFunction := ToCArray(properties, true)
 	defer sessionPropertiesFreeFunction()
 
-	var flowCreateFuncInfo C.solClient_flow_createFuncInfo_t
-
 	flowID := atomic.AddUintptr(&flowID, 1)
-
-	// These are not a misuse of unsafe.Pointer as the value is used for correlation
-	flowCreateFuncInfo.rxMsgInfo.callback_p = (C.solClient_flow_rxMsgCallbackFunc_t)(unsafe.Pointer(C.flowMessageReceiveCallback))
-	flowCreateFuncInfo.rxMsgInfo.user_p = C.uintptr_to_void_p(C.solClient_uint64_t(flowID))
-	flowCreateFuncInfo.eventInfo.callback_p = (C.solClient_flow_eventCallbackFunc_t)(unsafe.Pointer(C.flowEventCallback))
-	flowCreateFuncInfo.eventInfo.user_p = C.uintptr_to_void_p(C.solClient_uint64_t(flowID))
 
 	flowToRXCallbackMap.Store(flowID, msgCallback)
 	flowToEventCallbackMap.Store(flowID, eventCallback)
@@ -112,7 +101,11 @@ func (session *SolClientSession) SolClientSessionCreateFlow(properties []string,
 	flow := &SolClientFlow{}
 	flow.userP = flowID
 	err := handleCcsmpError(func() SolClientReturnCode {
-		return C.solClient_session_createFlow(flowPropsP, session.pointer, &flow.pointer, &flowCreateFuncInfo, (C.size_t)(unsafe.Sizeof(flowCreateFuncInfo)))
+		// this will register the goFlowMessageReceiveCallback and goFlowEventCallback callbacks with the flowID
+		return C.SessionFlowCreate(session.pointer,
+			flowPropsP,
+			&flow.pointer,
+			C.solClient_uint64_t(flowID))
 	})
 	if err != nil {
 		return nil, err
@@ -153,8 +146,11 @@ func (flow *SolClientFlow) SolClientFlowSubscribe(topic string, correlationID ui
 	return handleCcsmpError(func() SolClientReturnCode {
 		cString := C.CString(topic)
 		defer C.free(unsafe.Pointer(cString))
-		// This is not an unsafe usage of unsafe.Pointer as we are using correlationId as data, not as a pointer
-		return C.solClient_flow_topicSubscribeWithDispatch(flow.pointer, C.SOLCLIENT_SUBSCRIBE_FLAGS_REQUEST_CONFIRM, cString, nil, C.uintptr_to_void_p(C.solClient_uint64_t(correlationID)))
+		return C.FlowTopicSubscribeWithDispatch(flow.pointer,
+			C.SOLCLIENT_SUBSCRIBE_FLAGS_REQUEST_CONFIRM,
+			cString,
+			nil,
+			C.solClient_uint64_t(correlationID))
 	})
 }
 
@@ -163,8 +159,11 @@ func (flow *SolClientFlow) SolClientFlowUnsubscribe(topic string, correlationID 
 	return handleCcsmpError(func() SolClientReturnCode {
 		cString := C.CString(topic)
 		defer C.free(unsafe.Pointer(cString))
-		// This is not an unsafe usage of unsafe.Pointer as we are using correlationId as data, not as a pointer
-		return C.solClient_flow_topicUnsubscribeWithDispatch(flow.pointer, C.SOLCLIENT_SUBSCRIBE_FLAGS_REQUEST_CONFIRM, cString, nil, C.uintptr_to_void_p(C.solClient_uint64_t(correlationID)))
+		return C.FlowTopicUnsubscribeWithDispatch(flow.pointer,
+			C.SOLCLIENT_SUBSCRIBE_FLAGS_REQUEST_CONFIRM,
+			cString,
+			nil,
+			C.solClient_uint64_t(correlationID))
 	})
 }
 

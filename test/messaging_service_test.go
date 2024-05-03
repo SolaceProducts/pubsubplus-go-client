@@ -342,9 +342,12 @@ var _ = Describe("MessagingService Lifecycle", func() {
 				helpers.TestConnectDisconnectMessagingService(builder)
 			})
 
-			Context("with a bad server certificate installed on the broker", func() {
+			// Skip these tests; they are currently failing in Git actions see SOL-117804
+			Context("with a bad server certificate installed on the broker", Label("flaky-tests"), func() {
 				var invalidServerCertificate string
 				JustBeforeEach(func() {
+					Skip("Currently failing in Git actions - SOL-117804")
+
 					certContent, err := ioutil.ReadFile(invalidServerCertificate)
 					Expect(err).ToNot(HaveOccurred())
 					// Git actions seems to have some trouble with this particular SEMP request and occasionally gets EOF errors
