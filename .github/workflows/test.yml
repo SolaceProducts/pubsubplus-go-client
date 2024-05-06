@@ -42,7 +42,7 @@ jobs:
       - name: Setup Go environment
         uses: actions/setup-go@v2.1.3
         with:
-          go-version: '1.21'
+          go-version: '1.22'
           check-latest: true
       - name: Check Go Version
         run: go version
@@ -66,6 +66,29 @@ jobs:
             echo "$OUTPUT"
             exit 1
           fi
+
+      - name: Runs go vet
+        if: ${{ success() }}
+        run: |
+          OUTPUT=$(go vet ./... 2>&1)
+          if [ ! -z "$OUTPUT" ]; then
+            echo "go vet failed on the following:"
+            echo "$OUTPUT"
+            exit 1
+          fi
+
+      - name: Runs staticcheck
+        if: ${{ success() }}
+        run: |
+          # use pinned version of the tool but check if this needs an update on go version bump
+          go install honnef.co/go/tools/cmd/staticcheck@v0.4.7
+          OUTPUT=$(staticcheck --checks=all ./...)
+          if [ ! -z "$OUTPUT" ]; then
+            echo "staticcheck failed on the following:"
+            echo "$OUTPUT"
+            exit 1
+          fi
+
       - name: Runs unit tests
         if: ${{ success() }}
         run: go test -coverprofile ./unitcoverage.out ./...

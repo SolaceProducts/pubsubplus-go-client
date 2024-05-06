@@ -46,36 +46,60 @@ typedef struct solClient_errorInfo_wrapper
  * operating systems are supported, this may need to change to a more complex
  * definition.
  */
-void *
-uintptr_to_void_p(solClient_uint64_t ptr);
+solClient_returnCode_t  SessionFlowCreate(
+                        solClient_opaqueSession_pt      opaqueSession_p,
+                        solClient_propertyArray_pt      flowPropsP,
+                        solClient_opaqueFlow_pt         *opaqueFlow_p,
+                        solClient_uint64_t              flowID_p);
+
+solClient_returnCode_t  FlowTopicSubscribeWithDispatch(
+                        solClient_opaqueFlow_pt opaqueFlow_p,
+                        solClient_subscribeFlags_t flags,
+                        const char              *topicSubscription_p,
+                        solClient_flow_rxMsgDispatchFuncInfo_t *dispatchFuncInfo_p,
+                        solClient_uint64_t      correlationTag);
+
+solClient_returnCode_t  FlowTopicUnsubscribeWithDispatch(
+                        solClient_opaqueFlow_pt opaqueFlow_p,
+                        solClient_subscribeFlags_t flags,
+                        const char              *topicSubscription_p,
+                        solClient_flow_rxMsgDispatchFuncInfo_t *dispatchFuncInfo_p,
+                        solClient_uint64_t      correlationTag);
 
 solClient_returnCode_t  SessionTopicSubscribeWithFlags(
-                        solClient_opaqueSession_pt opaqueSession_p,
-                        const char                *topicSubscription_p,
-                        solClient_subscribeFlags_t flags,
-                        void                      *dispatchId_p,
-                        void                      *correlationTag_p);
+                        solClient_opaqueSession_pt  opaqueSession_p,
+                        const char                  *topicSubscription_p,
+                        solClient_subscribeFlags_t  flags,
+                        solClient_uint64_t          dispatchId,
+                        solClient_uint64_t          correlationTag);
 
 solClient_returnCode_t  SessionTopicUnsubscribeWithFlags(
-                        solClient_opaqueSession_pt opaqueSession_p,
-                        const char                *topicSubscription_p,
-                        solClient_subscribeFlags_t flags,
-                        void                      *dispatchId_p,
-                        void                      *correlationTag_p);
+                        solClient_opaqueSession_pt  opaqueSession_p,
+                        const char                  *topicSubscription_p,
+                        solClient_subscribeFlags_t  flags,
+                        solClient_uint64_t          dispatchId,
+                        solClient_uint64_t          correlationTag);
 
 solClient_returnCode_t  SessionReplyTopicSubscribeWithFlags(
-                        solClient_opaqueSession_pt opaqueSession_p,
-                        const char                *topicSubscription_p,
-                        solClient_subscribeFlags_t flags,
-                        void                      *dispatchId_p,
-                        void                      *correlationTag_p);
+                        solClient_opaqueSession_pt  opaqueSession_p,
+                        const char                  *topicSubscription_p,
+                        solClient_subscribeFlags_t  flags,
+                        solClient_uint64_t          dispatchId,
+                        solClient_uint64_t          correlationTag);
 
 solClient_returnCode_t  SessionReplyTopicUnsubscribeWithFlags(
-                        solClient_opaqueSession_pt opaqueSession_p,
-                        const char                *topicSubscription_p,
+                        solClient_opaqueSession_pt  opaqueSession_p,
+                        const char                  *topicSubscription_p,
+                        solClient_subscribeFlags_t  flags,
+                        solClient_uint64_t          dispatchId,
+                        solClient_uint64_t          correlationTag);
+
+solClient_returnCode_t  SessionTopicEndpointUnsubscribeWithFlags(
+                        solClient_opaqueSession_pt  opaqueSession_p,
+                        solClient_propertyArray_pt  endpointProps,
                         solClient_subscribeFlags_t flags,
-                        void                      *dispatchId_p,
-                        void                      *correlationTag_p);
+                        const char              *topicSubscription_p,
+                        solClient_uint64_t      correlationTag);
 
 /**
  * Definition of solclientgo correlation prefix
