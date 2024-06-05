@@ -62,7 +62,7 @@ const (
 	SolClientStatsTXCtlMsgs SolClientStatsTX = C.SOLCLIENT_STATS_TX_CTL_MSGS
 	// SolClientStatsTXCtlBytes: The number of bytes transmitted in control (non-data) messages.
 	SolClientStatsTXCtlBytes SolClientStatsTX = C.SOLCLIENT_STATS_TX_CTL_BYTES
-	// SolClientStatsTXCompressedBytes: The number of bytes transmitted after compression.
+	// SolClientStatsTXCompressedBytes: The number of bytes transmitted after compression. This metric only applies to transport/channel compression
 	SolClientStatsTXCompressedBytes SolClientStatsTX = C.SOLCLIENT_STATS_TX_COMPRESSED_BYTES
 	// SolClientStatsTXTotalConnectionAttempts: The total number of TCP connections attempted by this Session.
 	SolClientStatsTXTotalConnectionAttempts SolClientStatsTX = C.SOLCLIENT_STATS_TX_TOTAL_CONNECTION_ATTEMPTS
