@@ -46,17 +46,80 @@ typedef struct solClient_errorInfo_wrapper
  * operating systems are supported, this may need to change to a more complex
  * definition.
  */
-void *
-uintptr_to_void_p(solClient_uint64_t ptr);
-solClient_returnCode_t  SessionTopicSubscribe(
-                        solClient_opaqueSession_pt opaqueSession_p,
-                        const char                *topicSubscription_p,
-                        void                      *dispatchId_p,
-                        void                      *correlationTag_p);
-solClient_returnCode_t  SessionTopicUnsubscribe(
-                        solClient_opaqueSession_pt opaqueSession_p,
-                        const char                *topicSubscription_p,
-                        void                      *dispatchId_p,
-                        void                      *correlationTag_p);
+solClient_returnCode_t  SessionFlowCreate(
+                        solClient_opaqueSession_pt      opaqueSession_p,
+                        solClient_propertyArray_pt      flowPropsP,
+                        solClient_opaqueFlow_pt         *opaqueFlow_p,
+                        solClient_uint64_t              flowID_p);
+
+solClient_returnCode_t  FlowTopicSubscribeWithDispatch(
+                        solClient_opaqueFlow_pt opaqueFlow_p,
+                        solClient_subscribeFlags_t flags,
+                        const char              *topicSubscription_p,
+                        solClient_flow_rxMsgDispatchFuncInfo_t *dispatchFuncInfo_p,
+                        solClient_uint64_t      correlationTag);
+
+solClient_returnCode_t  FlowTopicUnsubscribeWithDispatch(
+                        solClient_opaqueFlow_pt opaqueFlow_p,
+                        solClient_subscribeFlags_t flags,
+                        const char              *topicSubscription_p,
+                        solClient_flow_rxMsgDispatchFuncInfo_t *dispatchFuncInfo_p,
+                        solClient_uint64_t      correlationTag);
+
+solClient_returnCode_t  SessionTopicSubscribeWithFlags(
+                        solClient_opaqueSession_pt  opaqueSession_p,
+                        const char                  *topicSubscription_p,
+                        solClient_subscribeFlags_t  flags,
+                        solClient_uint64_t          dispatchId,
+                        solClient_uint64_t          correlationTag);
+
+solClient_returnCode_t  SessionTopicUnsubscribeWithFlags(
+                        solClient_opaqueSession_pt  opaqueSession_p,
+                        const char                  *topicSubscription_p,
+                        solClient_subscribeFlags_t  flags,
+                        solClient_uint64_t          dispatchId,
+                        solClient_uint64_t          correlationTag);
+
+solClient_returnCode_t  SessionReplyTopicSubscribeWithFlags(
+                        solClient_opaqueSession_pt  opaqueSession_p,
+                        const char                  *topicSubscription_p,
+                        solClient_subscribeFlags_t  flags,
+                        solClient_uint64_t          dispatchId,
+                        solClient_uint64_t          correlationTag);
+
+solClient_returnCode_t  SessionReplyTopicUnsubscribeWithFlags(
+                        solClient_opaqueSession_pt  opaqueSession_p,
+                        const char                  *topicSubscription_p,
+                        solClient_subscribeFlags_t  flags,
+                        solClient_uint64_t          dispatchId,
+                        solClient_uint64_t          correlationTag);
+
+solClient_returnCode_t  SessionTopicEndpointUnsubscribeWithFlags(
+                        solClient_opaqueSession_pt  opaqueSession_p,
+                        solClient_propertyArray_pt  endpointProps,
+                        solClient_subscribeFlags_t flags,
+                        const char              *topicSubscription_p,
+                        solClient_uint64_t      correlationTag);
+
+/**
+ * Definition of solclientgo correlation prefix
+ */
+#define SOLCLIENTGO_REPLY_CORRELATION_PREFIX "#GOS"
+
+/**
+ * Macro for determining if a message correlation has the solclientgo correlation prefix
+ * corrId_p correlation id pointer/expression, must not be NULL.
+ *          Should be a utf8 null terminal string, any string that is not null terminal must
+ *          have a buffer size greater then 4.
+ */
+#define SOLCLIENTGO_HAS_REPLY_CORRELATION_ID_PREFIX(corrId_p) (   \
+    (corrId_p)[0] == (SOLCLIENTGO_REPLY_CORRELATION_PREFIX)[0] && \
+    (corrId_p)[1] == (SOLCLIENTGO_REPLY_CORRELATION_PREFIX)[1] && \
+    (corrId_p)[2] == (SOLCLIENTGO_REPLY_CORRELATION_PREFIX)[2] && \
+    (corrId_p)[3] == (SOLCLIENTGO_REPLY_CORRELATION_PREFIX)[3]    \
+    )
+
+solClient_returnCode_t
+solClientgo_msg_isRequestReponseMsg(solClient_opaqueMsg_pt msg_p, char **correlationId_p);
 
 #endif

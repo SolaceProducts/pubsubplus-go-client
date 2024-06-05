@@ -122,11 +122,43 @@ func SetDestination(message *OutboundMessageImpl, destName string) error {
 	return nil
 }
 
+// SetReplyToDestination function
+func SetReplyToDestination(message *OutboundMessageImpl, destName string) error {
+	err := ccsmp.SolClientMessageSetReplyToDestination(message.messagePointer, destName)
+	if err != nil {
+		return core.ToNativeError(err, "error setting replyTo destination: ")
+	}
+	return nil
+}
+
+// SetCorrelationID function
+func SetCorrelationID(message *OutboundMessageImpl, correlationID string) error {
+	err := ccsmp.SolClientMessageSetCorrelationID(message.messagePointer, correlationID)
+	if err != nil {
+		return core.ToNativeError(err, "error setting correlationID: ")
+	}
+	return nil
+}
+
 // SetAckImmediately function
 func SetAckImmediately(message *OutboundMessageImpl) error {
 	err := ccsmp.SolClientMessageSetAckImmediately(message.messagePointer, true)
 	if err != nil {
 		return core.ToNativeError(err, "error setting ack immediately: ")
+	}
+	return nil
+}
+
+// SetAsReplyMessage function
+func SetAsReplyMessage(message *OutboundMessageImpl, replyToDestination string, correlationID string) error {
+	if err := SetDestination(message, replyToDestination); err != nil {
+		return err
+	}
+	if err := SetCorrelationID(message, correlationID); err != nil {
+		return err
+	}
+	if errInfo := ccsmp.SolClientMessageSetAsReply(message.messagePointer, true); errInfo != nil {
+		return core.ToNativeError(errInfo, "error setting as reply message header: ")
 	}
 	return nil
 }

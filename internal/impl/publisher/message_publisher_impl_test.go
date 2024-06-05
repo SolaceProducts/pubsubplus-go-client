@@ -298,6 +298,7 @@ type result struct {
 type mockInternalPublisher struct {
 	publish                      func(message core.Publishable) core.ErrorInfo
 	events                       func() core.Events
+	requestor                    func() core.Requestor
 	awaitWritable                func(terminateSignal chan struct{}) error
 	taskQueue                    func() chan core.SendTask
 	isRunning                    func() bool
@@ -318,6 +319,13 @@ func (mock *mockInternalPublisher) Events() core.Events {
 		return mock.events()
 	}
 	return &mockEvents{}
+}
+
+func (mock *mockInternalPublisher) Requestor() core.Requestor {
+	if mock.requestor != nil {
+		return mock.requestor()
+	}
+	return &mockRequestor{}
 }
 
 func (mock *mockInternalPublisher) AwaitWritable(terminateSignal chan struct{}) error {
@@ -374,4 +382,33 @@ func (events *mockEvents) AddEventHandler(sessionEvent core.Event, responseCode 
 }
 
 func (events *mockEvents) RemoveEventHandler(id uint) {
+}
+
+type mockRequestor struct {
+	createReplyToTopic          func(publisherID string) string
+	addRequestorReplyHandler    func(replyHandler core.RequestorReplyHandler) (string, func() (messageID uint64, correlationId string), core.ErrorInfo)
+	removeRequestorReplyHandler func(replyToTopic string) core.ErrorInfo
+}
+
+func (requestor *mockRequestor) CreateReplyToTopic(publisherID string) string {
+	if requestor.createReplyToTopic != nil {
+		return requestor.createReplyToTopic(publisherID)
+	}
+	return ""
+}
+
+func (requestor *mockRequestor) AddRequestorReplyHandler(replyHandler core.RequestorReplyHandler) (string, func() (messageID uint64, correlationID string), core.ErrorInfo) {
+	if requestor.addRequestorReplyHandler != nil {
+		return requestor.addRequestorReplyHandler(replyHandler)
+	}
+	return "", func() (uint64, string) {
+		return uint64(0), ""
+	}, nil
+}
+
+func (requestor *mockRequestor) RemoveRequestorReplyHandler(replyToTopic string) core.ErrorInfo {
+	if requestor.removeRequestorReplyHandler != nil {
+		return requestor.removeRequestorReplyHandler(replyToTopic)
+	}
+	return nil
 }
