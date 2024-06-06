@@ -34,7 +34,7 @@ const (
 	SolClientEndpointPropPermission = C.SOLCLIENT_ENDPOINT_PROP_PERMISSION
 	// SolClientEndpointPropAccesstype: Sets the access type for the endpoint. This applies to durable Queues only.
 	SolClientEndpointPropAccesstype = C.SOLCLIENT_ENDPOINT_PROP_ACCESSTYPE
-	// SolClientEndpointPropQuotaMb: Maximum quota (in megabytes) for the endpoint. The valid range is 1 through 800000.
+	// SolClientEndpointPropQuotaMb: Maximum quota (in megabytes) for the endpoint.
 	SolClientEndpointPropQuotaMb = C.SOLCLIENT_ENDPOINT_PROP_QUOTA_MB
 	// SolClientEndpointPropMaxmsgSize: Maximum size (in bytes) for any one message stored in the endpoint.
 	SolClientEndpointPropMaxmsgSize = C.SOLCLIENT_ENDPOINT_PROP_MAXMSG_SIZE
