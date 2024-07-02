@@ -20,6 +20,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"solace.dev/go/messaging"
@@ -2347,6 +2348,318 @@ var _ = Describe("Remote Message Tests", func() {
 			case <-time.After(1 * time.Second):
 				Fail("timed out waiting for message to be delivered")
 			}
+		})
+
+	})
+
+	Describe("Payload Compression Tests", func() {
+		// [X] Test to validate range of level is from 0 to 9 (inclusive) - test part of messaging_service tests
+		// [X] Test that payload is still nil after compression level is disabled (set to 0 ) when no payload
+		// [X] Test to check that payload is uncompressed when level set to 0
+		// [X] Test to check that payload is uncompressed when payload compression is off  (when compression level is not set)
+		// [X] Test that payload is still nil after compression when no payload set
+		// [X] Test that payload is Most compressed when level is high (like 7)
+
+		Describe("Publish and receive outbound message when Payload Compression is disabled", func() {
+			var publisher solace.DirectMessagePublisher
+			var receiver solace.DirectMessageReceiver
+			var inboundMessageChannel chan message.InboundMessage
+
+			AfterEach(func() {
+				var err error
+				err = publisher.Terminate(10 * time.Second)
+				Expect(err).ToNot(HaveOccurred())
+				err = receiver.Terminate(10 * time.Second)
+				Expect(err).ToNot(HaveOccurred())
+
+				err = messagingService.Disconnect()
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			// initialize and start the publisher/receiver
+			ConnectMessagingServiceAndInitialize := func() {
+				var err error
+				err = messagingService.Connect()
+				Expect(err).ToNot(HaveOccurred())
+
+				publisher, err = messagingService.CreateDirectMessagePublisherBuilder().Build()
+				Expect(err).ToNot(HaveOccurred())
+				receiver, err = messagingService.CreateDirectMessageReceiverBuilder().WithSubscriptions(resource.TopicSubscriptionOf(topic)).Build()
+				Expect(err).ToNot(HaveOccurred())
+
+				err = publisher.Start()
+				Expect(err).ToNot(HaveOccurred())
+
+				inboundMessageChannel = make(chan message.InboundMessage)
+				receiver.ReceiveAsync(func(inboundMessage message.InboundMessage) {
+					inboundMessageChannel <- inboundMessage
+				})
+
+				err = receiver.Start()
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			// Do not set any compression level
+			WithPayloadCompressionLevelNotSet := func() {
+				builder := messaging.NewMessagingServiceBuilder().
+					FromConfigurationProvider(helpers.DefaultConfiguration())
+				var err error
+				messagingService, err = builder.Build()
+				Expect(err).ToNot(HaveOccurred())
+				messageBuilder = messagingService.MessageBuilder()
+				ConnectMessagingServiceAndInitialize()
+			}
+
+			// Set the compression level to zero
+			WithPayloadCompressionLevelSetToZero := func() {
+				builder := messaging.NewMessagingServiceBuilder().
+					FromConfigurationProvider(helpers.DefaultConfiguration()).
+					FromConfigurationProvider(config.ServicePropertyMap{
+						config.ServicePropertyPayloadCompressionLevel: 0, // disable payload compression (set level to zero)
+					})
+				var err error
+				messagingService, err = builder.Build()
+				Expect(err).ToNot(HaveOccurred())
+				messageBuilder = messagingService.MessageBuilder()
+				ConnectMessagingServiceAndInitialize()
+			}
+
+			// Test that payload is still nil after compression level is disabled (set to 0 ) when no payload
+			It("payload size should remain the same after publish/receive with no payload", func() {
+				WithPayloadCompressionLevelSetToZero() // initialize and start the publisher/receiver - set the compression level to zero
+				message, err := messageBuilder.Build()
+				Expect(err).ToNot(HaveOccurred())
+
+				publishMessageBytes, _ := message.GetPayloadAsBytes()
+				publishMessageBytesSize := len(publishMessageBytes)
+				publisher.Publish(message, resource.TopicOf(topic))
+
+				select {
+				case message := <-inboundMessageChannel:
+					content, ok := message.GetPayloadAsString()
+					Expect(ok).To(BeFalse())
+					Expect(content).To(Equal(""))
+					receivedMessageBytes, ok := message.GetPayloadAsBytes()
+					Expect(ok).To(BeFalse())
+					Expect(receivedMessageBytes).To(BeNil())
+					// check the published message via semp
+					client := helpers.GetClient(messagingService)
+					Expect(client.DataTxMsgCount).To(Equal(int64(1)))                                  // should be only one message published
+					Expect(client.DataRxMsgCount).To(Equal(int64(1)))                                  // should be only one message received
+					Expect(publishMessageBytesSize).To(BeNumerically("==", len(receivedMessageBytes))) // received should be equal which is zero
+					Expect(client.DataTxByteCount).To(BeNumerically("==", client.DataRxByteCount))     // Tx and Rx data on wire should be the same (no message corruption)
+					Expect(client.DataTxByteCount).To(BeNumerically(">", len(receivedMessageBytes)))   // Tx data on wire should be larger than message without payload (only headers)
+
+				case <-time.After(1 * time.Second):
+					Fail("timed out waiting for message to be delivered")
+				}
+			})
+
+			// Test to check that payload is uncompressed when compression level is set to 0
+			It("payload size should remain the same after publish/receive with payload and compression level set to zero", func() {
+				WithPayloadCompressionLevelSetToZero() // initialize and start the publisher/receiver - set the compression level to zero
+				largeByteArray := make([]byte, 16384)
+				message, err := messageBuilder.BuildWithByteArrayPayload(largeByteArray)
+				Expect(err).ToNot(HaveOccurred())
+
+				publishMessageBytes, _ := message.GetPayloadAsBytes()
+				publishMessageBytesSize := len(publishMessageBytes)
+				publisher.Publish(message, resource.TopicOf(topic))
+
+				select {
+				case message := <-inboundMessageChannel:
+					content, ok := message.GetPayloadAsString()
+					Expect(ok).To(BeFalse())
+					Expect(content).To(Equal(""))
+					receivedMessageBytes, ok := message.GetPayloadAsBytes()
+					Expect(ok).To(BeTrue())
+					Expect(receivedMessageBytes).ToNot(BeNil())
+					// check the published message via semp
+					client := helpers.GetClient(messagingService)
+					Expect(client.DataTxMsgCount).To(Equal(int64(1)))                                  // should be only one message published
+					Expect(client.DataRxMsgCount).To(Equal(int64(1)))                                  // should be only one message received
+					Expect(publishMessageBytesSize).To(BeNumerically("==", len(receivedMessageBytes))) // bytes received should be equal to published
+					Expect(client.DataTxByteCount).To(BeNumerically("==", client.DataRxByteCount))     // Tx and Rx data on wire should be the same (no message corruption)
+					Expect(client.DataTxByteCount).To(BeNumerically(">", len(receivedMessageBytes)))   // Tx data on wire (payload + headers) should be larger than message with payload (only headers)
+
+				case <-time.After(1 * time.Second):
+					Fail("timed out waiting for message to be delivered")
+				}
+			})
+
+			// Test to check that payload is uncompressed when payload compression is off  (when compression level is not set)
+			It("payload size should remain the same after publish/receive with payload and compression level not set", func() {
+				WithPayloadCompressionLevelNotSet() // initialize and start the publisher/receiver - do not set any compression level
+				largeByteArray := make([]byte, 16384)
+				message, err := messageBuilder.BuildWithByteArrayPayload(largeByteArray)
+				Expect(err).ToNot(HaveOccurred())
+
+				publishMessageBytes, _ := message.GetPayloadAsBytes()
+				publishMessageBytesSize := len(publishMessageBytes)
+				publisher.Publish(message, resource.TopicOf(topic))
+
+				select {
+				case message := <-inboundMessageChannel:
+					content, ok := message.GetPayloadAsString()
+					Expect(ok).To(BeFalse())
+					Expect(content).To(Equal(""))
+					receivedMessageBytes, ok := message.GetPayloadAsBytes()
+					Expect(ok).To(BeTrue())
+					Expect(receivedMessageBytes).ToNot(BeNil())
+					// check the published message via semp
+					client := helpers.GetClient(messagingService)
+					Expect(client.DataTxMsgCount).To(Equal(int64(1)))                                  // should be only one message published
+					Expect(client.DataRxMsgCount).To(Equal(int64(1)))                                  // should be only one message received
+					Expect(publishMessageBytesSize).To(BeNumerically("==", len(receivedMessageBytes))) // bytes received should be equal to published
+					Expect(client.DataTxByteCount).To(BeNumerically("==", client.DataRxByteCount))     // Tx and Rx data on wire should be the same (no message corruption)
+					Expect(client.DataTxByteCount).To(BeNumerically(">", len(receivedMessageBytes)))   // Tx data on wire (payload + headers) should be larger than message with payload (only headers)
+
+				case <-time.After(1 * time.Second):
+					Fail("timed out waiting for message to be delivered")
+				}
+			})
+
+		})
+
+		Describe("Publish and receive outbound message with valid Payload Compression enabled", func() {
+			var publisher solace.DirectMessagePublisher
+			var receiver solace.DirectMessageReceiver
+			var inboundMessageChannel chan message.InboundMessage
+
+			BeforeEach(func() {
+
+				builder := messaging.NewMessagingServiceBuilder().
+					FromConfigurationProvider(helpers.DefaultConfiguration()).
+					FromConfigurationProvider(config.ServicePropertyMap{
+						config.ServicePropertyPayloadCompressionLevel: 7, // high compression level
+					})
+				var err error
+				messagingService, err = builder.Build()
+				Expect(err).ToNot(HaveOccurred())
+				messageBuilder = messagingService.MessageBuilder()
+
+				err = messagingService.Connect()
+				Expect(err).ToNot(HaveOccurred())
+
+				publisher, err = messagingService.CreateDirectMessagePublisherBuilder().Build()
+				Expect(err).ToNot(HaveOccurred())
+				receiver, err = messagingService.CreateDirectMessageReceiverBuilder().WithSubscriptions(resource.TopicSubscriptionOf(topic)).Build()
+				Expect(err).ToNot(HaveOccurred())
+
+				err = publisher.Start()
+				Expect(err).ToNot(HaveOccurred())
+
+				inboundMessageChannel = make(chan message.InboundMessage)
+				receiver.ReceiveAsync(func(inboundMessage message.InboundMessage) {
+					inboundMessageChannel <- inboundMessage
+				})
+
+				err = receiver.Start()
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			AfterEach(func() {
+				var err error
+				err = publisher.Terminate(10 * time.Second)
+				Expect(err).ToNot(HaveOccurred())
+				err = receiver.Terminate(10 * time.Second)
+				Expect(err).ToNot(HaveOccurred())
+
+				err = messagingService.Disconnect()
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			// Test that payload is still nil after compression when no payload set
+			It("payload size should remain the same after publish/receive with no payload", func() {
+				message, err := messageBuilder.Build()
+				Expect(err).ToNot(HaveOccurred())
+
+				publishMessageBytes, _ := message.GetPayloadAsBytes()
+				publishMessageBytesSize := len(publishMessageBytes)
+				publisher.Publish(message, resource.TopicOf(topic))
+
+				select {
+				case message := <-inboundMessageChannel:
+					content, ok := message.GetPayloadAsString()
+					Expect(ok).To(BeFalse())
+					Expect(content).To(Equal(""))
+					receivedMessageBytes, ok := message.GetPayloadAsBytes()
+					Expect(ok).To(BeFalse())
+					Expect(receivedMessageBytes).To(BeNil())
+					// check the published message via semp
+					client := helpers.GetClient(messagingService)
+					Expect(client.DataTxMsgCount).To(Equal(int64(1)))                                  // should be only one message published
+					Expect(client.DataRxMsgCount).To(Equal(int64(1)))                                  // should be only one message received
+					Expect(publishMessageBytesSize).To(BeNumerically("==", len(receivedMessageBytes))) // received should be equal which is zero
+					Expect(client.DataTxByteCount).To(BeNumerically("==", client.DataRxByteCount))     // Tx and Rx data on wire should be the same (no message corruption)
+					Expect(client.DataTxByteCount).To(BeNumerically(">", len(receivedMessageBytes)))   // Tx data on wire should be larger than message without payload (only headers)
+
+				case <-time.After(1 * time.Second):
+					Fail("timed out waiting for message to be delivered")
+				}
+			})
+
+			// Test that string payload is compressed when level is set (set to 7)
+			// String compression performs worse when the letter frequency of repeating characters is very small
+			It("payload should be properly compressed/decompressed after publish/receive with a string payload", func() {
+				payload := strings.Repeat("hello world", 200)
+				message, err := messageBuilder.BuildWithStringPayload(payload)
+				Expect(err).ToNot(HaveOccurred())
+
+				publishMessagePayload, _ := message.GetPayloadAsString()
+				publishMessagePayloadSize := len(publishMessagePayload)
+				publisher.Publish(message, resource.TopicOf(topic))
+
+				select {
+				case message := <-inboundMessageChannel:
+					content, ok := message.GetPayloadAsString()
+					Expect(ok).To(BeTrue())
+					Expect(content).ToNot(BeNil())
+					msgBytes, _ := message.GetPayloadAsBytes()
+					Expect(msgBytes).ToNot(BeNil())
+					// check the published message via semp
+					client := helpers.GetClient(messagingService)
+					Expect(client.DataTxMsgCount).To(Equal(int64(1)))                              // should be only one message published
+					Expect(client.DataRxMsgCount).To(Equal(int64(1)))                              // should be only one message received
+					Expect(publishMessagePayloadSize).To(BeNumerically("==", len(content)))        // bytes received should be equal to published
+					Expect(client.DataTxByteCount).To(BeNumerically("==", client.DataRxByteCount)) // Tx and Rx data on wire should be the same (no message corruption)
+					Expect(client.DataTxByteCount).To(BeNumerically("<", len(msgBytes)))           // Tx data on wire should be Smaller than message when payload is compressed
+
+				case <-time.After(1 * time.Second):
+					Fail("timed out waiting for message to be delivered")
+				}
+			})
+
+			// Test that byte array payload is compressed when level is set (set to 7)
+			It("payload should be properly compressed/decompressed after publish/receive with a byte array payload", func() {
+				largeByteArray := make([]byte, 16384)
+				message, err := messageBuilder.BuildWithByteArrayPayload(largeByteArray)
+				Expect(err).ToNot(HaveOccurred())
+
+				publishMessageBytes, _ := message.GetPayloadAsBytes()
+				publishMessageBytesSize := len(publishMessageBytes)
+				publisher.Publish(message, resource.TopicOf(topic))
+
+				select {
+				case message := <-inboundMessageChannel:
+					content, ok := message.GetPayloadAsString()
+					Expect(ok).To(BeFalse())
+					Expect(content).To(Equal(""))
+					receivedMessageBytes, ok := message.GetPayloadAsBytes()
+					Expect(ok).To(BeTrue())
+					Expect(receivedMessageBytes).ToNot(BeNil())
+					// check the published message via semp
+					client := helpers.GetClient(messagingService)
+					Expect(client.DataTxMsgCount).To(Equal(int64(1)))                                  // should be only one message published
+					Expect(client.DataRxMsgCount).To(Equal(int64(1)))                                  // should be only one message received
+					Expect(publishMessageBytesSize).To(BeNumerically("==", len(receivedMessageBytes))) // bytes received should be equal to published
+					Expect(client.DataTxByteCount).To(BeNumerically("==", client.DataRxByteCount))     // Tx and Rx data on wire should be the same (no message corruption)
+					Expect(client.DataTxByteCount).To(BeNumerically("<", len(receivedMessageBytes)))   // Tx data on wire should be Smaller than message when payload is compressed
+
+				case <-time.After(1 * time.Second):
+					Fail("timed out waiting for message to be delivered")
+				}
+			})
 		})
 
 	})
