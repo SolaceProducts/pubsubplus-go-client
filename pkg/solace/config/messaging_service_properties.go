@@ -169,6 +169,9 @@ const (
 	// for a direct message receiver the value type is boolean.
 	ServicePropertyReceiverDirectSubscriptionReapply ServiceProperty = "solace.messaging.service.receivers.direct.subscription.reapply"
 
+	// ServicePropertyProvisionTimeoutMs specifies the timeout for provision and deprovision operations, in milliseconds.
+	ServicePropertyProvisionTimeoutMs ServiceProperty = "solace.messaging.management.endpoint.provision-timeout"
+
 	/* TransportLayerProperties */
 
 	// TransportLayerPropertyHost is IPv4 or IPv6 address or host name of the broker to which to connect.

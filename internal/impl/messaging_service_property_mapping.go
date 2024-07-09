@@ -67,6 +67,7 @@ var servicePropertyToCCSMPMap = map[config.ServiceProperty]property{
 	config.ServicePropertyGenerateSendTimestamps:            {ccsmp.SolClientSessionPropGenerateSendTimestamps, booleanConverter},
 	config.ServicePropertyGenerateReceiveTimestamps:         {ccsmp.SolClientSessionPropGenerateRcvTimestamps, booleanConverter},
 	config.ServicePropertyReceiverDirectSubscriptionReapply: {ccsmp.SolClientSessionPropReapplySubscriptions, booleanConverter},
+	config.ServicePropertyProvisionTimeoutMs:                {ccsmp.SolClientSessionPropProvisionTimeoutMs, durationConverter},
 
 	/* Transport Layer Properties */
 	config.TransportLayerPropertyHost:                             {ccsmp.SolClientSessionPropHost, defaultConverter},

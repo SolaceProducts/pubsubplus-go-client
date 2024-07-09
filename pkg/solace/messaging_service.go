@@ -208,6 +208,9 @@ type MessagingServiceBuilder interface {
 	// WithTransportSecurityStrategy configures the resulting messaging service
 	// with the specified transport security strategy.
 	WithTransportSecurityStrategy(transportSecurityStrategy config.TransportSecurityStrategy) MessagingServiceBuilder
+
+	// WithProvisionTimeoutMs configures the timeout for provision and deprovision operations, in milliseconds.
+	WithProvisionTimeoutMs(timeout time.Duration) MessagingServiceBuilder
 }
 
 // ReconnectionListener is a handler that can be registered to a MessagingService.
