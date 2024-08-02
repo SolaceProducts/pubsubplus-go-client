@@ -181,5 +181,11 @@ const MissingReplyMessageHandler = "got nil ReplyMessageHandler, ReplyMessageHan
 // ReplierFailureToPublishReply error string
 const ReplierFailureToPublishReply = "Publish Reply Error: "
 
+// FailedToProvisionEndpoint error string
+const FailedToProvisionEndpoint = "failed to provision endpoint: "
+
+// FailedToDeprovisionEndpoint error string
+const FailedToDeprovisionEndpoint = "failed to deprovision endpoint: "
+
 // CouldNotConfirmProvisionDeprovisionServiceUnavailable error string
 const CouldNotConfirmProvisionDeprovisionServiceUnavailable = "could not confirm provision/deprovision, the messaging service was terminated"

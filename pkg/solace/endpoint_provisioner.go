@@ -117,7 +117,8 @@ type EndpointProvisioner interface {
 	WithTTLPolicy(respect bool) EndpointProvisioner
 }
 
-// The EndpointProvisioner.Provision operations return this structure to indicate the success, the underlying error code,
+// ProvisionOutcome - the EndpointProvisioner.Provision and EndpointProvisioner.Deprovision operations
+// return this structure to indicate the success, the underlying error code,
 // and when available, the properties of the queue on the broker.
 // It is possible for the outcome to be successful and yet contain a non-nil error when the queue already exists on the broker,
 // and the Provision function was invoked with the ignoreExists flag set.

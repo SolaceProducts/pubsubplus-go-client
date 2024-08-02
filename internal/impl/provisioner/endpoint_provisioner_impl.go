@@ -14,6 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package provisioner is defined below
 package provisioner
 
 import (
@@ -37,7 +38,7 @@ type endpointProvisionerImpl struct {
 	internalEndpointProvisioner core.EndpointProvisioner
 }
 
-// NewEndpointProvisioner function
+// NewEndpointProvisionerImpl function
 func NewEndpointProvisionerImpl(internalEndpointProvisioner core.EndpointProvisioner) solace.EndpointProvisioner {
 	// return &endpointProvisionerImpl{make(config.EndpointPropertyMap)}
 	return &endpointProvisionerImpl{
@@ -149,13 +150,13 @@ func validateEndpointProperties(properties config.EndpointPropertyMap) ([]string
 				propertiesList = append(propertiesList, ccsmp.SolClientEndpointPropQuotaMb, fmt.Sprint(propValue))
 			}
 		case config.EndpointPropertyRespectsTTL:
-			shouldRespectTtl, present, err := validation.BooleanPropertyValidation(string(config.EndpointPropertyRespectsTTL), value)
+			shouldRespectTTL, present, err := validation.BooleanPropertyValidation(string(config.EndpointPropertyRespectsTTL), value)
 			if present {
 				if err != nil {
 					return nil, err
 				}
 				// if should respect Ttl
-				if shouldRespectTtl {
+				if shouldRespectTTL {
 					propertiesList = append(propertiesList, ccsmp.SolClientEndpointPropRespectsMsgTTL, ccsmp.SolClientPropEnableVal)
 				}
 			}
@@ -199,7 +200,7 @@ func (provisioner *endpointProvisionerImpl) Provision(queueName string, ignoreEx
 	// continue to provision the queue here
 	_, result, errInfo := provisioner.internalEndpointProvisioner.Provision(endpointProperties, ignoreExists)
 	if errInfo != nil {
-		provisionErr := core.ToNativeError(errInfo, constants.FailedToAddSubscription)
+		provisionErr := core.ToNativeError(errInfo, constants.FailedToProvisionEndpoint)
 		provisionOutcome.err = provisionErr
 	}
 	if provisioner.logger.IsDebugEnabled() {
@@ -271,7 +272,48 @@ func (provisioner *endpointProvisionerImpl) ProvisionAsyncWithCallback(queueName
 // turns the "no such queue" error into nil.
 // Blocks until the operation is finished on the broker, returns the nil or an error
 func (provisioner *endpointProvisionerImpl) Deprovision(queueName string, ignoreMissing bool) error {
-	// TODO: Implementation here
+	// Implementation here
+	properties := provisioner.properties.GetConfiguration() // we don't need all these properties for deprov
+
+	// Override defaults durability to be True since we currently only support durable
+	if _, ok := properties[config.EndpointPropertyDurable]; !ok {
+		properties[config.EndpointPropertyDurable] = true
+	}
+
+	endpointProperties, err := validateEndpointProperties(properties)
+	if err != nil {
+		// return deprovision error
+		return err
+	}
+
+	// We want to provision a queue
+	endpointProperties = append(endpointProperties, ccsmp.SolClientEndpointPropName, queueName)
+
+	// continue to provision the queue here
+	_, result, errInfo := provisioner.internalEndpointProvisioner.Deprovision(endpointProperties, ignoreMissing)
+	if errInfo != nil {
+		return core.ToNativeError(errInfo, constants.FailedToDeprovisionEndpoint)
+	}
+	if provisioner.logger.IsDebugEnabled() {
+		provisioner.logger.Debug("Deprovision awaiting confirm on deprovision outcome for queue: '" + queueName + "'")
+	}
+
+	// block until we get provision outcome
+	// should timeout from ccsmp if waiting for timeout exceeds
+	event := <-result
+	if provisioner.logger.IsDebugEnabled() {
+		if event.GetError() != nil {
+			provisioner.logger.Debug("Deprovision received error for queue '" + queueName + "': " + event.GetError().Error())
+		} else {
+			provisioner.logger.Debug("Deprovision received confirm for queue '" + queueName + "'")
+		}
+	}
+
+	// an error occurred while deprovisioning queue
+	if event.GetError() != nil {
+		return event.GetError()
+	}
+
 	return nil
 }
 
