@@ -415,15 +415,6 @@ func (session *SolClientSession) SolClientSessionUnsubscribe(topic string, dispa
 	return session.solClientSessionUnsubscribeWithFlags(topic, C.SOLCLIENT_SUBSCRIBE_FLAGS_REQUEST_CONFIRM, dispatchID, correlationID)
 }
 
-// SolClientEndpointProvision wraps solClient_session_endpointProvision
-func (session *SolClientSession) SolClientEndpointProvision(properties []string) *SolClientErrorInfoWrapper {
-	return handleCcsmpError(func() SolClientReturnCode {
-		endpointProps, endpointFree := ToCArray(properties, true)
-		defer endpointFree()
-		return C.solClient_session_endpointProvision(endpointProps, session.pointer, C.SOLCLIENT_PROVISION_FLAGS_WAITFORCONFIRM, nil, nil, 0)
-	})
-}
-
 // SolClientEndpointUnsusbcribe wraps solClient_session_endpointTopicUnsubscribe
 func (session *SolClientSession) SolClientEndpointUnsusbcribe(properties []string, topic string, correlationID uintptr) *SolClientErrorInfoWrapper {
 	return handleCcsmpError(func() SolClientReturnCode {
@@ -437,6 +428,55 @@ func (session *SolClientSession) SolClientEndpointUnsusbcribe(properties []strin
 			cString,
 			C.solClient_uint64_t(correlationID))
 	})
+}
+
+// SolClientEndpointProvision wraps solClient_session_endpointProvision
+func (session *SolClientSession) SolClientEndpointProvision(properties []string) *SolClientErrorInfoWrapper {
+	return handleCcsmpError(func() SolClientReturnCode {
+		endpointProps, endpointFree := ToCArray(properties, true)
+		defer endpointFree()
+		return C.solClient_session_endpointProvision(endpointProps, session.pointer, C.SOLCLIENT_PROVISION_FLAGS_WAITFORCONFIRM, nil, nil, 0)
+	})
+}
+
+// SolClientEndpointProvisionWithFlags wraps solClient_session_endpointProvision
+func (session *SolClientSession) SolClientEndpointProvisionWithFlags(properties []string, flags C.solClient_uint32_t, correlationID uintptr) *SolClientErrorInfoWrapper {
+	return handleCcsmpError(func() SolClientReturnCode {
+		endpointProps, endpointFree := ToCArray(properties, true)
+		defer endpointFree()
+		return C.SessionEndpointProvisionWithFlags(session.pointer,
+			endpointProps,
+			flags,
+			C.solClient_uint64_t(correlationID))
+	})
+}
+
+// SolClientEndpointDeprovisionWithFlags wraps solClient_session_endpointDeprovision
+func (session *SolClientSession) SolClientEndpointDeprovisionWithFlags(properties []string, flags C.solClient_uint32_t, correlationID uintptr) *SolClientErrorInfoWrapper {
+	return handleCcsmpError(func() SolClientReturnCode {
+		endpointProps, endpointFree := ToCArray(properties, true)
+		defer endpointFree()
+		return C.SessionEndpointDeprovisionWithFlags(session.pointer,
+			endpointProps,
+			flags,
+			C.solClient_uint64_t(correlationID))
+	})
+}
+
+// SolClientEndpointProvisionAsync wraps solClient_session_endpointProvision
+func (session *SolClientSession) SolClientEndpointProvisionAsync(properties []string, correlationID uintptr, ignoreExistErrors bool) *SolClientErrorInfoWrapper {
+	if ignoreExistErrors {
+		return session.SolClientEndpointProvisionWithFlags(properties, C.SOLCLIENT_PROVISION_FLAGS_IGNORE_EXIST_ERRORS, correlationID)
+	}
+	return session.SolClientEndpointProvisionWithFlags(properties, 0x0, correlationID) // no flag pass here
+}
+
+// SolClientEndpointDeprovisionAsync wraps solClient_session_endpointDeprovision
+func (session *SolClientSession) SolClientEndpointDeprovisionAsync(properties []string, correlationID uintptr, ignoreMissingErrors bool) *SolClientErrorInfoWrapper {
+	if ignoreMissingErrors {
+		return session.SolClientEndpointDeprovisionWithFlags(properties, C.SOLCLIENT_PROVISION_FLAGS_IGNORE_EXIST_ERRORS, correlationID)
+	}
+	return session.SolClientEndpointDeprovisionWithFlags(properties, 0x0, correlationID) // no flag pass here
 }
 
 // SolClientSessionGetRXStat wraps solClient_session_getRxStat

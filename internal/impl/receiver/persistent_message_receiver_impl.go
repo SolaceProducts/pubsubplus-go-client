@@ -243,7 +243,7 @@ func (receiver *persistentMessageReceiverImpl) Start() (err error) {
 	defer func() {
 		// if we don't cleanup, when we destroy the flow we might orphan entries in the map causing a memory leak
 		if err != nil {
-			receiver.logger.Debug("Encountered error while adding subscriptions, removoing outstanding correlations")
+			receiver.logger.Debug("Encountered error while adding subscriptions, removing outstanding correlations")
 			for _, id := range outstandingCorrelations {
 				receiver.internalReceiver.ClearSubscriptionCorrelation(id)
 			}

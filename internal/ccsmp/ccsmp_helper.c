@@ -213,3 +213,29 @@ SessionTopicEndpointUnsubscribeWithFlags(  solClient_opaqueSession_pt opaqueSess
                                                         topicSubscription_p,
                                                         (void *)correlationTag);
 }
+
+solClient_returnCode_t  
+SessionEndpointProvisionWithFlags(  solClient_opaqueSession_pt opaqueSession_p,
+                                    solClient_propertyArray_pt  endpointProps,
+                                    solClient_uint32_t flags,
+                                    solClient_uint64_t      correlationTag) 
+{
+    return solClient_session_endpointProvision( endpointProps,
+                                                        opaqueSession_p,
+                                                        flags,
+                                                        (void *)correlationTag,
+                                                        NULL,
+                                                        0);
+}
+
+solClient_returnCode_t  
+SessionEndpointDeprovisionWithFlags(  solClient_opaqueSession_pt opaqueSession_p,
+                                    solClient_propertyArray_pt  endpointProps,
+                                    solClient_uint32_t flags,
+                                    solClient_uint64_t      correlationTag) 
+{
+    return solClient_session_endpointDeprovision( endpointProps,
+                                                        opaqueSession_p,
+                                                        flags,
+                                                        (void *)correlationTag);
+}

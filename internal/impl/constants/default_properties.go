@@ -63,3 +63,15 @@ var DefaultDirectReceiverProperties = config.ReceiverPropertyMap{
 
 // DefaultPersistentReceiverProperties contains the default properties for a PersistentReceiver
 var DefaultPersistentReceiverProperties = config.ReceiverPropertyMap{}
+
+// DefaultEndpointProperties contains the default properties to provision an Endpoint
+var DefaultEndpointProperties = config.EndpointPropertyMap{
+	config.EndpointPropertyDurable:              true, // defaults to true
+	config.EndpointPropertyExclusive:            false,
+	config.EndpointPropertyNotifySender:         false,
+	config.EndpointPropertyMaxMessageRedelivery: 0,                             // default to broker's default (0 - 255)
+	config.EndpointPropertyMaxMessageSize:       1024,                          // 1MB
+	config.EndpointPropertyPermission:           config.EndpointPermissionNone, // no permission over the provisioned queue
+	config.EndpointPropertyQuotaMB:              10,                            // 10 MB
+	config.EndpointPropertyRespectsTTL:          false,
+}

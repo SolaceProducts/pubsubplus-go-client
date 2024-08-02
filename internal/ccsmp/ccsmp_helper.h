@@ -101,6 +101,18 @@ solClient_returnCode_t  SessionTopicEndpointUnsubscribeWithFlags(
                         const char              *topicSubscription_p,
                         solClient_uint64_t      correlationTag);
 
+solClient_returnCode_t  SessionEndpointProvisionWithFlags(
+                        solClient_opaqueSession_pt  opaqueSession_p,
+                        solClient_propertyArray_pt  endpointProps,
+                        solClient_uint32_t  flags,
+                        solClient_uint64_t          correlationTag);
+
+solClient_returnCode_t  SessionEndpointDeprovisionWithFlags(
+                        solClient_opaqueSession_pt  opaqueSession_p,
+                        solClient_propertyArray_pt  endpointProps,
+                        solClient_uint32_t  flags,
+                        solClient_uint64_t          correlationTag);
+
 /**
  * Definition of solclientgo correlation prefix
  */

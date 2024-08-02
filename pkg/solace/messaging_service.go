@@ -65,6 +65,9 @@ type MessagingService interface {
 	// used to build messages to send via a message publisher.
 	MessageBuilder() OutboundMessageBuilder
 
+	// EndpointProvisioner is used to provision and deprovision endpoints on the broker.
+	EndpointProvisioner() EndpointProvisioner
+
 	// RequestReply creates a RequestReplyMessagingService that inherits
 	// the configuration of this MessagingService instance.
 	RequestReply() RequestReplyMessagingService
