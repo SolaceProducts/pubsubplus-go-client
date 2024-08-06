@@ -118,7 +118,7 @@ func validateEndpointProperties(properties config.EndpointPropertyMap) ([]string
 				propertiesList = append(propertiesList, ccsmp.SolClientEndpointPropMaxmsgRedelivery, fmt.Sprint(propValue))
 			}
 		case config.EndpointPropertyMaxMessageSize:
-			propValue, present, err := validation.Int64PropertyValidation(string(config.EndpointPropertyMaxMessageSize), value)
+			propValue, present, err := validation.Uint64PropertyValidation(string(config.EndpointPropertyMaxMessageSize), value)
 			if present {
 				if err != nil {
 					return nil, err
@@ -142,7 +142,7 @@ func validateEndpointProperties(properties config.EndpointPropertyMap) ([]string
 				propertiesList = append(propertiesList, ccsmp.SolClientEndpointPropPermission, mapEndpointPermissionToCcsmpProp(propValue))
 			}
 		case config.EndpointPropertyQuotaMB:
-			propValue, present, err := validation.Int64PropertyValidation(string(config.EndpointPropertyQuotaMB), value)
+			propValue, present, err := validation.Uint64PropertyValidation(string(config.EndpointPropertyQuotaMB), value)
 			if present {
 				if err != nil {
 					return nil, err
@@ -182,7 +182,7 @@ func (provisioner *endpointProvisionerImpl) Provision(queueName string, ignoreEx
 	}
 
 	provisionOutcome := provisionOutcome{
-		ok:                 true,
+		ok:                 false,
 		err:                nil,
 		endpointProperties: nil,
 	}
@@ -202,9 +202,17 @@ func (provisioner *endpointProvisionerImpl) Provision(queueName string, ignoreEx
 	if errInfo != nil {
 		provisionErr := core.ToNativeError(errInfo, constants.FailedToProvisionEndpoint)
 		provisionOutcome.err = provisionErr
+		return &provisionOutcome // return the error
 	}
+
 	if provisioner.logger.IsDebugEnabled() {
 		provisioner.logger.Debug("Provision awaiting confirm on provision outcome for queue: '" + queueName + "'")
+	}
+	// result channel should not be nil
+	if result == nil {
+		provisionOutcome.ok = false
+		provisionOutcome.err = solace.NewError(&solace.IllegalStateError{}, fmt.Sprint(constants.FailedToProvisionEndpoint, "invalid provision outcome channel"), nil)
+		return &provisionOutcome
 	}
 
 	// block until we get provision outcome
@@ -218,13 +226,15 @@ func (provisioner *endpointProvisionerImpl) Provision(queueName string, ignoreEx
 		}
 	}
 
-	provisionOutcome.err = event.GetError()
-
-	// an error occurred here
-	if provisionOutcome.err != nil {
+	// an error occurred, return it here
+	if event.GetError() != nil {
 		provisionOutcome.ok = false
+		provisionOutcome.err = event.GetError()
+		return &provisionOutcome
 	}
 
+	// no errors here, so set status (ok) to True
+	provisionOutcome.ok = true
 	return &provisionOutcome
 }
 
@@ -296,6 +306,11 @@ func (provisioner *endpointProvisionerImpl) Deprovision(queueName string, ignore
 	}
 	if provisioner.logger.IsDebugEnabled() {
 		provisioner.logger.Debug("Deprovision awaiting confirm on deprovision outcome for queue: '" + queueName + "'")
+	}
+
+	// result channel should not be nil
+	if result == nil {
+		return solace.NewError(&solace.IllegalStateError{}, fmt.Sprint(constants.FailedToProvisionEndpoint, "invalid deprovision outcome channel"), nil)
 	}
 
 	// block until we get provision outcome
@@ -385,13 +400,13 @@ func (provisioner *endpointProvisionerImpl) WithDiscardNotification(notifySender
 
 // WithMaxMessageRedelivery will sets the number of times messages from the
 // queue will be redelivered before being diverted to the DMQ.
-func (provisioner *endpointProvisionerImpl) WithMaxMessageRedelivery(count int) solace.EndpointProvisioner {
+func (provisioner *endpointProvisionerImpl) WithMaxMessageRedelivery(count uint) solace.EndpointProvisioner {
 	provisioner.properties[config.EndpointPropertyMaxMessageRedelivery] = count
 	return provisioner
 }
 
 // WithMaxMessageSize will set the maximum message size in bytes the queue will accept.
-func (provisioner *endpointProvisionerImpl) WithMaxMessageSize(count int) solace.EndpointProvisioner {
+func (provisioner *endpointProvisionerImpl) WithMaxMessageSize(count uint) solace.EndpointProvisioner {
 	provisioner.properties[config.EndpointPropertyMaxMessageSize] = count
 	return provisioner
 }
@@ -404,7 +419,7 @@ func (provisioner *endpointProvisionerImpl) WithPermission(permission config.End
 }
 
 // WithQuotaMB will set the overall size limit of the queue in MegaBytes.
-func (provisioner *endpointProvisionerImpl) WithQuotaMB(quota int) solace.EndpointProvisioner {
+func (provisioner *endpointProvisionerImpl) WithQuotaMB(quota uint) solace.EndpointProvisioner {
 	provisioner.properties[config.EndpointPropertyQuotaMB] = quota
 	return provisioner
 }

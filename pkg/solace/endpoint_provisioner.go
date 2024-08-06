@@ -100,17 +100,17 @@ type EndpointProvisioner interface {
 
 	// WithMaxMessageRedelivery will sets the number of times messages from the
 	// queue will be redelivered before being diverted to the DMQ.
-	WithMaxMessageRedelivery(count int) EndpointProvisioner
+	WithMaxMessageRedelivery(count uint) EndpointProvisioner
 
 	// WithMaxMessageSize will set the maximum message size in bytes the queue will accept.
-	WithMaxMessageSize(count int) EndpointProvisioner
+	WithMaxMessageSize(count uint) EndpointProvisioner
 
 	// WithPermission will set the queue's permission level for others.
 	// The levels are supersets of each other, can not be combined and the last one set will take effect.
 	WithPermission(permission config.EndpointPermission) EndpointProvisioner
 
 	// WithQuotaMB will set the overall size limit of the queue in MegaBytes.
-	WithQuotaMB(quota int) EndpointProvisioner
+	WithQuotaMB(quota uint) EndpointProvisioner
 
 	// WithTTLPolicy will set how the queue will handle the TTL value in messages.
 	// True to respect it, false to ignore it.
