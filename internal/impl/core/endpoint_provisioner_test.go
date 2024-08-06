@@ -160,22 +160,29 @@ func TestSolClientEndpointProvisionerHandleProvisionOkEvent(t *testing.T) {
 
 	// get a new correlation ID and outcome channel
 	correlationID, channel := endpointProvisioner.getNewProvisionCorrelation()
+	endpointProvisioner.ClearProvisionCorrelation(correlationID) // remove the ID from the map since the address may be incorrect
 
+	// create a new mock test event
 	var eventUser = 9
 	var testProvisionEventParams = &sessionEventInfo{
 		fmt.Errorf("hello world"),
 		"hello world",
-		unsafe.Pointer(correlationID),
+		unsafe.Pointer(&correlationID),
 		unsafe.Pointer(&eventUser),
 	}
+
+	// add the correct correlationID to the map
+	correctCorrelationID := uintptr(testProvisionEventParams.GetCorrelationPointer())
+	provisionCorrelationMap[correctCorrelationID] = channel
 
 	events.emitEvent(SolClientProvisionOk, testProvisionEventParams)
 	if len(provisionCorrelationMap) > 0 {
 		t.Error("The provision correlation map should be empty")
 	}
+	fmt.Println(correlationID, channel)
 	event := <-channel
-	if event.GetID() != correlationID {
-		t.Errorf("handleProvisionAndDeprovisionOK() called with wrong params! expected ID [%v], got [%v]", correlationID, event.GetID())
+	if event.GetID() != correctCorrelationID {
+		t.Errorf("handleProvisionAndDeprovisionOK() called with wrong params! expected ID [%v], got [%v]", correctCorrelationID, event.GetID())
 	}
 }
 
@@ -192,14 +199,20 @@ func TestSolClientEndpointProvisionerHandleProvisionErrorEvent(t *testing.T) {
 
 	// get a new correlation ID and outcome channel
 	correlationID, channel := endpointProvisioner.getNewProvisionCorrelation()
+	endpointProvisioner.ClearProvisionCorrelation(correlationID) // remove the ID from the map since the address may be incorrect
 
+	// create a new mock test event
 	var eventUser = 9
 	var testProvisionEventParams = &sessionEventInfo{
 		fmt.Errorf("hello world"),
 		"hello world",
-		unsafe.Pointer(correlationID),
+		unsafe.Pointer(&correlationID),
 		unsafe.Pointer(&eventUser),
 	}
+
+	// add the correct correlationID to the map
+	correctCorrelationID := uintptr(testProvisionEventParams.GetCorrelationPointer())
+	provisionCorrelationMap[correctCorrelationID] = channel
 
 	if len(provisionCorrelationMap) == 0 {
 		t.Error("A new correlation entry should have been added to the provision correlation map")
@@ -210,8 +223,8 @@ func TestSolClientEndpointProvisionerHandleProvisionErrorEvent(t *testing.T) {
 		t.Error("The provision correlation map should be empty")
 	}
 	event := <-channel
-	if event.GetID() != correlationID {
-		t.Errorf("handleProvisionAndDeprovisionErr() called with wrong params! expected ID [%v], got [%v]", correlationID, event.GetID())
+	if event.GetID() != correctCorrelationID {
+		t.Errorf("handleProvisionAndDeprovisionErr() called with wrong params! expected ID [%v], got [%v]", correctCorrelationID, event.GetID())
 	}
 }
 
@@ -228,14 +241,20 @@ func TestSolClientEndpointProvisionerHandleProvisionAndDeprovisionFunc(t *testin
 
 	// get a new correlation ID and outcome channel
 	correlationID, channel := endpointProvisioner.getNewProvisionCorrelation()
+	endpointProvisioner.ClearProvisionCorrelation(correlationID) // remove the ID from the map since the address may be incorrect
 
+	// create a new mock test event
 	var eventUser = 9
 	var testProvisionEventParams = &sessionEventInfo{
 		fmt.Errorf("hello world"),
 		"hello world",
-		unsafe.Pointer(correlationID),
+		unsafe.Pointer(&correlationID),
 		unsafe.Pointer(&eventUser),
 	}
+
+	// add the correct correlationID to the map
+	correctCorrelationID := uintptr(testProvisionEventParams.GetCorrelationPointer())
+	provisionCorrelationMap[correctCorrelationID] = channel
 
 	if len(provisionCorrelationMap) == 0 {
 		t.Error("A new correlation entry should have been added to the provision correlation map")
@@ -246,7 +265,7 @@ func TestSolClientEndpointProvisionerHandleProvisionAndDeprovisionFunc(t *testin
 		t.Error("The provision correlation map should be empty")
 	}
 	event := <-channel
-	if event.GetID() != correlationID {
-		t.Errorf("handleProvisionAndDeprovisionEvent() called with wrong params! expected ID [%v], got [%v]", correlationID, event.GetID())
+	if event.GetID() != correctCorrelationID {
+		t.Errorf("handleProvisionAndDeprovisionEvent() called with wrong params! expected ID [%v], got [%v]", correctCorrelationID, event.GetID())
 	}
 }
