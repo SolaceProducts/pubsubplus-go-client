@@ -42,6 +42,7 @@ jobs:
       - name: Install Compose
         uses: ndeloof/install-compose-action@v0.0.1
         with:
+          version: v2.29.1 # pinned to 'latest' as of 06/08/2024
           legacy: true    # will also install in PATH as `docker-compose`
       - name: Setup Go environment
         uses: actions/setup-go@v2.1.3
