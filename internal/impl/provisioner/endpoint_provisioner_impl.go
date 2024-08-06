@@ -128,7 +128,7 @@ func validateEndpointProperties(properties config.EndpointPropertyMap) ([]string
 		case config.EndpointPropertyPermission:
 			propValue, present, err := validation.StringPropertyValidation(
 				string(config.EndpointPropertyPermission),
-				value,
+				fmt.Sprintf("%v", value),
 				string(config.EndpointPermissionNone),
 				string(config.EndpointPermissionReadOnly),
 				string(config.EndpointPermissionConsume),

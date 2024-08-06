@@ -69,9 +69,9 @@ var DefaultEndpointProperties = config.EndpointPropertyMap{
 	config.EndpointPropertyDurable:              true, // defaults to true
 	config.EndpointPropertyExclusive:            false,
 	config.EndpointPropertyNotifySender:         false,
-	config.EndpointPropertyMaxMessageRedelivery: 0,                             // default to broker's default (0 - 255)
-	config.EndpointPropertyMaxMessageSize:       1024,                          // 1MB
-	config.EndpointPropertyPermission:           config.EndpointPermissionNone, // no permission over the provisioned queue
-	config.EndpointPropertyQuotaMB:              10,                            // 10 MB
+	config.EndpointPropertyMaxMessageRedelivery: 0,                                // default to broker's default (0 - 255)
+	config.EndpointPropertyMaxMessageSize:       10000000,                         // queue default on broker
+	config.EndpointPropertyPermission:           config.EndpointPermissionConsume, // Consume permission on the provisioned queue
+	config.EndpointPropertyQuotaMB:              5000,                             // 5000MB
 	config.EndpointPropertyRespectsTTL:          false,
 }
