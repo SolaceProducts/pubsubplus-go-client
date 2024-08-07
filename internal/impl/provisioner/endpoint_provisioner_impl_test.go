@@ -17,7 +17,6 @@
 package provisioner
 
 import (
-	"fmt"
 	"testing"
 
 	"solace.dev/go/messaging/internal/impl/core"
@@ -27,7 +26,6 @@ func TestEndpointProvisionerBuilderWithInvalidMaxMessageRedeliveryRange(t *testi
 	provisioner := NewEndpointProvisionerImpl(nil)
 	provisioner.WithMaxMessageRedelivery(256) // valid message redelivery range from 0 - 255
 	outcome := provisioner.Provision("hello", true)
-	fmt.Println(outcome.GetStatus(), " || ", outcome.GetError())
 	if outcome.GetStatus() || outcome.GetError() == nil {
 		t.Error("Expected error while provisioning queue with out of range max message redelivery")
 	}
@@ -55,7 +53,6 @@ func TestEndpointProvisionerBuilderWithValidZeroMaxMessageSize(t *testing.T) {
 	provisioner := NewEndpointProvisionerImpl(&mockInternalEndpointProvisioner{})
 	provisioner.WithMaxMessageSize(0) // valid zero message size
 	outcome := provisioner.Provision("hello", true)
-	fmt.Println(outcome.GetStatus(), " || ", outcome.GetError())
 	if !outcome.GetStatus() || outcome.GetError() != nil {
 		t.Error("Did not expect error while provisioning queue with valid max message size")
 	}
@@ -65,7 +62,6 @@ func TestEndpointProvisionerBuilderWithValidZeroQuotaMB(t *testing.T) {
 	provisioner := NewEndpointProvisionerImpl(&mockInternalEndpointProvisioner{})
 	provisioner.WithQuotaMB(0) // valid zero queue quota size
 	outcome := provisioner.Provision("hello", true)
-	fmt.Println(outcome.GetStatus(), " || ", outcome.GetError())
 	if !outcome.GetStatus() || outcome.GetError() != nil {
 		t.Error("Did not expect error while provisioning queue with valid queue quota size")
 	}

@@ -191,7 +191,7 @@ func (context *testContainersTestContext) gatherBrokerDiagnostics(destinationPat
 		return err
 	}
 	if resp != 0 {
-		return fmt.Errorf("Failed to locate %s diagnostics", pubsubHostname)
+		return fmt.Errorf("failed to locate %s diagnostics", pubsubHostname)
 	}
 	fmt.Println("Exacting gather-diagnostics " + diagnosticPath + " for " + pubsubHostname + " to " + destinationPath + "...")
 	err = context.dockerCpToHost(pubsubHostname, strings.TrimSpace(diagnosticPath), destinationPath)
