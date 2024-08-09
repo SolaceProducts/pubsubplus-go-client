@@ -40,7 +40,6 @@ type endpointProvisionerImpl struct {
 
 // NewEndpointProvisionerImpl function
 func NewEndpointProvisionerImpl(internalEndpointProvisioner core.EndpointProvisioner) solace.EndpointProvisioner {
-	// return &endpointProvisionerImpl{make(config.EndpointPropertyMap)}
 	return &endpointProvisionerImpl{
 		// default properties
 		properties:                  constants.DefaultEndpointProperties.GetConfiguration(),
@@ -132,7 +131,7 @@ func validateEndpointProperties(properties config.EndpointPropertyMap) ([]string
 				string(config.EndpointPermissionNone),
 				string(config.EndpointPermissionReadOnly),
 				string(config.EndpointPermissionConsume),
-				string(config.EndpointPermissionReadOnly),
+				string(config.EndpointPermissionModifyTopic),
 				string(config.EndpointPermissionDelete),
 			)
 			if present {
@@ -174,18 +173,22 @@ func validateEndpointProperties(properties config.EndpointPropertyMap) ([]string
 // Blocks until the operation is finished on the broker, returns the provision outcome.
 func (provisioner *endpointProvisionerImpl) Provision(queueName string, ignoreExists bool) solace.ProvisionOutcome {
 	// Implementation here
-	properties := provisioner.properties.GetConfiguration()
-
-	// Override defaults durability to be True since we currently only support durable
-	if _, ok := properties[config.EndpointPropertyDurable]; !ok {
-		properties[config.EndpointPropertyDurable] = true
-	}
-
 	provisionOutcome := provisionOutcome{
 		ok:                 false,
 		err:                nil,
 		endpointProperties: nil,
 	}
+	// check that provisioner is running
+	if !provisioner.internalEndpointProvisioner.IsRunning() {
+		// we error if the provisioner is not running
+		provisionOutcome.err = solace.NewError(&solace.IllegalStateError{}, constants.UnableToProvisionParentServiceNotStarted, nil)
+		return &provisionOutcome
+	}
+
+	properties := provisioner.properties.GetConfiguration()
+
+	// Override defaults durability to be True since we currently only support durable
+	properties[config.EndpointPropertyDurable] = true
 
 	endpointProperties, err := validateEndpointProperties(properties)
 	if err != nil {
@@ -283,12 +286,15 @@ func (provisioner *endpointProvisionerImpl) ProvisionAsyncWithCallback(queueName
 // Blocks until the operation is finished on the broker, returns the nil or an error
 func (provisioner *endpointProvisionerImpl) Deprovision(queueName string, ignoreMissing bool) error {
 	// Implementation here
+	if !provisioner.internalEndpointProvisioner.IsRunning() {
+		// we error if the provisioner is not running
+		return solace.NewError(&solace.IllegalStateError{}, constants.UnableToDeprovisionParentServiceNotStarted, nil)
+	}
+
 	properties := provisioner.properties.GetConfiguration() // we don't need all these properties for deprov
 
 	// Override defaults durability to be True since we currently only support durable
-	if _, ok := properties[config.EndpointPropertyDurable]; !ok {
-		properties[config.EndpointPropertyDurable] = true
-	}
+	properties[config.EndpointPropertyDurable] = true
 
 	endpointProperties, err := validateEndpointProperties(properties)
 	if err != nil {

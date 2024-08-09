@@ -23,7 +23,7 @@ import (
 )
 
 func TestEndpointProvisionerBuilderWithInvalidMaxMessageRedeliveryRange(t *testing.T) {
-	provisioner := NewEndpointProvisionerImpl(nil)
+	provisioner := NewEndpointProvisionerImpl(&mockInternalEndpointProvisioner{})
 	provisioner.WithMaxMessageRedelivery(256) // valid message redelivery range from 0 - 255
 	outcome := provisioner.Provision("hello", true)
 	if outcome.GetStatus() || outcome.GetError() == nil {
