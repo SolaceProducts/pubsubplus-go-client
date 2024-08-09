@@ -26,7 +26,7 @@ import (
 
 var endpointProperties = config.EndpointPropertyMap{
 	config.EndpointPropertyDurable:              true,
-	config.EndpointPropertyMaxMessageRedelivery: float64(5),
+	config.EndpointPropertyMaxMessageRedelivery: uint64(5),
 	config.EndpointPropertyPermission:           config.EndpointPermissionModifyTopic, // permission to modify topic subscriptions
 }
 

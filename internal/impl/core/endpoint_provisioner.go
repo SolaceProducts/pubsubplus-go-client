@@ -17,11 +17,13 @@
 package core
 
 import (
+	"fmt"
 	"sync"
 	"sync/atomic"
 
 	"solace.dev/go/messaging/internal/ccsmp"
 	"solace.dev/go/messaging/internal/impl/constants"
+	"solace.dev/go/messaging/internal/impl/logging"
 	"solace.dev/go/messaging/pkg/solace"
 )
 
@@ -171,6 +173,8 @@ func (provisioner *ccsmpBackedEndpointProvisioner) handleProvisionAndDeprovision
 			id:  corrP,
 			err: err,
 		}
+	} else if logging.Default.IsDebugEnabled() {
+		logging.Default.Debug(fmt.Sprintf("Handle Provision/Deprovision callback called but no provision correlation channel is registered for CorrelationID %v", corrP))
 	}
 }
 

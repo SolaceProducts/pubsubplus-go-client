@@ -201,7 +201,7 @@ func (provisioner *endpointProvisionerImpl) Provision(queueName string, ignoreEx
 	endpointProperties = append(endpointProperties, ccsmp.SolClientEndpointPropName, queueName)
 
 	// continue to provision the queue here
-	_, result, errInfo := provisioner.internalEndpointProvisioner.Provision(endpointProperties, ignoreExists)
+	correlationID, result, errInfo := provisioner.internalEndpointProvisioner.Provision(endpointProperties, ignoreExists)
 	if errInfo != nil {
 		provisionErr := core.ToNativeError(errInfo, constants.FailedToProvisionEndpoint)
 		provisionOutcome.err = provisionErr
@@ -209,12 +209,13 @@ func (provisioner *endpointProvisionerImpl) Provision(queueName string, ignoreEx
 	}
 
 	if provisioner.logger.IsDebugEnabled() {
-		provisioner.logger.Debug("Provision awaiting confirm on provision outcome for queue: '" + queueName + "'")
+		provisioner.logger.
+			Debug(fmt.Sprintf("Provision awaiting confirm on provision outcome for queue: '%s' with CorrelationID: %v", queueName, correlationID))
 	}
 	// result channel should not be nil
 	if result == nil {
 		provisionOutcome.ok = false
-		provisionOutcome.err = solace.NewError(&solace.IllegalStateError{}, fmt.Sprint(constants.FailedToProvisionEndpoint, "invalid provision outcome channel"), nil)
+		provisionOutcome.err = solace.NewError(&solace.IllegalStateError{}, fmt.Sprintf("%sinvalid provision outcome channel for queue '%s' with CorrelationID: %v", constants.FailedToProvisionEndpoint, queueName, correlationID), nil)
 		return &provisionOutcome
 	}
 
@@ -223,9 +224,9 @@ func (provisioner *endpointProvisionerImpl) Provision(queueName string, ignoreEx
 	event := <-result
 	if provisioner.logger.IsDebugEnabled() {
 		if event.GetError() != nil {
-			provisioner.logger.Debug("Provision received error for queue '" + queueName + "': " + event.GetError().Error())
+			provisioner.logger.Debug(fmt.Sprintf("Provision received error for queue: '%s' with CorrelationID: %v. Error: %s", queueName, correlationID, event.GetError().Error()))
 		} else {
-			provisioner.logger.Debug("Provision received confirm for queue '" + queueName + "'")
+			provisioner.logger.Debug(fmt.Sprintf("Provision received confirm for queue: '%s' with CorrelationID: %v", queueName, correlationID))
 		}
 	}
 
@@ -272,6 +273,7 @@ func (provisioner *endpointProvisionerImpl) ProvisionAsync(queueName string, ign
 // on the broker, even if this function completes.
 // Returns immediately and registers a callback that will receive an
 // outcome for the endpoint provision.
+// Please note that the callback may not be executed in network order from the broker
 func (provisioner *endpointProvisionerImpl) ProvisionAsyncWithCallback(queueName string, ignoreExists bool, callback func(solace.ProvisionOutcome)) {
 	// Implementation here
 	go func() {
@@ -306,17 +308,17 @@ func (provisioner *endpointProvisionerImpl) Deprovision(queueName string, ignore
 	endpointProperties = append(endpointProperties, ccsmp.SolClientEndpointPropName, queueName)
 
 	// continue to provision the queue here
-	_, result, errInfo := provisioner.internalEndpointProvisioner.Deprovision(endpointProperties, ignoreMissing)
+	correlationID, result, errInfo := provisioner.internalEndpointProvisioner.Deprovision(endpointProperties, ignoreMissing)
 	if errInfo != nil {
 		return core.ToNativeError(errInfo, constants.FailedToDeprovisionEndpoint)
 	}
 	if provisioner.logger.IsDebugEnabled() {
-		provisioner.logger.Debug("Deprovision awaiting confirm on deprovision outcome for queue: '" + queueName + "'")
+		provisioner.logger.Debug(fmt.Sprintf("Deprovision awaiting confirm on deprovision outcome for queue: '%s' with CorrelationID: %v", queueName, correlationID))
 	}
 
 	// result channel should not be nil
 	if result == nil {
-		return solace.NewError(&solace.IllegalStateError{}, fmt.Sprint(constants.FailedToProvisionEndpoint, "invalid deprovision outcome channel"), nil)
+		return solace.NewError(&solace.IllegalStateError{}, fmt.Sprintf("%sinvalid deprovision result channel for queue '%s' with CorrelationID: %v", constants.FailedToDeprovisionEndpoint, queueName, correlationID), nil)
 	}
 
 	// block until we get provision outcome
@@ -324,9 +326,9 @@ func (provisioner *endpointProvisionerImpl) Deprovision(queueName string, ignore
 	event := <-result
 	if provisioner.logger.IsDebugEnabled() {
 		if event.GetError() != nil {
-			provisioner.logger.Debug("Deprovision received error for queue '" + queueName + "': " + event.GetError().Error())
+			provisioner.logger.Debug(fmt.Sprintf("Deprovision received error for queue: '%s' with CorrelationID: %v. Error: %s", queueName, correlationID, event.GetError().Error()))
 		} else {
-			provisioner.logger.Debug("Deprovision received confirm for queue '" + queueName + "'")
+			provisioner.logger.Debug(fmt.Sprintf("Deprovision received confirm for queue: '%s' with CorrelationID: %v", queueName, correlationID))
 		}
 	}
 
@@ -362,6 +364,7 @@ func (provisioner *endpointProvisionerImpl) DeprovisionAsync(queueName string, i
 // turns the "no such queue" error into nil.
 // Returns immediately and registers a callback that will receive an
 // error if deprovision on the broker fails.
+// Please note that the callback may not be executed in network order from the broker
 func (provisioner *endpointProvisionerImpl) DeprovisionAsyncWithCallback(queueName string, ignoreMissing bool, callback func(err error)) {
 	// Implementation here
 	go func() {
@@ -457,7 +460,7 @@ type provisionOutcome struct {
 	err error
 	// Actual outcome: true means success, false means failure.
 	ok bool
-	// Initially empty, but once CCSMP supports returning the on-broker queue properties, this is where they will go.
+	// Initially empty, but when we support returning the on-broker queue properties, this is where they will go.
 	endpointProperties config.EndpointPropertyMap
 }
 
@@ -467,8 +470,4 @@ func (outcome *provisionOutcome) GetError() error {
 
 func (outcome *provisionOutcome) GetStatus() bool {
 	return outcome.ok
-}
-
-func (outcome *provisionOutcome) GetEndpointProperties() config.EndpointPropertyMap {
-	return outcome.endpointProperties
 }

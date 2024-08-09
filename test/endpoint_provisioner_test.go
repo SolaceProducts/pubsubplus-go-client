@@ -209,7 +209,6 @@ var _ = Describe("EndpointProvisioner", func() {
 				Expect(outcome.GetError()).ToNot(HaveOccurred())
 				Expect(outcome.GetError()).To(BeNil())
 				Expect(outcome.GetStatus()).To(BeTrue())
-				Expect(outcome.GetEndpointProperties()).To(BeNil())
 
 				// check that the endpoint was provisioned on the broker via semp
 				clientResponse, _, err = testcontext.SEMP().Monitor().MsgVpnApi.
@@ -242,7 +241,6 @@ var _ = Describe("EndpointProvisioner", func() {
 				Expect(outcome.GetError()).ToNot(HaveOccurred())
 				Expect(outcome.GetError()).To(BeNil())
 				Expect(outcome.GetStatus()).To(BeTrue())
-				Expect(outcome.GetEndpointProperties()).To(BeNil())
 
 				// check that the endpoint was provisioned on the broker via semp
 				clientResponse, _, err = testcontext.SEMP().Monitor().MsgVpnApi.
@@ -258,7 +256,6 @@ var _ = Describe("EndpointProvisioner", func() {
 				Expect(outcome.GetError()).To(HaveOccurred())
 				Expect(string(outcome.GetError().Error())).To(Equal("Already Exists"))
 				Expect(outcome.GetStatus()).To(BeFalse())
-				Expect(outcome.GetEndpointProperties()).To(BeNil())
 
 				// check that only one endpoint was provisioned on the broker via semp
 				clientResponses, _, err := testcontext.SEMP().Monitor().MsgVpnApi.

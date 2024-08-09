@@ -24,7 +24,7 @@ import (
 
 func TestEndpointProvisionerBuilderWithInvalidMaxMessageRedeliveryRange(t *testing.T) {
 	provisioner := NewEndpointProvisionerImpl(&mockInternalEndpointProvisioner{})
-	provisioner.WithMaxMessageRedelivery(256) // valid message redelivery range from 0 - 255
+	provisioner.WithMaxMessageRedelivery(256) // valid message redelivery range is from 0 - 255
 	outcome := provisioner.Provision("hello", true)
 	if outcome.GetStatus() || outcome.GetError() == nil {
 		t.Error("Expected error while provisioning queue with out of range max message redelivery")
@@ -42,7 +42,7 @@ func TestEndpointProvisionerBuilderWithValidZeroMaxMessageRedelivery(t *testing.
 
 func TestEndpointProvisionerBuilderWithValidMaxMessageRedelivery(t *testing.T) {
 	provisioner := NewEndpointProvisionerImpl(&mockInternalEndpointProvisioner{})
-	provisioner.WithMaxMessageRedelivery(100) // invalid message redelivery count
+	provisioner.WithMaxMessageRedelivery(100) // valid message redelivery count
 	outcome := provisioner.Provision("hello", true)
 	if !outcome.GetStatus() || outcome.GetError() != nil {
 		t.Error("Did not expect error while provisioning queue with valid message redelivery. Error: ", outcome.GetError())

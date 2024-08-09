@@ -39,6 +39,7 @@ type EndpointProvisioner interface {
 	// on the broker, even if this function completes.
 	// Returns immediately and registers a callback that will receive an
 	// outcome for the endpoint provision.
+	// Please note that the callback may not be executed in network order from the broker
 	ProvisionAsyncWithCallback(queueName string, ignoreExists bool, callback func(ProvisionOutcome))
 
 	// Deprovision (deletes) the queue with the given name from the broker.
@@ -64,6 +65,7 @@ type EndpointProvisioner interface {
 	// turns the "no such queue" error into nil.
 	// Returns immediately and registers a callback that will receive an
 	// error if deprovision on the broker fails.
+	// Please note that the callback may not be executed in network order from the broker
 	DeprovisionAsyncWithCallback(queueName string, ignoreMissing bool, callback func(err error))
 
 	// FromConfigurationProvider sets the configuration based on the specified configuration provider.
@@ -117,9 +119,8 @@ type EndpointProvisioner interface {
 	WithTTLPolicy(respect bool) EndpointProvisioner
 }
 
-// ProvisionOutcome - the EndpointProvisioner.Provision and EndpointProvisioner.Deprovision operations
-// return this structure to indicate the success, the underlying error code,
-// and when available, the properties of the queue on the broker.
+// ProvisionOutcome - the EndpointProvisioner.Provision operation
+// return this structure to indicate the success and the underlying error code.
 // It is possible for the outcome to be successful and yet contain a non-nil error when the queue already exists on the broker,
 // and the Provision function was invoked with the ignoreExists flag set.
 type ProvisionOutcome interface {
@@ -128,8 +129,4 @@ type ProvisionOutcome interface {
 
 	// GetStatus retrives the actual outcome: true means success, false means failure.
 	GetStatus() bool
-
-	// GetEndpointProperties retrieves the peoperties of the provisioned endpoint.
-	// Initially empty, but once CCSMP supports returning the on-broker queue properties, this is where they will go.
-	GetEndpointProperties() config.EndpointPropertyMap
 }
