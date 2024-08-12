@@ -384,7 +384,7 @@ var _ = Describe("EndpointProvisioner", func() {
 
 		for queueLabel, queueName := range validQueueTestCases {
 			// TestPlan TestCase Provision#1
-			It("should provision queue with queueName of max length, special characters, numbers only and ancillary type - "+queueLabel, func() {
+			It("should provision queue with - "+queueLabel, func() {
 				// remove the provisioned queue
 				defer func() {
 					err := provisioner.Deprovision(queueName, true)
