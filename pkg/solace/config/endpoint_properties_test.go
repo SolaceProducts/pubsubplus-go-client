@@ -26,11 +26,16 @@ import (
 
 var endpointProperties = config.EndpointPropertyMap{
 	config.EndpointPropertyDurable:              true,
+	config.EndpointPropertyExclusive:            true,
 	config.EndpointPropertyMaxMessageRedelivery: uint64(5),
+	config.EndpointPropertyMaxMessageSize:       uint64(10000000), // queue default on broker
+	config.EndpointPropertyNotifySender:         true,
+	config.EndpointPropertyQuotaMB:              uint64(5000), // 5000MB
+	config.EndpointPropertyRespectsTTL:          true,
 	config.EndpointPropertyPermission:           config.EndpointPermissionModifyTopic, // permission to modify topic subscriptions
 }
 
-var endpointPropertiesJSON = `{"solace":{"messaging":{"endpoint-property":{"durable":true,"max-message-redelivery":5,"permission":"solace.messaging.endpoint-permission.modify-topic"}}}}`
+var endpointPropertiesJSON = `{"solace":{"messaging":{"endpoint-property":{"durable":true,"exclusive":true,"max-message-redelivery":5,"max-message-size":10000000,"notify-sender":true,"permission":"solace.messaging.endpoint-permission.modify-topic","quota-mb":5000,"respects-ttl":true}}}}`
 
 func TestEndpointPropertiesCopy(t *testing.T) {
 	myProperties := endpointProperties.GetConfiguration()
@@ -46,6 +51,10 @@ func TestEndpointPropertiesFromJSON(t *testing.T) {
 		expectedVal, ok := endpointProperties[key]
 		if !ok {
 			t.Errorf("did not expect key %s", key)
+		}
+		switch v := val.(type) {
+		case float64: // the default unmarshal type for numbers is float64
+			val = uint64(v)
 		}
 		if fmt.Sprintf("%v", expectedVal) != fmt.Sprintf("%v", val) {
 			t.Errorf("expected %s to equal %s", val, expectedVal)
