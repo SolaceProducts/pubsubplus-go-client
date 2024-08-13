@@ -44,68 +44,80 @@ var _ = Describe("EndpointProvisioner", func() {
 		Expect(err).To(BeNil())
 	})
 
-	It("fails to provision when given a max message redelivery range < 0", func() {
-		outcome := messagingService.EndpointProvisioner().FromConfigurationProvider(config.EndpointPropertyMap{
-			config.EndpointPropertyMaxMessageRedelivery: -1,
-		}).Provision(provisionQueueName, true)
-		Expect(outcome.GetError()).To(HaveOccurred())
-		Expect(outcome.GetError()).To(BeAssignableToTypeOf(&solace.IllegalStateError{}))
-		Expect(outcome.GetStatus()).To(BeFalse())
+	Context("with an unconnected messaging service", func() {
+
+		It("fails to provision a non-durable endpoint", func() {
+			outcome := messagingService.EndpointProvisioner().FromConfigurationProvider(config.EndpointPropertyMap{
+				config.EndpointPropertyDurable: false,
+			}).Provision(provisionQueueName, true)
+			Expect(outcome.GetError()).To(HaveOccurred())
+			Expect(outcome.GetError()).To(BeAssignableToTypeOf(&solace.IllegalStateError{}))
+			Expect(outcome.GetStatus()).To(BeFalse())
+		})
+
+		It("fails to provision when given a max message redelivery range < 0", func() {
+			outcome := messagingService.EndpointProvisioner().FromConfigurationProvider(config.EndpointPropertyMap{
+				config.EndpointPropertyMaxMessageRedelivery: -1,
+			}).Provision(provisionQueueName, true)
+			Expect(outcome.GetError()).To(HaveOccurred())
+			Expect(outcome.GetError()).To(BeAssignableToTypeOf(&solace.IllegalStateError{}))
+			Expect(outcome.GetStatus()).To(BeFalse())
+		})
+
+		It("fails to provision when given a max message redelivery range > 255", func() {
+			outcome := messagingService.EndpointProvisioner().FromConfigurationProvider(config.EndpointPropertyMap{
+				config.EndpointPropertyMaxMessageRedelivery: 256,
+			}).Provision(provisionQueueName, true)
+			Expect(outcome.GetError()).To(HaveOccurred())
+			Expect(outcome.GetError()).To(BeAssignableToTypeOf(&solace.IllegalStateError{}))
+			Expect(outcome.GetStatus()).To(BeFalse())
+		})
+
+		It("fails to provision when given an invalid max message size", func() {
+			outcome := messagingService.EndpointProvisioner().FromConfigurationProvider(config.EndpointPropertyMap{
+				config.EndpointPropertyMaxMessageSize: -1,
+			}).Provision(provisionQueueName, true)
+			Expect(outcome.GetError()).To(HaveOccurred())
+			Expect(outcome.GetError()).To(BeAssignableToTypeOf(&solace.IllegalStateError{}))
+			Expect(outcome.GetStatus()).To(BeFalse())
+		})
+
+		It("fails to provision when given an invalid queue quota size", func() {
+			outcome := messagingService.EndpointProvisioner().FromConfigurationProvider(config.EndpointPropertyMap{
+				config.EndpointPropertyQuotaMB: -1,
+			}).Provision(provisionQueueName, true)
+			Expect(outcome.GetError()).To(HaveOccurred())
+			Expect(outcome.GetError()).To(BeAssignableToTypeOf(&solace.IllegalStateError{}))
+			Expect(outcome.GetStatus()).To(BeFalse())
+		})
+
+		It("fails to provision when given an invalid queue permission", func() {
+			outcome := messagingService.EndpointProvisioner().FromConfigurationProvider(config.EndpointPropertyMap{
+				config.EndpointPropertyPermission: "not a permission",
+			}).Provision(provisionQueueName, true)
+			Expect(outcome.GetError()).To(HaveOccurred())
+			Expect(outcome.GetError()).To(BeAssignableToTypeOf(&solace.IllegalStateError{}))
+			Expect(outcome.GetStatus()).To(BeFalse())
+		})
+
+		It("fails to provision when given valid queue properties", func() {
+			outcome := messagingService.EndpointProvisioner().FromConfigurationProvider(config.EndpointPropertyMap{
+				config.EndpointPropertyDurable:   true,
+				config.EndpointPropertyExclusive: true,
+			}).Provision(provisionQueueName, true)
+			Expect(outcome.GetError()).To(HaveOccurred())
+			Expect(outcome.GetError()).To(BeAssignableToTypeOf(&solace.IllegalStateError{}))
+			Expect(outcome.GetStatus()).To(BeFalse())
+		})
+
+		It("fails to deprovision", func() {
+			err := messagingService.EndpointProvisioner().Deprovision(provisionQueueName, true)
+			Expect(err).To(HaveOccurred())
+			Expect(err).To(BeAssignableToTypeOf(&solace.IllegalStateError{}))
+		})
 	})
 
-	It("fails to provision when given a max message redelivery range > 255", func() {
-		outcome := messagingService.EndpointProvisioner().FromConfigurationProvider(config.EndpointPropertyMap{
-			config.EndpointPropertyMaxMessageRedelivery: 256,
-		}).Provision(provisionQueueName, true)
-		Expect(outcome.GetError()).To(HaveOccurred())
-		Expect(outcome.GetError()).To(BeAssignableToTypeOf(&solace.IllegalStateError{}))
-		Expect(outcome.GetStatus()).To(BeFalse())
-	})
-
-	It("fails to provision when given an invalid max message size", func() {
-		outcome := messagingService.EndpointProvisioner().FromConfigurationProvider(config.EndpointPropertyMap{
-			config.EndpointPropertyMaxMessageSize: -1,
-		}).Provision(provisionQueueName, true)
-		Expect(outcome.GetError()).To(HaveOccurred())
-		Expect(outcome.GetError()).To(BeAssignableToTypeOf(&solace.IllegalStateError{}))
-		Expect(outcome.GetStatus()).To(BeFalse())
-	})
-
-	It("fails to provision when given an invalid queue quota size", func() {
-		outcome := messagingService.EndpointProvisioner().FromConfigurationProvider(config.EndpointPropertyMap{
-			config.EndpointPropertyQuotaMB: -1,
-		}).Provision(provisionQueueName, true)
-		Expect(outcome.GetError()).To(HaveOccurred())
-		Expect(outcome.GetError()).To(BeAssignableToTypeOf(&solace.IllegalStateError{}))
-		Expect(outcome.GetStatus()).To(BeFalse())
-	})
-
-	It("fails to provision when given an invalid queue permission", func() {
-		outcome := messagingService.EndpointProvisioner().FromConfigurationProvider(config.EndpointPropertyMap{
-			config.EndpointPropertyPermission: "not a permission",
-		}).Provision(provisionQueueName, true)
-		Expect(outcome.GetError()).To(HaveOccurred())
-		Expect(outcome.GetError()).To(BeAssignableToTypeOf(&solace.IllegalStateError{}))
-		Expect(outcome.GetStatus()).To(BeFalse())
-	})
-
-	It("fails to provision when given valid queue properties with unstarted messaging service", func() {
-		outcome := messagingService.EndpointProvisioner().FromConfigurationProvider(config.EndpointPropertyMap{
-			config.EndpointPropertyDurable:   false, // this will be overrided to true
-			config.EndpointPropertyExclusive: true,
-		}).Provision(provisionQueueName, true)
-		Expect(outcome.GetError()).To(HaveOccurred())
-		Expect(outcome.GetError()).To(BeAssignableToTypeOf(&solace.IllegalStateError{}))
-		Expect(outcome.GetStatus()).To(BeFalse())
-	})
-
-	It("fails to deprovision with unstarted messaging service", func() {
-		err := messagingService.EndpointProvisioner().Deprovision(provisionQueueName, true)
-		Expect(err).To(HaveOccurred())
-		Expect(err).To(BeAssignableToTypeOf(&solace.IllegalStateError{}))
-	})
-
-	Context("with a messaging service that will be disconnected", func() {
+	Context("with a connected messaging service that will be disconnected", func() {
 		var provisioner solace.EndpointProvisioner
 
 		BeforeEach(func() {
@@ -136,7 +148,7 @@ var _ = Describe("EndpointProvisioner", func() {
 				disconnectFunction(messagingService)
 
 				outcome := provisioner.FromConfigurationProvider(config.EndpointPropertyMap{
-					config.EndpointPropertyDurable:   false, // this will be overrided to true
+					config.EndpointPropertyDurable:   true,
 					config.EndpointPropertyExclusive: true,
 				}).Provision(provisionQueueName, true)
 				Expect(outcome.GetError()).To(HaveOccurred())
@@ -154,7 +166,7 @@ var _ = Describe("EndpointProvisioner", func() {
 		}
 	})
 
-	Context("with a started messaging service", func() {
+	Context("with a connected messaging service", func() {
 		var provisioner solace.EndpointProvisioner
 
 		BeforeEach(func() {
@@ -202,7 +214,7 @@ var _ = Describe("EndpointProvisioner", func() {
 				// Now let's provision the endpoint using the API
 				// TestPlan TestCase Provision#9 - Tried to provision non durable queue(topic endpoint) (durable =false)
 				provisioner = provisioner.FromConfigurationProvider(config.EndpointPropertyMap{
-					config.EndpointPropertyDurable:   false, // this will be overrided to true
+					config.EndpointPropertyDurable:   true,
 					config.EndpointPropertyExclusive: true,
 				})
 				outcome := provision(provisioner)
@@ -234,7 +246,7 @@ var _ = Describe("EndpointProvisioner", func() {
 				Expect(err).ToNot(BeNil())
 
 				provisioner = provisioner.FromConfigurationProvider(config.EndpointPropertyMap{
-					config.EndpointPropertyDurable:   false, // this will be overrided to true
+					config.EndpointPropertyDurable:   true,
 					config.EndpointPropertyExclusive: false,
 				})
 				outcome := provision(provisioner) // first call to provisioner should be successful
@@ -288,7 +300,7 @@ var _ = Describe("EndpointProvisioner", func() {
 			It("can successfully deprovision queue using "+deprovisionFunctionName, func() {
 				// Let's first provision the endpoint using the API
 				provisioner = provisioner.FromConfigurationProvider(config.EndpointPropertyMap{
-					config.EndpointPropertyDurable:   false, // this will be overrided to true
+					config.EndpointPropertyDurable:   true,
 					config.EndpointPropertyExclusive: true,
 				})
 				outcome := provisioner.Provision(provisionQueueName, true)
@@ -416,6 +428,16 @@ var _ = Describe("EndpointProvisioner", func() {
 				Expect(clientResponse.Data.AccessType).To(Equal("non-exclusive")) // should be an non-exclusive queue
 			})
 		}
+
+		It("fails to provision a non-durable endpoint", func() {
+			outcome := messagingService.EndpointProvisioner().FromConfigurationProvider(config.EndpointPropertyMap{
+				config.EndpointPropertyDurable: false,
+			}).Provision(provisionQueueName, true)
+			Expect(outcome.GetError()).To(HaveOccurred())
+			Expect(outcome.GetError()).To(BeAssignableToTypeOf(&solace.IllegalArgumentError{}))
+			Expect(outcome.GetError().Error()).To(Equal("expected configured value for solace.messaging.endpoint-property.durable to be True"))
+			Expect(outcome.GetStatus()).To(BeFalse())
+		})
 
 		// TestPlan TestCase Provision#2
 		It("provision durable queue with different queue properties - Queue AccessType", func() {
@@ -965,7 +987,7 @@ var _ = Describe("EndpointProvisioner", func() {
 		It("deprovision a durable queue which has been deprovisioned before", func() {
 			// Let's first provision the endpoint using the API
 			provisioner = provisioner.FromConfigurationProvider(config.EndpointPropertyMap{
-				config.EndpointPropertyDurable:   false, // this will be overrided to true
+				config.EndpointPropertyDurable:   true,
 				config.EndpointPropertyExclusive: true,
 			})
 			outcome := provisioner.Provision(provisionQueueName, true)
@@ -1027,7 +1049,7 @@ var _ = Describe("EndpointProvisioner", func() {
 			Expect(err).ToNot(BeNil())
 
 			provisioner = provisioner.FromConfigurationProvider(config.EndpointPropertyMap{
-				config.EndpointPropertyDurable:              false, // this will be overrided to true
+				config.EndpointPropertyDurable:              true,
 				config.EndpointPropertyExclusive:            false,
 				config.EndpointPropertyMaxMessageRedelivery: 20,
 				config.EndpointPropertyPermission:           config.EndpointPermissionNone, // no permission
@@ -1054,8 +1076,8 @@ var _ = Describe("EndpointProvisioner", func() {
 
 			// attempt to provision the same name with different properties
 			provisioner = provisioner.FromConfigurationProvider(config.EndpointPropertyMap{
-				config.EndpointPropertyDurable:              false, // this will be overrided to true
-				config.EndpointPropertyExclusive:            true,
+				config.EndpointPropertyDurable:              true,
+				config.EndpointPropertyExclusive:            true, // different for existing queue
 				config.EndpointPropertyMaxMessageRedelivery: 50,
 				config.EndpointPropertyPermission:           config.EndpointPermissionConsume, // consume permission
 				config.EndpointPropertyRespectsTTL:          false,                            // different for existing queue

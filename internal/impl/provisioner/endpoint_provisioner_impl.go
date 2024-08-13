@@ -70,9 +70,10 @@ func validateEndpointProperties(properties config.EndpointPropertyMap) ([]string
 	for property, value := range properties {
 		switch property {
 		case config.EndpointPropertyDurable:
-			isDurable, present, err := validation.BooleanPropertyValidation(string(config.EndpointPropertyDurable), value)
+			isDurable, present, err := validation.BooleanPropertyTruthyValidation(string(config.EndpointPropertyDurable), value)
 			if present {
 				if err != nil {
+					// return an error if the durability is false
 					return nil, err
 				}
 				// if durability is true
@@ -187,9 +188,6 @@ func (provisioner *endpointProvisionerImpl) Provision(queueName string, ignoreEx
 
 	properties := provisioner.properties.GetConfiguration()
 
-	// Override defaults durability to be True since we currently only support durable
-	properties[config.EndpointPropertyDurable] = true
-
 	endpointProperties, err := validateEndpointProperties(properties)
 	if err != nil {
 		// return provision outcome with error
@@ -296,7 +294,7 @@ func (provisioner *endpointProvisionerImpl) Deprovision(queueName string, ignore
 	properties := provisioner.properties.GetConfiguration() // we don't need all these properties for deprov
 
 	// Override defaults durability to be True since we currently only support durable
-	properties[config.EndpointPropertyDurable] = true
+	// properties[config.EndpointPropertyDurable] = true
 
 	endpointProperties, err := validateEndpointProperties(properties)
 	if err != nil {

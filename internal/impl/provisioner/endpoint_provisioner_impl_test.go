@@ -22,6 +22,15 @@ import (
 	"solace.dev/go/messaging/internal/impl/core"
 )
 
+func TestEndpointProvisionerBuilderWithInvalidDurabilityType(t *testing.T) {
+	provisioner := NewEndpointProvisionerImpl(&mockInternalEndpointProvisioner{})
+	provisioner.WithDurability(false) // We do not support provisioning non-durable endpoints
+	outcome := provisioner.Provision("hello", true)
+	if outcome.GetStatus() || outcome.GetError() == nil {
+		t.Error("Expected error while provisioning queue with durability set to false")
+	}
+}
+
 func TestEndpointProvisionerBuilderWithInvalidMaxMessageRedeliveryRange(t *testing.T) {
 	provisioner := NewEndpointProvisionerImpl(&mockInternalEndpointProvisioner{})
 	provisioner.WithMaxMessageRedelivery(256) // valid message redelivery range is from 0 - 255
@@ -33,7 +42,7 @@ func TestEndpointProvisionerBuilderWithInvalidMaxMessageRedeliveryRange(t *testi
 
 func TestEndpointProvisionerBuilderWithValidZeroMaxMessageRedelivery(t *testing.T) {
 	provisioner := NewEndpointProvisionerImpl(&mockInternalEndpointProvisioner{})
-	provisioner.WithMaxMessageRedelivery(0) // zero message redelivery
+	provisioner.WithMaxMessageRedelivery(0) // zero message redelivery (Min value supported)
 	outcome := provisioner.Provision("hello", true)
 	if !outcome.GetStatus() || outcome.GetError() != nil {
 		t.Error("Did not expect error while provisioning queue with valid message redelivery. Error: ", outcome.GetError())
@@ -42,7 +51,7 @@ func TestEndpointProvisionerBuilderWithValidZeroMaxMessageRedelivery(t *testing.
 
 func TestEndpointProvisionerBuilderWithValidMaxMessageRedelivery(t *testing.T) {
 	provisioner := NewEndpointProvisionerImpl(&mockInternalEndpointProvisioner{})
-	provisioner.WithMaxMessageRedelivery(100) // valid message redelivery count
+	provisioner.WithMaxMessageRedelivery(255) // valid message redelivery count (Max value supported)
 	outcome := provisioner.Provision("hello", true)
 	if !outcome.GetStatus() || outcome.GetError() != nil {
 		t.Error("Did not expect error while provisioning queue with valid message redelivery. Error: ", outcome.GetError())
@@ -51,7 +60,7 @@ func TestEndpointProvisionerBuilderWithValidMaxMessageRedelivery(t *testing.T) {
 
 func TestEndpointProvisionerBuilderWithValidZeroMaxMessageSize(t *testing.T) {
 	provisioner := NewEndpointProvisionerImpl(&mockInternalEndpointProvisioner{})
-	provisioner.WithMaxMessageSize(0) // valid zero message size
+	provisioner.WithMaxMessageSize(0) // valid zero message size (Min value supported)
 	outcome := provisioner.Provision("hello", true)
 	if !outcome.GetStatus() || outcome.GetError() != nil {
 		t.Error("Did not expect error while provisioning queue with valid max message size")
@@ -60,7 +69,7 @@ func TestEndpointProvisionerBuilderWithValidZeroMaxMessageSize(t *testing.T) {
 
 func TestEndpointProvisionerBuilderWithValidZeroQuotaMB(t *testing.T) {
 	provisioner := NewEndpointProvisionerImpl(&mockInternalEndpointProvisioner{})
-	provisioner.WithQuotaMB(0) // valid zero queue quota size
+	provisioner.WithQuotaMB(0) // valid zero queue quota size (Min value supported)
 	outcome := provisioner.Provision("hello", true)
 	if !outcome.GetStatus() || outcome.GetError() != nil {
 		t.Error("Did not expect error while provisioning queue with valid queue quota size")
