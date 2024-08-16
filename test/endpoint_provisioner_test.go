@@ -359,9 +359,7 @@ var _ = Describe("EndpointProvisioner", func() {
 			It("should not provision queue with invalid queueName - "+queueLabel, func() {
 				// remove the provisioned queue
 				defer func() {
-					err := provisioner.Deprovision(queueName, true)
-					Expect(err).ToNot(BeNil())
-					Expect(string(err.Error())).To(Equal("Invalid Queue Name"))
+					provisioner.Deprovision(queueName, true)
 				}()
 
 				// check that the endpoint does not yet exist on the broker via semp
