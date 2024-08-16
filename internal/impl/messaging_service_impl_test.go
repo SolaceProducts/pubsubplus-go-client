@@ -306,13 +306,14 @@ func TestMessagingServiceDisconnectBlockingUntilComplete(t *testing.T) {
 }
 
 type solClientTransportMock struct {
-	connect    func() error
-	disconnect func() error
-	close      func() error
-	publisher  func() core.Publisher
-	receiver   func() core.Receiver
-	metrics    func() core.Metrics
-	events     func() core.Events
+	connect             func() error
+	disconnect          func() error
+	close               func() error
+	publisher           func() core.Publisher
+	receiver            func() core.Receiver
+	metrics             func() core.Metrics
+	events              func() core.Events
+	endpointProvisioner func() core.EndpointProvisioner
 }
 
 func (transport *solClientTransportMock) Connect() error {
@@ -346,6 +347,13 @@ func (transport *solClientTransportMock) Publisher() core.Publisher {
 func (transport *solClientTransportMock) Receiver() core.Receiver {
 	if transport.receiver != nil {
 		return transport.receiver()
+	}
+	return nil
+}
+
+func (transport *solClientTransportMock) EndpointProvisioner() core.EndpointProvisioner {
+	if transport.endpointProvisioner != nil {
+		return transport.endpointProvisioner()
 	}
 	return nil
 }
