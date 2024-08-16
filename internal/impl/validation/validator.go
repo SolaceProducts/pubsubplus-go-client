@@ -144,17 +144,3 @@ func BooleanPropertyValidation(key string, property interface{}) (bool, bool, er
 	}
 	return ret, true, nil
 }
-
-// BooleanPropertyTruthyValidation function
-func BooleanPropertyTruthyValidation(key string, property interface{}) (bool, bool, error) {
-	prop, present, err := BooleanPropertyValidation(key, property)
-	if !present || err != nil {
-		return prop, present, err
-	}
-	// if not true, return
-	if !prop {
-		return prop, present, solace.NewError(&solace.IllegalArgumentError{}, fmt.Sprintf("expected configured value for %s to be True", key), nil)
-	}
-
-	return prop, present, err
-}

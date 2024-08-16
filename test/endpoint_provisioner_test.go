@@ -434,8 +434,8 @@ var _ = Describe("EndpointProvisioner", func() {
 				config.EndpointPropertyDurable: false,
 			}).Provision(provisionQueueName, true)
 			Expect(outcome.GetError()).To(HaveOccurred())
-			Expect(outcome.GetError()).To(BeAssignableToTypeOf(&solace.IllegalArgumentError{}))
-			Expect(outcome.GetError().Error()).To(Equal("expected configured value for solace.messaging.endpoint-property.durable to be True"))
+			Expect(outcome.GetError()).To(BeAssignableToTypeOf(&solace.InvalidConfigurationError{}))
+			Expect(outcome.GetError().Error()).To(Equal("invalid configuration provided: failed to provision endpoint: Attempt to provision a temporary endpoint in solClient_session_endpointProvision"))
 			Expect(outcome.GetStatus()).To(BeFalse())
 		})
 

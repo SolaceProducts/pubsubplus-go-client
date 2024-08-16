@@ -70,15 +70,17 @@ func validateEndpointProperties(properties config.EndpointPropertyMap) ([]string
 	for property, value := range properties {
 		switch property {
 		case config.EndpointPropertyDurable:
-			isDurable, present, err := validation.BooleanPropertyTruthyValidation(string(config.EndpointPropertyDurable), value)
+			isDurable, present, err := validation.BooleanPropertyValidation(string(config.EndpointPropertyDurable), value)
 			if present {
 				if err != nil {
-					// return an error if the durability is false
+					// return an error if the durability is not a bool
 					return nil, err
 				}
 				// if durability is true
 				if isDurable {
 					propertiesList = append(propertiesList, ccsmp.SolClientEndpointPropDurable, ccsmp.SolClientPropEnableVal)
+				} else {
+					propertiesList = append(propertiesList, ccsmp.SolClientEndpointPropDurable, ccsmp.SolClientPropDisableVal)
 				}
 			}
 		case config.EndpointPropertyExclusive:

@@ -26,8 +26,8 @@ func TestEndpointProvisionerBuilderWithInvalidDurabilityType(t *testing.T) {
 	provisioner := NewEndpointProvisionerImpl(&mockInternalEndpointProvisioner{})
 	provisioner.WithDurability(false) // We do not support provisioning non-durable endpoints
 	outcome := provisioner.Provision("hello", true)
-	if outcome.GetStatus() || outcome.GetError() == nil {
-		t.Error("Expected error while provisioning queue with durability set to false")
+	if !outcome.GetStatus() || outcome.GetError() != nil {
+		t.Error("Did not expected error while setting endpoint durability to false. Error should be on provision action")
 	}
 }
 
