@@ -303,6 +303,36 @@ var _ = Describe("MessagingService Lifecycle", func() {
 		})
 	}) // End compression tests
 
+	// Test to validate range of payload compression level is from 0 to 9 (inclusive)
+	Context("when using payload compression", func() {
+		BeforeEach(func() {
+			builder.FromConfigurationProvider(helpers.DefaultConfiguration())
+		})
+
+		validPayloadCompressionLevels := []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
+		for _, validPayloadCompressionLevel := range validPayloadCompressionLevels {
+			var compressionLevel = validPayloadCompressionLevel
+			It("should be able to connect using compression level "+fmt.Sprint(compressionLevel), func() {
+				builder.FromConfigurationProvider(config.ServicePropertyMap{
+					config.ServicePropertyPayloadCompressionLevel: compressionLevel, // valid payload compression level
+				})
+				helpers.TestConnectDisconnectMessagingService(builder)
+			})
+		}
+		invalidPayloadCompressionLevels := []int{-1, 10}
+		for _, invalidPayloadCompressionLevel := range invalidPayloadCompressionLevels {
+			var compressionLevel = invalidPayloadCompressionLevel
+			It("should not able to build using payload compression level "+fmt.Sprint(compressionLevel), func() {
+				builder.FromConfigurationProvider(config.ServicePropertyMap{
+					config.ServicePropertyPayloadCompressionLevel: compressionLevel, // invalid payload compression level
+				})
+				_, err := builder.Build()
+				Expect(err).To(HaveOccurred())
+				Expect(err).To(BeAssignableToTypeOf(&solace.InvalidConfigurationError{}))
+			})
+		}
+	}) // End payload compression tests
+
 	schemeTcps := "tcps"
 	schemeWss := "wss"
 
