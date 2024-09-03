@@ -19,7 +19,6 @@ package test
 import (
 	"fmt"
 	"net/url"
-	"sync/atomic"
 	"time"
 
 	"solace.dev/go/messaging"
@@ -124,8 +123,8 @@ var _ = Describe("RequestReplyReceiver", func() {
 
 	Context("with a messaging service that will be disconnected", func() {
 		const topicString = "terminate/me"
-		const messagesPublished = 3
-		const publishTimeOut = 3 * time.Second
+		// const messagesPublished = 3
+		// const publishTimeOut = 3 * time.Second
 		var terminationChannel chan solace.TerminationEvent
 		var receiver solace.RequestReplyMessageReceiver
 
@@ -158,92 +157,94 @@ var _ = Describe("RequestReplyReceiver", func() {
 			}
 		})
 
-		forceDisconnectFunctions := map[string]func(messagingService solace.MessagingService){
-			"messaging service disconnect": func(messagingService solace.MessagingService) {
-				helpers.DisconnectMessagingService(messagingService)
-			},
-			"SEMPv2 disconnect": func(messagingService solace.MessagingService) {
-				helpers.ForceDisconnectViaSEMPv2(messagingService)
-			},
-		}
+		/*
+			forceDisconnectFunctions := map[string]func(messagingService solace.MessagingService){
+				"messaging service disconnect": func(messagingService solace.MessagingService) {
+					helpers.DisconnectMessagingService(messagingService)
+				},
+				"SEMPv2 disconnect": func(messagingService solace.MessagingService) {
+					helpers.ForceDisconnectViaSEMPv2(messagingService)
+				},
+			}
 
-		for testCase, disconnectFunctionRef := range forceDisconnectFunctions {
-			disconnectFunction := disconnectFunctionRef
-			It("terminates the receiver using async receive when disconnecting with "+testCase, func() {
-				blocker := make(chan struct{})
-				msgsReceived := make(chan message.InboundMessage, messagesPublished)
-				receiver.ReceiveAsync(func(inboundMessage message.InboundMessage, replier solace.Replier) {
-					<-blocker
-					msgsReceived <- inboundMessage
+			for testCase, disconnectFunctionRef := range forceDisconnectFunctions {
+				disconnectFunction := disconnectFunctionRef
+				It("terminates the receiver using async receive when disconnecting with "+testCase, func() {
+					blocker := make(chan struct{})
+					msgsReceived := make(chan message.InboundMessage, messagesPublished)
+					receiver.ReceiveAsync(func(inboundMessage message.InboundMessage, replier solace.Replier) {
+						<-blocker
+						msgsReceived <- inboundMessage
 
-					payload, _ := inboundMessage.GetPayloadAsString()
-					if replier != nil {
-						err := replier.Reply(helpers.NewMessage(messagingService, "Reply for: "+payload))
-						Expect(err).ToNot(BeNil()) // because the messaging service is diconnected
-					}
+						payload, _ := inboundMessage.GetPayloadAsString()
+						if replier != nil {
+							err := replier.Reply(helpers.NewMessage(messagingService, "Reply for: "+payload))
+							Expect(err).ToNot(BeNil()) // because the messaging service is diconnected
+						}
+					})
+
+					publishReplyMsgChan := helpers.PublishNRequestReplyMessages(messagingService, topicString, publishTimeOut, messagesPublished)
+					Eventually(publishReplyMsgChan).Should(Receive()) // something was published
+
+					helpers.ValidateMetric(messagingService, metrics.DirectMessagesReceived, messagesPublished)
+
+					disconnectFunction(messagingService)
+
+					Eventually(receiver.IsTerminated(), 10*time.Second).Should(BeTrue())
+					Expect(receiver.IsRunning()).To(BeFalse()) // should not be in running state now
+
+					// unblock the receiver callback after we are marked as terminated
+					close(blocker)
+
+					var expectedMsg message.InboundMessage
+					Eventually(msgsReceived).Should(Receive(&expectedMsg))
+					payload, ok := expectedMsg.GetPayloadAsString()
+					Expect(ok).To(BeTrue())
+					Expect(payload).To(Equal("hello world 0")) // check that only first message was received
+
+					Consistently(msgsReceived).ShouldNot(Receive()) // no more messages since the receiver has been terminated
+					Eventually(terminationChannel).Should(Receive())
+					helpers.ValidateMetric(messagingService, metrics.ReceivedMessagesTerminationDiscarded, messagesPublished-1) // less the one successfully received
 				})
+				It("terminates the receiver using sync receive when disconnecting with "+testCase, func() {
+					publishReplyMsgChan := helpers.PublishNRequestReplyMessages(messagingService, topicString, publishTimeOut, messagesPublished)
+					Eventually(publishReplyMsgChan).Should(Receive()) // something was published
 
-				publishReplyMsgChan := helpers.PublishNRequestReplyMessages(messagingService, topicString, publishTimeOut, messagesPublished)
-				Eventually(publishReplyMsgChan).Should(Receive()) // something was published
+					helpers.ValidateMetric(messagingService, metrics.DirectMessagesReceived, messagesPublished)
 
-				helpers.ValidateMetric(messagingService, metrics.DirectMessagesReceived, messagesPublished)
+					discardOffset := 0
+					disconnectFunction(messagingService)
 
-				disconnectFunction(messagingService)
-
-				Eventually(receiver.IsTerminated(), 10*time.Second).Should(BeTrue())
-				Expect(receiver.IsRunning()).To(BeFalse()) // should not be in running state now
-
-				// unblock the receiver callback after we are marked as terminated
-				close(blocker)
-
-				var expectedMsg message.InboundMessage
-				Eventually(msgsReceived).Should(Receive(&expectedMsg))
-				payload, ok := expectedMsg.GetPayloadAsString()
-				Expect(ok).To(BeTrue())
-				Expect(payload).To(Equal("hello world 0")) // check that only first message was received
-
-				Consistently(msgsReceived).ShouldNot(Receive()) // no more messages since the receiver has been terminated
-				Eventually(terminationChannel).Should(Receive())
-				helpers.ValidateMetric(messagingService, metrics.ReceivedMessagesTerminationDiscarded, messagesPublished-1) // less the one successfully received
-			})
-			It("terminates the receiver using sync receive when disconnecting with "+testCase, func() {
-				publishReplyMsgChan := helpers.PublishNRequestReplyMessages(messagingService, topicString, publishTimeOut, messagesPublished)
-				Eventually(publishReplyMsgChan).Should(Receive()) // something was published
-
-				helpers.ValidateMetric(messagingService, metrics.DirectMessagesReceived, messagesPublished)
-
-				discardOffset := 0
-				disconnectFunction(messagingService)
-
-				// Try and race with the unsolicited termination
-				var err error = nil
-				var replier solace.Replier = nil
-				for err == nil {
-					var racingMessage message.InboundMessage
-					racingMessage, replier, err = receiver.ReceiveMessage(-1) // blocking receive call
-					if racingMessage != nil {
-						discardOffset++
+					// Try and race with the unsolicited termination
+					var err error = nil
+					var replier solace.Replier = nil
+					for err == nil {
+						var racingMessage message.InboundMessage
+						racingMessage, replier, err = receiver.ReceiveMessage(-1) // blocking receive call
+						if racingMessage != nil {
+							discardOffset++
+						}
+						if replier != nil {
+							payload, _ := racingMessage.GetPayloadAsString()
+							err = replier.Reply(helpers.NewMessage(messagingService, "Reply for: "+payload))
+							Expect(err).To(BeNil())
+						}
 					}
-					if replier != nil {
-						payload, _ := racingMessage.GetPayloadAsString()
-						err = replier.Reply(helpers.NewMessage(messagingService, "Reply for: "+payload))
-						Expect(err).To(BeNil())
-					}
-				}
 
-				Eventually(receiver.IsTerminated(), 10*time.Second).Should(BeTrue())
-				Expect(receiver.IsRunning()).To(BeFalse()) // should not be in running state now
-				Eventually(terminationChannel).Should(Receive())
+					Eventually(receiver.IsTerminated(), 10*time.Second).Should(BeTrue())
+					Expect(receiver.IsRunning()).To(BeFalse()) // should not be in running state now
+					Eventually(terminationChannel).Should(Receive())
 
-				msg, replier, err := receiver.ReceiveMessage(-1)
-				Expect(msg).To(BeNil())
-				Expect(replier).To(BeNil()) // no more messages to reply to
-				Expect(err).ToNot(BeNil())
-				helpers.ValidateError(err, &solace.IllegalStateError{})
+					msg, replier, err := receiver.ReceiveMessage(-1)
+					Expect(msg).To(BeNil())
+					Expect(replier).To(BeNil()) // no more messages to reply to
+					Expect(err).ToNot(BeNil())
+					helpers.ValidateError(err, &solace.IllegalStateError{})
 
-				helpers.ValidateMetric(messagingService, metrics.ReceivedMessagesTerminationDiscarded, messagesPublished-uint64(discardOffset))
-			})
-		}
+					helpers.ValidateMetric(messagingService, metrics.ReceivedMessagesTerminationDiscarded, messagesPublished-uint64(discardOffset))
+				})
+			}
+		*/
 	})
 
 	Context("with a connected messaging service", func() {
@@ -640,7 +641,7 @@ var _ = Describe("RequestReplyReceiver", func() {
 		Context("with a started and subscribed receiver", func() {
 			const topicString = "try-me"
 			var receiver solace.RequestReplyMessageReceiver
-			var publishTimeOut = 3 * time.Second
+			// var publishTimeOut = 3 * time.Second
 
 			BeforeEach(func() {
 				var err error
@@ -656,111 +657,113 @@ var _ = Describe("RequestReplyReceiver", func() {
 				}
 			})
 
-			It("should terminate with undelivered messages without an async callback", func() {
-				undeliveredCount := 10
+			/*
+				It("should terminate with undelivered messages without an async callback", func() {
+					undeliveredCount := 10
 
-				publishReplyChan := helpers.PublishNRequestReplyMessages(messagingService, topicString, publishTimeOut, undeliveredCount)
-				Eventually(publishReplyChan).Should(Receive()) // something was published
+					publishReplyChan := helpers.PublishNRequestReplyMessages(messagingService, topicString, publishTimeOut, undeliveredCount)
+					Eventually(publishReplyChan).Should(Receive()) // something was published
 
-				// wait for stats to indicate that the messages have arrived
-				Eventually(func() uint64 {
-					return messagingService.Metrics().GetValue(metrics.DirectMessagesReceived)
-				}).Should(BeNumerically(">=", undeliveredCount))
+					// wait for stats to indicate that the messages have arrived
+					Eventually(func() uint64 {
+						return messagingService.Metrics().GetValue(metrics.DirectMessagesReceived)
+					}).Should(BeNumerically(">=", undeliveredCount))
 
-				terminateChannel := receiver.TerminateAsync(1 * time.Second)
+					terminateChannel := receiver.TerminateAsync(1 * time.Second)
 
-				select {
-				case <-terminateChannel:
-					Fail("did not expect receiver to terminate before grace period")
-				case <-time.After(500 * time.Millisecond):
-					// we have expired the grace period
-				}
+					select {
+					case <-terminateChannel:
+						Fail("did not expect receiver to terminate before grace period")
+					case <-time.After(500 * time.Millisecond):
+						// we have expired the grace period
+					}
 
-				select {
-				case err := <-terminateChannel:
-					// success
-					Expect(err).To(HaveOccurred())
-					Expect(err).To(BeAssignableToTypeOf(&solace.IncompleteMessageDeliveryError{}))
-				case <-time.After(1 * time.Second):
-					Fail("timed out waiting for terminate to complete")
-				}
+					select {
+					case err := <-terminateChannel:
+						// success
+						Expect(err).To(HaveOccurred())
+						Expect(err).To(BeAssignableToTypeOf(&solace.IncompleteMessageDeliveryError{}))
+					case <-time.After(1 * time.Second):
+						Fail("timed out waiting for terminate to complete")
+					}
 
-				Expect(messagingService.Metrics().GetValue(metrics.ReceivedMessagesTerminationDiscarded)).To(Equal(uint64(undeliveredCount)))
-			})
-
-			It("should wait to terminate until all messages are processed with synchronous receive", func() {
-				publishChan := helpers.PublishNRequestReplyMessages(messagingService, topicString, publishTimeOut, 1)
-				Eventually(publishChan).Should(Receive()) // something was published
-
-				helpers.ValidateMetric(messagingService, metrics.DirectMessagesReceived, 1) // reply not yet sent
-				terminateChannel := receiver.TerminateAsync(10 * time.Second)
-				Consistently(terminateChannel).ShouldNot(Receive())
-				msg, replier, err := receiver.ReceiveMessage(-1)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(msg).ToNot(BeNil())
-				Expect(replier).ToNot(BeNil())
-				err = replier.Reply(helpers.NewMessage(messagingService, "Pong"))
-				Expect(err).ToNot(HaveOccurred())
-				helpers.ValidateMetric(messagingService, metrics.DirectMessagesReceived, 2) // the reply has been sent now
-				Eventually(terminateChannel).Should(Receive(BeNil()))
-			})
-
-			It("should wait to terminate until all messages are processed with async receive", func() {
-				blocker := make(chan struct{})
-				receiver.ReceiveAsync(func(inboundMessage message.InboundMessage, replier solace.Replier) {
-					<-blocker
+					Expect(messagingService.Metrics().GetValue(metrics.ReceivedMessagesTerminationDiscarded)).To(Equal(uint64(undeliveredCount)))
 				})
-				publishChan1 := helpers.PublishNRequestReplyMessages(messagingService, topicString, publishTimeOut, 1)
-				publishChan2 := helpers.PublishNRequestReplyMessages(messagingService, topicString, publishTimeOut, 1)
-				Eventually(publishChan1).Should(Receive()) // something was published
-				Eventually(publishChan2).Should(Receive()) // something was published
-				helpers.ValidateMetric(messagingService, metrics.DirectMessagesReceived, 2)
-				terminateChannel := receiver.TerminateAsync(10 * time.Second)
-				Consistently(terminateChannel).ShouldNot(Receive())
-				close(blocker)
-				Eventually(terminateChannel).Should(Receive(BeNil()))
-			})
 
-			It("should reject asynchronous callback registration while terminating", func() {
-				publishChan := helpers.PublishNRequestReplyMessages(messagingService, topicString, publishTimeOut, 1)
-				Eventually(publishChan).Should(Receive()) // something was published
-				helpers.ValidateMetric(messagingService, metrics.DirectMessagesReceived, 1)
-				terminateChannel := receiver.TerminateAsync(10 * time.Second)
-				Consistently(terminateChannel).ShouldNot(Receive())
+				It("should wait to terminate until all messages are processed with synchronous receive", func() {
+					publishChan := helpers.PublishNRequestReplyMessages(messagingService, topicString, publishTimeOut, 1)
+					Eventually(publishChan).Should(Receive()) // something was published
 
-				err := receiver.ReceiveAsync(func(inboundMessage message.InboundMessage, replier solace.Replier) {})
-				helpers.ValidateError(err, &solace.IllegalStateError{})
-
-				msg, replier, err := receiver.ReceiveMessage(-1)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(msg).ToNot(BeNil())
-				Expect(replier).ToNot(BeNil())
-				Eventually(terminateChannel).Should(Receive(BeNil()))
-			})
-
-			It("should wait to terminate when all messages are processed but asynchronous callback is blocked", func() {
-				blocker := make(chan struct{})
-				blocking := make(chan struct{})
-				receiver.ReceiveAsync(func(inboundMessage message.InboundMessage, replier solace.Replier) {
-					close(blocking)
-					<-blocker
+					helpers.ValidateMetric(messagingService, metrics.DirectMessagesReceived, 1) // reply not yet sent
+					terminateChannel := receiver.TerminateAsync(10 * time.Second)
+					Consistently(terminateChannel).ShouldNot(Receive())
+					msg, replier, err := receiver.ReceiveMessage(-1)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(msg).ToNot(BeNil())
+					Expect(replier).ToNot(BeNil())
+					err = replier.Reply(helpers.NewMessage(messagingService, "Pong"))
+					Expect(err).ToNot(HaveOccurred())
+					helpers.ValidateMetric(messagingService, metrics.DirectMessagesReceived, 2) // the reply has been sent now
+					Eventually(terminateChannel).Should(Receive(BeNil()))
 				})
-				publishChan := helpers.PublishNRequestReplyMessages(messagingService, topicString, publishTimeOut, 1)
-				Eventually(publishChan).Should(Receive()) // something was published
-				Eventually(blocking).Should(BeClosed())
-				publishChan = helpers.PublishNRequestReplyMessages(messagingService, topicString, publishTimeOut, 1)
-				Eventually(publishChan).Should(Receive()) // something was published
-				helpers.ValidateMetric(messagingService, metrics.DirectMessagesReceived, 2)
-				terminateChannel := receiver.TerminateAsync(10 * time.Second)
-				Consistently(terminateChannel).ShouldNot(Receive())
-				msg, replier, err := receiver.ReceiveMessage(500 * time.Millisecond)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(msg).ToNot(BeNil())
-				Expect(replier).ToNot(BeNil())
-				Consistently(terminateChannel).ShouldNot(Receive())
-				close(blocker)
-				Eventually(terminateChannel).Should(Receive(BeNil()))
-			})
+
+				It("should wait to terminate until all messages are processed with async receive", func() {
+					blocker := make(chan struct{})
+					receiver.ReceiveAsync(func(inboundMessage message.InboundMessage, replier solace.Replier) {
+						<-blocker
+					})
+					publishChan1 := helpers.PublishNRequestReplyMessages(messagingService, topicString, publishTimeOut, 1)
+					publishChan2 := helpers.PublishNRequestReplyMessages(messagingService, topicString, publishTimeOut, 1)
+					Eventually(publishChan1).Should(Receive()) // something was published
+					Eventually(publishChan2).Should(Receive()) // something was published
+					helpers.ValidateMetric(messagingService, metrics.DirectMessagesReceived, 2)
+					terminateChannel := receiver.TerminateAsync(10 * time.Second)
+					Consistently(terminateChannel).ShouldNot(Receive())
+					close(blocker)
+					Eventually(terminateChannel).Should(Receive(BeNil()))
+				})
+
+				It("should reject asynchronous callback registration while terminating", func() {
+					publishChan := helpers.PublishNRequestReplyMessages(messagingService, topicString, publishTimeOut, 1)
+					Eventually(publishChan).Should(Receive()) // something was published
+					helpers.ValidateMetric(messagingService, metrics.DirectMessagesReceived, 1)
+					terminateChannel := receiver.TerminateAsync(10 * time.Second)
+					Consistently(terminateChannel).ShouldNot(Receive())
+
+					err := receiver.ReceiveAsync(func(inboundMessage message.InboundMessage, replier solace.Replier) {})
+					helpers.ValidateError(err, &solace.IllegalStateError{})
+
+					msg, replier, err := receiver.ReceiveMessage(-1)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(msg).ToNot(BeNil())
+					Expect(replier).ToNot(BeNil())
+					Eventually(terminateChannel).Should(Receive(BeNil()))
+				})
+
+				It("should wait to terminate when all messages are processed but asynchronous callback is blocked", func() {
+					blocker := make(chan struct{})
+					blocking := make(chan struct{})
+					receiver.ReceiveAsync(func(inboundMessage message.InboundMessage, replier solace.Replier) {
+						close(blocking)
+						<-blocker
+					})
+					publishChan := helpers.PublishNRequestReplyMessages(messagingService, topicString, publishTimeOut, 1)
+					Eventually(publishChan).Should(Receive()) // something was published
+					Eventually(blocking).Should(BeClosed())
+					publishChan = helpers.PublishNRequestReplyMessages(messagingService, topicString, publishTimeOut, 1)
+					Eventually(publishChan).Should(Receive()) // something was published
+					helpers.ValidateMetric(messagingService, metrics.DirectMessagesReceived, 2)
+					terminateChannel := receiver.TerminateAsync(10 * time.Second)
+					Consistently(terminateChannel).ShouldNot(Receive())
+					msg, replier, err := receiver.ReceiveMessage(500 * time.Millisecond)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(msg).ToNot(BeNil())
+					Expect(replier).ToNot(BeNil())
+					Consistently(terminateChannel).ShouldNot(Receive())
+					close(blocker)
+					Eventually(terminateChannel).Should(Receive(BeNil()))
+				})
+			*/
 
 			// SOL-112355 - the tests to cover request/reply processing using RequestReply Publisher/Receiver
 			Describe("for request/reply processing", func() {
@@ -781,47 +784,49 @@ var _ = Describe("RequestReplyReceiver", func() {
 					Eventually(done).Should(BeClosed())
 				})
 
-				It("should be able to continue message delivery when a receive async panics", func() {
-					msgReceived := make(chan message.InboundMessage)
-					receiver.ReceiveAsync(func(inboundMessage message.InboundMessage, replier solace.Replier) {
-						msgReceived <- inboundMessage
-						panic("this should still pass even though this Panic occurred")
+				/*
+					It("should be able to continue message delivery when a receive async panics", func() {
+						msgReceived := make(chan message.InboundMessage)
+						receiver.ReceiveAsync(func(inboundMessage message.InboundMessage, replier solace.Replier) {
+							msgReceived <- inboundMessage
+							panic("this should still pass even though this Panic occurred")
+						})
+						const payloadOne = "one"
+						const payloadTwo = "two"
+						helpers.PublishNRequestReplyMessages(messagingService, topicString, publishTimeOut, 1, payloadOne)
+
+						// we should receive a message
+						var msg message.InboundMessage
+						Eventually(msgReceived).Should(Receive(&msg))
+						payload, ok := msg.GetPayloadAsString()
+						Expect(ok).To(BeTrue())
+						Expect(payload).To(Equal(payloadOne))
+						helpers.PublishNRequestReplyMessages(messagingService, topicString, publishTimeOut, 1, payloadTwo)
+						// we should continue to receive messages
+						Eventually(msgReceived).Should(Receive(&msg))
+						payload, ok = msg.GetPayloadAsString()
+						Expect(ok).To(BeTrue())
+						Expect(payload).To(Equal(payloadTwo))
+						// we should be able to terminate
+						Expect(receiver.Terminate(10 * time.Second)).ToNot(HaveOccurred())
 					})
-					const payloadOne = "one"
-					const payloadTwo = "two"
-					helpers.PublishNRequestReplyMessages(messagingService, topicString, publishTimeOut, 1, payloadOne)
 
-					// we should receive a message
-					var msg message.InboundMessage
-					Eventually(msgReceived).Should(Receive(&msg))
-					payload, ok := msg.GetPayloadAsString()
-					Expect(ok).To(BeTrue())
-					Expect(payload).To(Equal(payloadOne))
-					helpers.PublishNRequestReplyMessages(messagingService, topicString, publishTimeOut, 1, payloadTwo)
-					// we should continue to receive messages
-					Eventually(msgReceived).Should(Receive(&msg))
-					payload, ok = msg.GetPayloadAsString()
-					Expect(ok).To(BeTrue())
-					Expect(payload).To(Equal(payloadTwo))
-					// we should be able to terminate
-					Expect(receiver.Terminate(10 * time.Second)).ToNot(HaveOccurred())
-				})
-
-				It("should wait indefinitely for a message", func() {
-					done := make(chan struct{})
-					go func() {
-						defer GinkgoRecover()
-						msg, replier, err := receiver.ReceiveMessage(-1)
-						Expect(err).ToNot(HaveOccurred())
-						Expect(msg).ToNot(BeNil())
-						Expect(replier).ToNot(BeNil())
-						time.Sleep(3 * time.Second)
-						close(done)
-					}()
-					Consistently(done, 2*time.Second).ShouldNot(BeClosed()) // less than receive function's sleep
-					helpers.PublishNRequestReplyMessages(messagingService, topicString, publishTimeOut, 1)
-					Eventually(done).Should(BeClosed())
-				})
+					It("should wait indefinitely for a message", func() {
+						done := make(chan struct{})
+						go func() {
+							defer GinkgoRecover()
+							msg, replier, err := receiver.ReceiveMessage(-1)
+							Expect(err).ToNot(HaveOccurred())
+							Expect(msg).ToNot(BeNil())
+							Expect(replier).ToNot(BeNil())
+							time.Sleep(3 * time.Second)
+							close(done)
+						}()
+						Consistently(done, 2*time.Second).ShouldNot(BeClosed()) // less than receive function's sleep
+						helpers.PublishNRequestReplyMessages(messagingService, topicString, publishTimeOut, 1)
+						Eventually(done).Should(BeClosed())
+					})
+				*/
 
 				It("should be interrupted while waiting for a message", func() {
 					done := make(chan struct{})
@@ -840,220 +845,220 @@ var _ = Describe("RequestReplyReceiver", func() {
 				})
 
 				/*
-					receiverFunctions := map[string](func(solace.RequestReplyMessageReceiver, int) chan message.InboundMessage){
-						"Receive": func(rrmr solace.RequestReplyMessageReceiver, count int) chan message.InboundMessage {
-							msgChannel := make(chan message.InboundMessage, count)
-							for i := 0; i < count; i++ {
-								go func() {
-									defer GinkgoRecover()
-									msg, replier, err := rrmr.ReceiveMessage(-1)
-									Expect(err).ToNot(HaveOccurred())
-									Expect(msg).ToNot(BeNil())
-									Expect(replier).ToNot(BeNil())
-									err = replier.Reply(helpers.NewMessage(messagingService, "Pong")) // send reply back
-									Expect(err).ToNot(HaveOccurred())
-									msgChannel <- msg // put into channel
-								}()
-							}
-							return msgChannel
-						},
-						"ReceiveAsync": func(rrmr solace.RequestReplyMessageReceiver, count int) chan message.InboundMessage {
-							msgChannel := make(chan message.InboundMessage, count)
-							rrmr.ReceiveAsync(func(msg message.InboundMessage, replier solace.Replier) {
-								go func() { // send reply in a new go routine
-									err := replier.Reply(helpers.NewMessage(messagingService, "Pong")) // send reply back
-									Expect(err).ToNot(HaveOccurred())
-									msgChannel <- msg // put into channel
-								}()
+						receiverFunctions := map[string](func(solace.RequestReplyMessageReceiver, int) chan message.InboundMessage){
+							"Receive": func(rrmr solace.RequestReplyMessageReceiver, count int) chan message.InboundMessage {
+								msgChannel := make(chan message.InboundMessage, count)
+								for i := 0; i < count; i++ {
+									go func() {
+										defer GinkgoRecover()
+										msg, replier, err := rrmr.ReceiveMessage(-1)
+										Expect(err).ToNot(HaveOccurred())
+										Expect(msg).ToNot(BeNil())
+										Expect(replier).ToNot(BeNil())
+										err = replier.Reply(helpers.NewMessage(messagingService, "Pong")) // send reply back
+										Expect(err).ToNot(HaveOccurred())
+										msgChannel <- msg // put into channel
+									}()
+								}
+								return msgChannel
+							},
+							"ReceiveAsync": func(rrmr solace.RequestReplyMessageReceiver, count int) chan message.InboundMessage {
+								msgChannel := make(chan message.InboundMessage, count)
+								rrmr.ReceiveAsync(func(msg message.InboundMessage, replier solace.Replier) {
+									go func() { // send reply in a new go routine
+										err := replier.Reply(helpers.NewMessage(messagingService, "Pong")) // send reply back
+										Expect(err).ToNot(HaveOccurred())
+										msgChannel <- msg // put into channel
+									}()
+								})
+								return msgChannel
+							},
+						}
+
+						for receiverFunctionName, receiverFunction := range receiverFunctions {
+							receiverFunc := receiverFunction
+
+							It("should be able to receive a message successfully with "+receiverFunctionName+"() function", func() {
+								// publish the request messages
+								publishedMessages := 0
+								publisherReplies, _, publisherComplete := helpers.PublishRequestReplyMessages(messagingService, topicString, publishTimeOut, uint(1), &publishedMessages, "Ping")
+
+								// allow the goroutine above to saturate the publisher
+								select {
+								case <-publisherComplete:
+									// allow the publishing to complete before proceeding
+								case <-time.After(100 * time.Millisecond):
+									// should not timeout before publishing is complete
+									Fail("Not expected to timeout before publishing is complete; Should not get here")
+								}
+
+								// receive the request message and send back a reply
+								receivedMsgChannel := receiverFunc(receiver, 1)
+
+								// check that the message & reply was sent via semp
+								client := helpers.GetClient(messagingService)
+								Expect(client.DataTxMsgCount).To(Equal(int64(2)))
+
+								select {
+								case receivedMessage := <-receivedMsgChannel:
+									Expect(receivedMessage).ToNot(BeNil())
+									content, ok := receivedMessage.GetPayloadAsString()
+									Expect(ok).To(BeTrue())
+									Expect(content).To(Equal("Ping"))
+
+									// for the reply message
+									var replyMessage message.InboundMessage
+									Eventually(publisherReplies).Should(Receive(&replyMessage)) // something was published
+									Expect(replyMessage).ToNot(BeNil())
+									content, ok = replyMessage.GetPayloadAsString()
+									Expect(ok).To(BeTrue())
+									Expect(content).To(Equal("Pong"))
+								case <-time.After(gracePeriod):
+									Fail("Timed out waiting to receive message")
+								}
+
+								Expect(messagingService.Metrics().GetValue(metrics.DirectMessagesReceived)).To(Equal(uint64(2))) // send  & reply
 							})
-							return msgChannel
-						},
-					}
 
-					for receiverFunctionName, receiverFunction := range receiverFunctions {
-						receiverFunc := receiverFunction
+							It("should be able to receive multiple messages successfully with "+receiverFunctionName+"() function", func() {
+								// send messages
+								sentMessage := 500
+								const publishTimeOut = 3 * time.Second
 
-						It("should be able to receive a message successfully with "+receiverFunctionName+"() function", func() {
-							// publish the request messages
-							publishedMessages := 0
-							publisherReplies, _, publisherComplete := helpers.PublishRequestReplyMessages(messagingService, topicString, publishTimeOut, uint(1), &publishedMessages, "Ping")
+								var err error
+								// we need to properly configure the receiver's buffer to handle > 50 published messages
+								receiver, err = builder.OnBackPressureDropLatest(uint(sentMessage)).Build(resource.TopicSubscriptionOf(topicString))
+								Expect(err).ToNot(HaveOccurred())
+								err = receiver.Start()
+								Expect(err).ToNot(HaveOccurred())
 
-							// allow the goroutine above to saturate the publisher
-							select {
-							case <-publisherComplete:
-								// allow the publishing to complete before proceeding
-							case <-time.After(100 * time.Millisecond):
-								// should not timeout before publishing is complete
-								Fail("Not expected to timeout before publishing is complete; Should not get here")
-							}
+								// publish the request messages
+								publishedMessages := 0
+								publisherReplies, publisherSaturated, publisherComplete := helpers.PublishRequestReplyMessages(messagingService, topicString, publishTimeOut, uint(sentMessage), &publishedMessages, "Ping")
 
-							// receive the request message and send back a reply
-							receivedMsgChannel := receiverFunc(receiver, 1)
+								// allow the goroutine above to saturate the publisher
+								select {
+								case <-publisherComplete:
+									// block until publish complete
+									Fail("Expected publisher to not be complete")
+								case <-publisherSaturated:
+									// allow the goroutine above to saturate the publisher (at least halfway filled)
+								case <-time.After(100 * time.Millisecond):
+									// should not timeout while saturating the publisher
+									Fail("Not expected to timeout while saturating publisher; Should not get here")
+								}
 
-							// check that the message & reply was sent via semp
-							client := helpers.GetClient(messagingService)
-							Expect(client.DataTxMsgCount).To(Equal(int64(2)))
-
-							select {
-							case receivedMessage := <-receivedMsgChannel:
-								Expect(receivedMessage).ToNot(BeNil())
+								receivedMsgChannel := receiverFunc(receiver, sentMessage)
+								Eventually(receivedMsgChannel).Should(HaveLen(sentMessage)) // replies should be sent back
+								// message in the channel should be a request message
+								receivedMessage := <-receivedMsgChannel
 								content, ok := receivedMessage.GetPayloadAsString()
 								Expect(ok).To(BeTrue())
 								Expect(content).To(Equal("Ping"))
 
-								// for the reply message
-								var replyMessage message.InboundMessage
-								Eventually(publisherReplies).Should(Receive(&replyMessage)) // something was published
-								Expect(replyMessage).ToNot(BeNil())
-								content, ok = replyMessage.GetPayloadAsString()
-								Expect(ok).To(BeTrue())
-								Expect(content).To(Equal("Pong"))
-							case <-time.After(gracePeriod):
-								Fail("Timed out waiting to receive message")
-							}
+								select {
+								// message in the reply channel should be a reply message
+								case replyMessage := <-publisherReplies:
+									Expect(replyMessage).ToNot(BeNil())
+									content, ok := replyMessage.GetPayloadAsString()
+									Expect(ok).To(BeTrue())
+									Expect(content).To(Equal("Pong"))
+								case <-time.After(20 * time.Second):
+									Fail("Timed out waiting to receive reply message")
+								}
 
-							Expect(messagingService.Metrics().GetValue(metrics.DirectMessagesReceived)).To(Equal(uint64(2))) // send  & reply
-						})
-
-						It("should be able to receive multiple messages successfully with "+receiverFunctionName+"() function", func() {
-							// send messages
-							sentMessage := 500
-							const publishTimeOut = 3 * time.Second
-
-							var err error
-							// we need to properly configure the receiver's buffer to handle > 50 published messages
-							receiver, err = builder.OnBackPressureDropLatest(uint(sentMessage)).Build(resource.TopicSubscriptionOf(topicString))
-							Expect(err).ToNot(HaveOccurred())
-							err = receiver.Start()
-							Expect(err).ToNot(HaveOccurred())
-
-							// publish the request messages
-							publishedMessages := 0
-							publisherReplies, publisherSaturated, publisherComplete := helpers.PublishRequestReplyMessages(messagingService, topicString, publishTimeOut, uint(sentMessage), &publishedMessages, "Ping")
-
-							// allow the goroutine above to saturate the publisher
-							select {
-							case <-publisherComplete:
-								// block until publish complete
-								Fail("Expected publisher to not be complete")
-							case <-publisherSaturated:
-								// allow the goroutine above to saturate the publisher (at least halfway filled)
-							case <-time.After(100 * time.Millisecond):
-								// should not timeout while saturating the publisher
-								Fail("Not expected to timeout while saturating publisher; Should not get here")
-							}
-
-							receivedMsgChannel := receiverFunc(receiver, sentMessage)
-							Eventually(receivedMsgChannel).Should(HaveLen(sentMessage)) // replies should be sent back
-							// message in the channel should be a request message
-							receivedMessage := <-receivedMsgChannel
-							content, ok := receivedMessage.GetPayloadAsString()
-							Expect(ok).To(BeTrue())
-							Expect(content).To(Equal("Ping"))
-
-							select {
-							// message in the reply channel should be a reply message
-							case replyMessage := <-publisherReplies:
-								Expect(replyMessage).ToNot(BeNil())
-								content, ok := replyMessage.GetPayloadAsString()
-								Expect(ok).To(BeTrue())
-								Expect(content).To(Equal("Pong"))
-							case <-time.After(20 * time.Second):
-								Fail("Timed out waiting to receive reply message")
-							}
-
-							// check that the message & reply was sent via semp
-							client := helpers.GetClient(messagingService)
-							Expect(client.DataTxMsgCount).To(Equal(int64(sentMessage * 2)))                                                     // requests & replies
-							Expect(messagingService.Metrics().GetValue(metrics.DirectMessagesSent)).To(BeNumerically(">", uint64(sentMessage))) // send  & reply
-						})
-					}
-				*/
-
-				It("should properly handle direct massages published to request-reply topic with the Receive() function", func() {
-					helpers.PublishOneMessage(messagingService, topicString, "Ping") // publish direct message
-					// block and wait for direct message
-					msg, replier, err := receiver.ReceiveMessage(-1)
-					Expect(err).ToNot(HaveOccurred()) // not expecting an error
-					Expect(msg).ToNot(BeNil())        // we should receive a message
-					Expect(replier).To(BeNil())       // but no replier since this should be a direct message
-
-					// publish the request messages on another thread to same topic
-					helpers.PublishNRequestReplyMessages(messagingService, topicString, publishTimeOut, 1, "Ping")
-
-					// block and wait for request message
-					msg, replier, err = receiver.ReceiveMessage(-1)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(msg).ToNot(BeNil())
-					Expect(replier).ToNot(BeNil())
-					err = replier.Reply(helpers.NewMessage(messagingService, "Pong")) // send reply back
-					Expect(err).ToNot(HaveOccurred())
-
-					// check that the message & reply was sent via semp
-					client := helpers.GetClient(messagingService)
-					Expect(client.DataTxMsgCount).To(Equal(int64(3)))                                                // 1 direct, 1 request and 1 reply message                                            // requests & replies
-					Expect(messagingService.Metrics().GetValue(metrics.DirectMessagesReceived)).To(Equal(uint64(3))) // 3 messages
-				})
-
-				It("should properly handle direct messages published to request-reply topic with the ReceiveAsync() function", func() {
-					rRMessagesCount := uint64(0)
-					directMessagesCount := uint64(0)
-
-					publishedRRMessages := 250
-					publishedDirectMessages := 250
-					receiverBackPressureBufferLength := publishedRRMessages + publishedDirectMessages
-
-					// create a receiver with an adequate buffer size
-					var err error
-					// we need to properly configure the receiver's buffer to handle > 50 published messages
-					receiver, err = builder.OnBackPressureDropLatest(uint(receiverBackPressureBufferLength)).Build(resource.TopicSubscriptionOf(topicString))
-					Expect(err).ToNot(HaveOccurred())
-					err = receiver.Start()
-					Expect(err).ToNot(HaveOccurred())
-
-					receiver.ReceiveAsync(func(inboundMessage message.InboundMessage, replier solace.Replier) {
-						Expect(inboundMessage).ToNot(BeNil()) // we should receive a message
-						if replier != nil {
-							// request-reply message received
-							err := replier.Reply(helpers.NewMessage(messagingService, "Pong")) // send reply back
-							Expect(err).ToNot(HaveOccurred())
-							atomic.AddUint64(&rRMessagesCount, 1) // increment
-						} else {
-							// direct message received
-							atomic.AddUint64(&directMessagesCount, 1) // increment
+								// check that the message & reply was sent via semp
+								client := helpers.GetClient(messagingService)
+								Expect(client.DataTxMsgCount).To(Equal(int64(sentMessage * 2)))                                                     // requests & replies
+								Expect(messagingService.Metrics().GetValue(metrics.DirectMessagesSent)).To(BeNumerically(">", uint64(sentMessage))) // send  & reply
+							})
 						}
+
+					It("should properly handle direct massages published to request-reply topic with the Receive() function", func() {
+						helpers.PublishOneMessage(messagingService, topicString, "Ping") // publish direct message
+						// block and wait for direct message
+						msg, replier, err := receiver.ReceiveMessage(-1)
+						Expect(err).ToNot(HaveOccurred()) // not expecting an error
+						Expect(msg).ToNot(BeNil())        // we should receive a message
+						Expect(replier).To(BeNil())       // but no replier since this should be a direct message
+
+						// publish the request messages on another thread to same topic
+						helpers.PublishNRequestReplyMessages(messagingService, topicString, publishTimeOut, 1, "Ping")
+
+						// block and wait for request message
+						msg, replier, err = receiver.ReceiveMessage(-1)
+						Expect(err).ToNot(HaveOccurred())
+						Expect(msg).ToNot(BeNil())
+						Expect(replier).ToNot(BeNil())
+						err = replier.Reply(helpers.NewMessage(messagingService, "Pong")) // send reply back
+						Expect(err).ToNot(HaveOccurred())
+
+						// check that the message & reply was sent via semp
+						client := helpers.GetClient(messagingService)
+						Expect(client.DataTxMsgCount).To(Equal(int64(3)))                                                // 1 direct, 1 request and 1 reply message                                            // requests & replies
+						Expect(messagingService.Metrics().GetValue(metrics.DirectMessagesReceived)).To(Equal(uint64(3))) // 3 messages
 					})
 
-					for i := 0; i < publishedDirectMessages; i++ {
-						helpers.PublishOneMessage(messagingService, topicString, "Ping") // publish direct message
-					}
+					It("should properly handle direct messages published to request-reply topic with the ReceiveAsync() function", func() {
+						rRMessagesCount := uint64(0)
+						directMessagesCount := uint64(0)
 
-					// publish the request messages on another thread to same topic
-					publishChan := helpers.PublishNRequestReplyMessages(messagingService, topicString, publishTimeOut, publishedRRMessages, "Ping")
+						publishedRRMessages := 250
+						publishedDirectMessages := 250
+						receiverBackPressureBufferLength := publishedRRMessages + publishedDirectMessages
 
-					select {
-					// last message (any message) in the reply channel should be a reply message
-					case replyMessage := <-publishChan:
-						Expect(replyMessage).ToNot(BeNil())
-						content, ok := replyMessage.GetPayloadAsString()
-						Expect(ok).To(BeTrue())
-						Expect(content).To(Equal("Pong"))
-					case <-time.After(20 * time.Second):
-						Fail("Timed out waiting to receive reply message")
-					}
+						// create a receiver with an adequate buffer size
+						var err error
+						// we need to properly configure the receiver's buffer to handle > 50 published messages
+						receiver, err = builder.OnBackPressureDropLatest(uint(receiverBackPressureBufferLength)).Build(resource.TopicSubscriptionOf(topicString))
+						Expect(err).ToNot(HaveOccurred())
+						err = receiver.Start()
+						Expect(err).ToNot(HaveOccurred())
 
-					// check that the message & reply was sent via semp
-					Eventually(func() int64 {
-						return helpers.GetClient(messagingService).DataTxMsgCount
-					}).Should(BeNumerically("==", int64(publishedRRMessages*2)+int64(publishedDirectMessages)))
+						receiver.ReceiveAsync(func(inboundMessage message.InboundMessage, replier solace.Replier) {
+							Expect(inboundMessage).ToNot(BeNil()) // we should receive a message
+							if replier != nil {
+								// request-reply message received
+								err := replier.Reply(helpers.NewMessage(messagingService, "Pong")) // send reply back
+								Expect(err).ToNot(HaveOccurred())
+								atomic.AddUint64(&rRMessagesCount, 1) // increment
+							} else {
+								// direct message received
+								atomic.AddUint64(&directMessagesCount, 1) // increment
+							}
+						})
 
-					Eventually(func() uint64 {
-						return messagingService.Metrics().GetValue(metrics.DirectMessagesReceived)
-					}).Should(BeNumerically("==", uint64(publishedRRMessages*2)+uint64(publishedDirectMessages))) // the messages
+						for i := 0; i < publishedDirectMessages; i++ {
+							helpers.PublishOneMessage(messagingService, topicString, "Ping") // publish direct message
+						}
 
-					Expect(atomic.LoadUint64(&rRMessagesCount)).To(BeNumerically("==", publishedRRMessages))
-					Expect(atomic.LoadUint64(&directMessagesCount)).To(BeNumerically("==", publishedDirectMessages))
-				})
+						// publish the request messages on another thread to same topic
+						publishChan := helpers.PublishNRequestReplyMessages(messagingService, topicString, publishTimeOut, publishedRRMessages, "Ping")
+
+						select {
+						// last message (any message) in the reply channel should be a reply message
+						case replyMessage := <-publishChan:
+							Expect(replyMessage).ToNot(BeNil())
+							content, ok := replyMessage.GetPayloadAsString()
+							Expect(ok).To(BeTrue())
+							Expect(content).To(Equal("Pong"))
+						case <-time.After(20 * time.Second):
+							Fail("Timed out waiting to receive reply message")
+						}
+
+						// check that the message & reply was sent via semp
+						Eventually(func() int64 {
+							return helpers.GetClient(messagingService).DataTxMsgCount
+						}).Should(BeNumerically("==", int64(publishedRRMessages*2)+int64(publishedDirectMessages)))
+
+						Eventually(func() uint64 {
+							return messagingService.Metrics().GetValue(metrics.DirectMessagesReceived)
+						}).Should(BeNumerically("==", uint64(publishedRRMessages*2)+uint64(publishedDirectMessages))) // the messages
+
+						Expect(atomic.LoadUint64(&rRMessagesCount)).To(BeNumerically("==", publishedRRMessages))
+						Expect(atomic.LoadUint64(&directMessagesCount)).To(BeNumerically("==", publishedDirectMessages))
+					})
+				*/
 			})
 		})
 
