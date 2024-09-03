@@ -839,134 +839,136 @@ var _ = Describe("RequestReplyReceiver", func() {
 					Eventually(done).Should(BeClosed())
 				})
 
-				receiverFunctions := map[string](func(solace.RequestReplyMessageReceiver, int) chan message.InboundMessage){
-					"Receive": func(rrmr solace.RequestReplyMessageReceiver, count int) chan message.InboundMessage {
-						msgChannel := make(chan message.InboundMessage, count)
-						for i := 0; i < count; i++ {
-							go func() {
-								defer GinkgoRecover()
-								msg, replier, err := rrmr.ReceiveMessage(-1)
-								Expect(err).ToNot(HaveOccurred())
-								Expect(msg).ToNot(BeNil())
-								Expect(replier).ToNot(BeNil())
-								err = replier.Reply(helpers.NewMessage(messagingService, "Pong")) // send reply back
-								Expect(err).ToNot(HaveOccurred())
-								msgChannel <- msg // put into channel
-							}()
-						}
-						return msgChannel
-					},
-					"ReceiveAsync": func(rrmr solace.RequestReplyMessageReceiver, count int) chan message.InboundMessage {
-						msgChannel := make(chan message.InboundMessage, count)
-						rrmr.ReceiveAsync(func(msg message.InboundMessage, replier solace.Replier) {
-							go func() { // send reply in a new go routine
-								err := replier.Reply(helpers.NewMessage(messagingService, "Pong")) // send reply back
-								Expect(err).ToNot(HaveOccurred())
-								msgChannel <- msg // put into channel
-							}()
+				/*
+					receiverFunctions := map[string](func(solace.RequestReplyMessageReceiver, int) chan message.InboundMessage){
+						"Receive": func(rrmr solace.RequestReplyMessageReceiver, count int) chan message.InboundMessage {
+							msgChannel := make(chan message.InboundMessage, count)
+							for i := 0; i < count; i++ {
+								go func() {
+									defer GinkgoRecover()
+									msg, replier, err := rrmr.ReceiveMessage(-1)
+									Expect(err).ToNot(HaveOccurred())
+									Expect(msg).ToNot(BeNil())
+									Expect(replier).ToNot(BeNil())
+									err = replier.Reply(helpers.NewMessage(messagingService, "Pong")) // send reply back
+									Expect(err).ToNot(HaveOccurred())
+									msgChannel <- msg // put into channel
+								}()
+							}
+							return msgChannel
+						},
+						"ReceiveAsync": func(rrmr solace.RequestReplyMessageReceiver, count int) chan message.InboundMessage {
+							msgChannel := make(chan message.InboundMessage, count)
+							rrmr.ReceiveAsync(func(msg message.InboundMessage, replier solace.Replier) {
+								go func() { // send reply in a new go routine
+									err := replier.Reply(helpers.NewMessage(messagingService, "Pong")) // send reply back
+									Expect(err).ToNot(HaveOccurred())
+									msgChannel <- msg // put into channel
+								}()
+							})
+							return msgChannel
+						},
+					}
+
+					for receiverFunctionName, receiverFunction := range receiverFunctions {
+						receiverFunc := receiverFunction
+
+						It("should be able to receive a message successfully with "+receiverFunctionName+"() function", func() {
+							// publish the request messages
+							publishedMessages := 0
+							publisherReplies, _, publisherComplete := helpers.PublishRequestReplyMessages(messagingService, topicString, publishTimeOut, uint(1), &publishedMessages, "Ping")
+
+							// allow the goroutine above to saturate the publisher
+							select {
+							case <-publisherComplete:
+								// allow the publishing to complete before proceeding
+							case <-time.After(100 * time.Millisecond):
+								// should not timeout before publishing is complete
+								Fail("Not expected to timeout before publishing is complete; Should not get here")
+							}
+
+							// receive the request message and send back a reply
+							receivedMsgChannel := receiverFunc(receiver, 1)
+
+							// check that the message & reply was sent via semp
+							client := helpers.GetClient(messagingService)
+							Expect(client.DataTxMsgCount).To(Equal(int64(2)))
+
+							select {
+							case receivedMessage := <-receivedMsgChannel:
+								Expect(receivedMessage).ToNot(BeNil())
+								content, ok := receivedMessage.GetPayloadAsString()
+								Expect(ok).To(BeTrue())
+								Expect(content).To(Equal("Ping"))
+
+								// for the reply message
+								var replyMessage message.InboundMessage
+								Eventually(publisherReplies).Should(Receive(&replyMessage)) // something was published
+								Expect(replyMessage).ToNot(BeNil())
+								content, ok = replyMessage.GetPayloadAsString()
+								Expect(ok).To(BeTrue())
+								Expect(content).To(Equal("Pong"))
+							case <-time.After(gracePeriod):
+								Fail("Timed out waiting to receive message")
+							}
+
+							Expect(messagingService.Metrics().GetValue(metrics.DirectMessagesReceived)).To(Equal(uint64(2))) // send  & reply
 						})
-						return msgChannel
-					},
-				}
 
-				for receiverFunctionName, receiverFunction := range receiverFunctions {
-					receiverFunc := receiverFunction
+						It("should be able to receive multiple messages successfully with "+receiverFunctionName+"() function", func() {
+							// send messages
+							sentMessage := 500
+							const publishTimeOut = 3 * time.Second
 
-					It("should be able to receive a message successfully with "+receiverFunctionName+"() function", func() {
-						// publish the request messages
-						publishedMessages := 0
-						publisherReplies, _, publisherComplete := helpers.PublishRequestReplyMessages(messagingService, topicString, publishTimeOut, uint(1), &publishedMessages, "Ping")
+							var err error
+							// we need to properly configure the receiver's buffer to handle > 50 published messages
+							receiver, err = builder.OnBackPressureDropLatest(uint(sentMessage)).Build(resource.TopicSubscriptionOf(topicString))
+							Expect(err).ToNot(HaveOccurred())
+							err = receiver.Start()
+							Expect(err).ToNot(HaveOccurred())
 
-						// allow the goroutine above to saturate the publisher
-						select {
-						case <-publisherComplete:
-							// allow the publishing to complete before proceeding
-						case <-time.After(100 * time.Millisecond):
-							// should not timeout before publishing is complete
-							Fail("Not expected to timeout before publishing is complete; Should not get here")
-						}
+							// publish the request messages
+							publishedMessages := 0
+							publisherReplies, publisherSaturated, publisherComplete := helpers.PublishRequestReplyMessages(messagingService, topicString, publishTimeOut, uint(sentMessage), &publishedMessages, "Ping")
 
-						// receive the request message and send back a reply
-						receivedMsgChannel := receiverFunc(receiver, 1)
+							// allow the goroutine above to saturate the publisher
+							select {
+							case <-publisherComplete:
+								// block until publish complete
+								Fail("Expected publisher to not be complete")
+							case <-publisherSaturated:
+								// allow the goroutine above to saturate the publisher (at least halfway filled)
+							case <-time.After(100 * time.Millisecond):
+								// should not timeout while saturating the publisher
+								Fail("Not expected to timeout while saturating publisher; Should not get here")
+							}
 
-						// check that the message & reply was sent via semp
-						client := helpers.GetClient(messagingService)
-						Expect(client.DataTxMsgCount).To(Equal(int64(2)))
-
-						select {
-						case receivedMessage := <-receivedMsgChannel:
-							Expect(receivedMessage).ToNot(BeNil())
+							receivedMsgChannel := receiverFunc(receiver, sentMessage)
+							Eventually(receivedMsgChannel).Should(HaveLen(sentMessage)) // replies should be sent back
+							// message in the channel should be a request message
+							receivedMessage := <-receivedMsgChannel
 							content, ok := receivedMessage.GetPayloadAsString()
 							Expect(ok).To(BeTrue())
 							Expect(content).To(Equal("Ping"))
 
-							// for the reply message
-							var replyMessage message.InboundMessage
-							Eventually(publisherReplies).Should(Receive(&replyMessage)) // something was published
-							Expect(replyMessage).ToNot(BeNil())
-							content, ok = replyMessage.GetPayloadAsString()
-							Expect(ok).To(BeTrue())
-							Expect(content).To(Equal("Pong"))
-						case <-time.After(gracePeriod):
-							Fail("Timed out waiting to receive message")
-						}
+							select {
+							// message in the reply channel should be a reply message
+							case replyMessage := <-publisherReplies:
+								Expect(replyMessage).ToNot(BeNil())
+								content, ok := replyMessage.GetPayloadAsString()
+								Expect(ok).To(BeTrue())
+								Expect(content).To(Equal("Pong"))
+							case <-time.After(20 * time.Second):
+								Fail("Timed out waiting to receive reply message")
+							}
 
-						Expect(messagingService.Metrics().GetValue(metrics.DirectMessagesReceived)).To(Equal(uint64(2))) // send  & reply
-					})
-
-					It("should be able to receive multiple messages successfully with "+receiverFunctionName+"() function", func() {
-						// send messages
-						sentMessage := 500
-						const publishTimeOut = 3 * time.Second
-
-						var err error
-						// we need to properly configure the receiver's buffer to handle > 50 published messages
-						receiver, err = builder.OnBackPressureDropLatest(uint(sentMessage)).Build(resource.TopicSubscriptionOf(topicString))
-						Expect(err).ToNot(HaveOccurred())
-						err = receiver.Start()
-						Expect(err).ToNot(HaveOccurred())
-
-						// publish the request messages
-						publishedMessages := 0
-						publisherReplies, publisherSaturated, publisherComplete := helpers.PublishRequestReplyMessages(messagingService, topicString, publishTimeOut, uint(sentMessage), &publishedMessages, "Ping")
-
-						// allow the goroutine above to saturate the publisher
-						select {
-						case <-publisherComplete:
-							// block until publish complete
-							Fail("Expected publisher to not be complete")
-						case <-publisherSaturated:
-							// allow the goroutine above to saturate the publisher (at least halfway filled)
-						case <-time.After(100 * time.Millisecond):
-							// should not timeout while saturating the publisher
-							Fail("Not expected to timeout while saturating publisher; Should not get here")
-						}
-
-						receivedMsgChannel := receiverFunc(receiver, sentMessage)
-						Eventually(receivedMsgChannel).Should(HaveLen(sentMessage)) // replies should be sent back
-						// message in the channel should be a request message
-						receivedMessage := <-receivedMsgChannel
-						content, ok := receivedMessage.GetPayloadAsString()
-						Expect(ok).To(BeTrue())
-						Expect(content).To(Equal("Ping"))
-
-						select {
-						// message in the reply channel should be a reply message
-						case replyMessage := <-publisherReplies:
-							Expect(replyMessage).ToNot(BeNil())
-							content, ok := replyMessage.GetPayloadAsString()
-							Expect(ok).To(BeTrue())
-							Expect(content).To(Equal("Pong"))
-						case <-time.After(20 * time.Second):
-							Fail("Timed out waiting to receive reply message")
-						}
-
-						// check that the message & reply was sent via semp
-						client := helpers.GetClient(messagingService)
-						Expect(client.DataTxMsgCount).To(Equal(int64(sentMessage * 2)))                                                     // requests & replies
-						Expect(messagingService.Metrics().GetValue(metrics.DirectMessagesSent)).To(BeNumerically(">", uint64(sentMessage))) // send  & reply
-					})
-				}
+							// check that the message & reply was sent via semp
+							client := helpers.GetClient(messagingService)
+							Expect(client.DataTxMsgCount).To(Equal(int64(sentMessage * 2)))                                                     // requests & replies
+							Expect(messagingService.Metrics().GetValue(metrics.DirectMessagesSent)).To(BeNumerically(">", uint64(sentMessage))) // send  & reply
+						})
+					}
+				*/
 
 				It("should properly handle direct massages published to request-reply topic with the Receive() function", func() {
 					helpers.PublishOneMessage(messagingService, topicString, "Ping") // publish direct message

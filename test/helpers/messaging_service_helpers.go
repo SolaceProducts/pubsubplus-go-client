@@ -338,9 +338,7 @@ func PublishNRequestReplyMessages(messagingService solace.MessagingService, topi
 	// A handler for the request-reply publisher
 	replyChannel := make(chan message.InboundMessage)
 	replyHandler := func(inboundMessage message.InboundMessage, userContext interface{}, err error) {
-		go func() {
-			replyChannel <- inboundMessage
-		}()
+		replyChannel <- inboundMessage
 	}
 
 	publisher, err := messagingService.RequestReply().CreateRequestReplyMessagePublisherBuilder().OnBackPressureReject(0).Build()
