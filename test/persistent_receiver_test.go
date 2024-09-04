@@ -20,6 +20,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+    "log/slog"
+    "net/url"
 
 	toxiproxy "github.com/Shopify/toxiproxy/v2/client"
 	. "github.com/onsi/ginkgo/v2"
@@ -148,6 +150,35 @@ var _ = Describe("PersistentReceiver", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(fmt.Sprint(receiver)).To(ContainSubstring(fmt.Sprintf("%p", receiver)))
 		})
+		Context("with a connected messaging service and specially formatted queue", func() {
+            slog.SetLogLoggerLevel(slog.LevelDebug)
+            const basicQueueName = "test_invalid_durability_on_bind_raises_exception"
+            modifiedQueueName := "#P2P/QTMP/v:solbroker/" + basicQueueName
+
+			BeforeEach(func() {
+                fmt.Println("Starting test")
+				helpers.ConnectMessagingService(messagingService)
+				helpers.CreateQueue(modifiedQueueName)
+			})
+
+			AfterEach(func() {
+				if messagingService.IsConnected() {
+					helpers.DisconnectMessagingService(messagingService)
+				}
+				helpers.DeleteQueue(url.QueryEscape(modifiedQueueName))
+			})
+
+            FDescribe("Invalid Queue or Topic Endpoint", func() {
+                It("can return an error when configured to bind to a non-durable queue but attempts to bind to a durable queue.", func() {
+                    fmt.Println("Got to It section")
+                    receiver := helpers.NewPersistentReceiver(messagingService, resource.QueueNonDurableExclusive(basicQueueName))
+                    err := receiver.Start()
+                    Expect(err).ShouldNot(BeNil())
+                    fmt.Printf("err is: %s", err.Error())
+                    helpers.ValidateNativeError(err, subcode.InvalidDurability)
+                })
+            })
+    })
 
 		Context("with a connected messaging service and queue", func() {
 
