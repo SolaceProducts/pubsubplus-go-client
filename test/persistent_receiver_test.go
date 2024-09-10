@@ -168,7 +168,7 @@ var _ = Describe("PersistentReceiver", func() {
 				helpers.DeleteQueue(url.QueryEscape(modifiedQueueName))
 			})
 
-            FDescribe("Invalid Queue or Topic Endpoint", func() {
+            Describe("Invalid Queue or Topic Endpoint", func() {
                 It("can return an error when configured to bind to a non-durable queue but attempts to bind to a durable queue.", func() {
                     fmt.Println("Got to It section")
                     receiver := helpers.NewPersistentReceiver(messagingService, resource.QueueNonDurableExclusive(basicQueueName))
