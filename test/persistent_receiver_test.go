@@ -796,30 +796,30 @@ var _ = Describe("PersistentReceiver", func() {
 						Expect(receiver.Ack(msg)).ToNot(HaveOccurred())
 					}
 				})
-				// It("receives all messages when connecting to a queue with spooled messages with receive async added later", func() {
-				// 	receiver := helpers.NewPersistentReceiver(messagingService, resource.QueueDurableExclusive(queueName))
-				// 	Expect(receiver.Start()).ToNot(HaveOccurred())
-				// 	// We want to assert that we get at least the buffer size of messages received
-				// 	Eventually(func() uint64 {
-				// 		return messagingService.Metrics().GetValue(metrics.PersistentMessagesReceived)
-				// 	}).Should(BeNumerically(">=", 50))
-				// 	// and less than the buffer size plus the max window size, assuming we have paused message receiption
-				// 	Consistently(func() uint64 {
-				// 		return messagingService.Metrics().GetValue(metrics.PersistentMessagesReceived)
-				// 	}).Should(BeNumerically("<=", 50+255))
-				// 	messagesReceived := make(chan message.InboundMessage, numQueuedMessages)
-				// 	Expect(receiver.ReceiveAsync(func(inboundMessage message.InboundMessage) {
-				// 		messagesReceived <- inboundMessage
-				// 	}))
-				// 	for i := 0; i < numQueuedMessages; i++ {
-				// 		var inboundMessage message.InboundMessage
-				// 		Eventually(messagesReceived).Should(Receive(&inboundMessage))
-				// 		corrID, ok := inboundMessage.GetCorrelationID()
-				// 		Expect(ok).To(BeTrue())
-				// 		Expect(corrID).To(Equal(fmt.Sprint(i)))
-				// 		Expect(receiver.Ack(inboundMessage)).ToNot(HaveOccurred())
-				// 	}
-				// })
+				It("receives all messages when connecting to a queue with spooled messages with receive async added later", func() {
+					receiver := helpers.NewPersistentReceiver(messagingService, resource.QueueDurableExclusive(queueName))
+					Expect(receiver.Start()).ToNot(HaveOccurred())
+					// We want to assert that we get at least the buffer size of messages received
+					Eventually(func() uint64 {
+						return messagingService.Metrics().GetValue(metrics.PersistentMessagesReceived)
+					}).Should(BeNumerically(">=", 50))
+					// and less than the buffer size plus the max window size, assuming we have paused message receiption
+					Consistently(func() uint64 {
+						return messagingService.Metrics().GetValue(metrics.PersistentMessagesReceived)
+					}).Should(BeNumerically("<=", 50+255))
+					messagesReceived := make(chan message.InboundMessage, numQueuedMessages)
+					Expect(receiver.ReceiveAsync(func(inboundMessage message.InboundMessage) {
+						messagesReceived <- inboundMessage
+					}))
+					for i := 0; i < numQueuedMessages; i++ {
+						var inboundMessage message.InboundMessage
+						Eventually(messagesReceived).Should(Receive(&inboundMessage))
+						corrID, ok := inboundMessage.GetCorrelationID()
+						Expect(ok).To(BeTrue())
+						Expect(corrID).To(Equal(fmt.Sprint(i)))
+						Expect(receiver.Ack(inboundMessage)).ToNot(HaveOccurred())
+					}
+				})
 			})
 
 			DescribeTable("Activation Passivation",
