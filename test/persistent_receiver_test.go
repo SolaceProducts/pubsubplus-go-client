@@ -796,6 +796,8 @@ var _ = Describe("PersistentReceiver", func() {
 						Expect(receiver.Ack(msg)).ToNot(HaveOccurred())
 					}
 				})
+				// Todo: (SOL-124616) Commented out this test to fix pipeline failure on Linux Musl nodes
+				//
 				// It("receives all messages when connecting to a queue with spooled messages with receive async added later", func() {
 				// 	receiver := helpers.NewPersistentReceiver(messagingService, resource.QueueDurableExclusive(queueName))
 				// 	Expect(receiver.Start()).ToNot(HaveOccurred())
