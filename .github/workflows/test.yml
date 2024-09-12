@@ -29,6 +29,7 @@ jobs:
         with:
           path: |
             ./unitcoverage.out
+          overwrite: true
 
   # this job runs linux based tests
   Linux:
@@ -121,4 +122,5 @@ jobs:
             ./test/reports/report.xml
             ./test/reports/coverage.out
             ./test/diagnostics.tgz
+          overwrite: true
 
