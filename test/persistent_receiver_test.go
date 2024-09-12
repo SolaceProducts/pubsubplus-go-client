@@ -590,60 +590,60 @@ var _ = Describe("PersistentReceiver", func() {
 					Expect(receiver.Resume()).ToNot(HaveOccurred())
 					Eventually(msgChan).Should(Receive(Not(BeNil())))
 				})
-				// It("can pause and resume messaging repeatedly", func() {
-				// 	numMessages := 1000
-				// 	msgChan := make(chan message.InboundMessage, numMessages)
-				// 	Expect(
-				// 		receiver.ReceiveAsync(func(inboundMessage message.InboundMessage) {
-				// 			msgChan <- inboundMessage
-				// 		}),
-				// 	).ToNot(HaveOccurred())
-				// 	pauseDone := make(chan struct{})
-				// 	resumeDone := make(chan struct{})
-				// 	publishDone := make(chan struct{})
-				// 	go func() {
-				// 		defer GinkgoRecover()
-				// 		helpers.PublishNPersistentMessages(messagingService, topicString, numMessages)
-				// 		close(publishDone)
-				// 	}()
-				// 	go func() {
-				// 		defer GinkgoRecover()
-				// 	pauseLoop:
-				// 		for {
-				// 			select {
-				// 			case <-publishDone:
-				// 				break pauseLoop
-				// 			default:
-				// 				Expect(receiver.Pause()).ToNot(HaveOccurred())
-				// 			}
-				// 		}
-				// 		close(pauseDone)
-				// 	}()
-				// 	go func() {
-				// 		defer GinkgoRecover()
-				// 	resumeLoop:
-				// 		for {
-				// 			select {
-				// 			case <-publishDone:
-				// 				break resumeLoop
-				// 			default:
-				// 				Expect(receiver.Resume()).ToNot(HaveOccurred())
-				// 			}
-				// 		}
-				// 		close(resumeDone)
-				// 	}()
+				It("can pause and resume messaging repeatedly", func() {
+					numMessages := 1000
+					msgChan := make(chan message.InboundMessage, numMessages)
+					Expect(
+						receiver.ReceiveAsync(func(inboundMessage message.InboundMessage) {
+							msgChan <- inboundMessage
+						}),
+					).ToNot(HaveOccurred())
+					pauseDone := make(chan struct{})
+					resumeDone := make(chan struct{})
+					publishDone := make(chan struct{})
+					go func() {
+						defer GinkgoRecover()
+						helpers.PublishNPersistentMessages(messagingService, topicString, numMessages)
+						close(publishDone)
+					}()
+					go func() {
+						defer GinkgoRecover()
+					pauseLoop:
+						for {
+							select {
+							case <-publishDone:
+								break pauseLoop
+							default:
+								Expect(receiver.Pause()).ToNot(HaveOccurred())
+							}
+						}
+						close(pauseDone)
+					}()
+					go func() {
+						defer GinkgoRecover()
+					resumeLoop:
+						for {
+							select {
+							case <-publishDone:
+								break resumeLoop
+							default:
+								Expect(receiver.Resume()).ToNot(HaveOccurred())
+							}
+						}
+						close(resumeDone)
+					}()
 
-				// 	Eventually(publishDone, 10*time.Second).Should(BeClosed())
-				// 	Eventually(pauseDone).Should(BeClosed())
-				// 	Eventually(resumeDone).Should(BeClosed())
+					Eventually(publishDone, 10*time.Second).Should(BeClosed())
+					Eventually(pauseDone).Should(BeClosed())
+					Eventually(resumeDone).Should(BeClosed())
 
-				// 	Expect(receiver.Resume()).ToNot(HaveOccurred())
+					Expect(receiver.Resume()).ToNot(HaveOccurred())
 
-				// 	// Make sure we receive all messages
-				// 	for i := 0; i < numMessages; i++ {
-				// 		Eventually(msgChan).Should(Receive())
-				// 	}
-				// })
+					// Make sure we receive all messages
+					for i := 0; i < numMessages; i++ {
+						Eventually(msgChan).Should(Receive())
+					}
+				})
 				It("does not receive multiple messages with overlapping subscriptions", func() {
 					msgChan := make(chan message.InboundMessage)
 					Expect(
@@ -796,30 +796,30 @@ var _ = Describe("PersistentReceiver", func() {
 						Expect(receiver.Ack(msg)).ToNot(HaveOccurred())
 					}
 				})
-				It("receives all messages when connecting to a queue with spooled messages with receive async added later", func() {
-					receiver := helpers.NewPersistentReceiver(messagingService, resource.QueueDurableExclusive(queueName))
-					Expect(receiver.Start()).ToNot(HaveOccurred())
-					// We want to assert that we get at least the buffer size of messages received
-					Eventually(func() uint64 {
-						return messagingService.Metrics().GetValue(metrics.PersistentMessagesReceived)
-					}).Should(BeNumerically(">=", 50))
-					// and less than the buffer size plus the max window size, assuming we have paused message receiption
-					Consistently(func() uint64 {
-						return messagingService.Metrics().GetValue(metrics.PersistentMessagesReceived)
-					}).Should(BeNumerically("<=", 50+255))
-					messagesReceived := make(chan message.InboundMessage, numQueuedMessages)
-					Expect(receiver.ReceiveAsync(func(inboundMessage message.InboundMessage) {
-						messagesReceived <- inboundMessage
-					}))
-					for i := 0; i < numQueuedMessages; i++ {
-						var inboundMessage message.InboundMessage
-						Eventually(messagesReceived).Should(Receive(&inboundMessage))
-						corrID, ok := inboundMessage.GetCorrelationID()
-						Expect(ok).To(BeTrue())
-						Expect(corrID).To(Equal(fmt.Sprint(i)))
-						Expect(receiver.Ack(inboundMessage)).ToNot(HaveOccurred())
-					}
-				})
+				// It("receives all messages when connecting to a queue with spooled messages with receive async added later", func() {
+				// 	receiver := helpers.NewPersistentReceiver(messagingService, resource.QueueDurableExclusive(queueName))
+				// 	Expect(receiver.Start()).ToNot(HaveOccurred())
+				// 	// We want to assert that we get at least the buffer size of messages received
+				// 	Eventually(func() uint64 {
+				// 		return messagingService.Metrics().GetValue(metrics.PersistentMessagesReceived)
+				// 	}).Should(BeNumerically(">=", 50))
+				// 	// and less than the buffer size plus the max window size, assuming we have paused message receiption
+				// 	Consistently(func() uint64 {
+				// 		return messagingService.Metrics().GetValue(metrics.PersistentMessagesReceived)
+				// 	}).Should(BeNumerically("<=", 50+255))
+				// 	messagesReceived := make(chan message.InboundMessage, numQueuedMessages)
+				// 	Expect(receiver.ReceiveAsync(func(inboundMessage message.InboundMessage) {
+				// 		messagesReceived <- inboundMessage
+				// 	}))
+				// 	for i := 0; i < numQueuedMessages; i++ {
+				// 		var inboundMessage message.InboundMessage
+				// 		Eventually(messagesReceived).Should(Receive(&inboundMessage))
+				// 		corrID, ok := inboundMessage.GetCorrelationID()
+				// 		Expect(ok).To(BeTrue())
+				// 		Expect(corrID).To(Equal(fmt.Sprint(i)))
+				// 		Expect(receiver.Ack(inboundMessage)).ToNot(HaveOccurred())
+				// 	}
+				// })
 			})
 
 			DescribeTable("Activation Passivation",

@@ -25,7 +25,7 @@ jobs:
         run: go test -coverprofile ./unitcoverage.out ./...
       - name: Uploads artifacts
         if: ${{ always() }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           path: |
             ./unitcoverage.out
@@ -114,7 +114,7 @@ jobs:
 
       - name: Uploads artifacts
         if: ${{ always() }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           path: |
             ./unitcoverage.out
