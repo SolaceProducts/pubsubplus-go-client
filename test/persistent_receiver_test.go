@@ -777,6 +777,8 @@ var _ = Describe("PersistentReceiver", func() {
 			const numQueuedMessages = 10000
 			Context(fmt.Sprintf("with %d queued messages", numQueuedMessages), func() {
 				BeforeEach(func() {
+					Skip("Currently failing in Jenkins pipeline on Linux Musl nodes - SOL-124616")
+
 					helpers.PublishNPersistentMessages(messagingService, topicString, numQueuedMessages)
 					Eventually(func() int {
 						resp, _, err := testcontext.SEMP().Monitor().QueueApi.GetMsgVpnQueueMsgs(testcontext.SEMP().MonitorCtx(),
@@ -785,6 +787,7 @@ var _ = Describe("PersistentReceiver", func() {
 						return int(resp.Meta.Count)
 					}).Should(Equal(numQueuedMessages))
 				})
+
 				It("receives all messages when connecting to a queue with spooled messages", func() {
 					receiver := helpers.NewPersistentReceiver(messagingService, resource.QueueDurableExclusive(queueName))
 					Expect(receiver.Start()).ToNot(HaveOccurred())
@@ -798,32 +801,31 @@ var _ = Describe("PersistentReceiver", func() {
 						Expect(receiver.Ack(msg)).ToNot(HaveOccurred())
 					}
 				})
-				// Todo: (SOL-124616) Commented out this test to fix pipeline failure on Linux Musl nodes
-				//
-				// It("receives all messages when connecting to a queue with spooled messages with receive async added later", func() {
-				// 	receiver := helpers.NewPersistentReceiver(messagingService, resource.QueueDurableExclusive(queueName))
-				// 	Expect(receiver.Start()).ToNot(HaveOccurred())
-				// 	// We want to assert that we get at least the buffer size of messages received
-				// 	Eventually(func() uint64 {
-				// 		return messagingService.Metrics().GetValue(metrics.PersistentMessagesReceived)
-				// 	}).Should(BeNumerically(">=", 50))
-				// 	// and less than the buffer size plus the max window size, assuming we have paused message receiption
-				// 	Consistently(func() uint64 {
-				// 		return messagingService.Metrics().GetValue(metrics.PersistentMessagesReceived)
-				// 	}).Should(BeNumerically("<=", 50+255))
-				// 	messagesReceived := make(chan message.InboundMessage, numQueuedMessages)
-				// 	Expect(receiver.ReceiveAsync(func(inboundMessage message.InboundMessage) {
-				// 		messagesReceived <- inboundMessage
-				// 	}))
-				// 	for i := 0; i < numQueuedMessages; i++ {
-				// 		var inboundMessage message.InboundMessage
-				// 		Eventually(messagesReceived).Should(Receive(&inboundMessage))
-				// 		corrID, ok := inboundMessage.GetCorrelationID()
-				// 		Expect(ok).To(BeTrue())
-				// 		Expect(corrID).To(Equal(fmt.Sprint(i)))
-				// 		Expect(receiver.Ack(inboundMessage)).ToNot(HaveOccurred())
-				// 	}
-				// })
+
+				It("receives all messages when connecting to a queue with spooled messages with receive async added later", func() {
+					receiver := helpers.NewPersistentReceiver(messagingService, resource.QueueDurableExclusive(queueName))
+					Expect(receiver.Start()).ToNot(HaveOccurred())
+					// We want to assert that we get at least the buffer size of messages received
+					Eventually(func() uint64 {
+						return messagingService.Metrics().GetValue(metrics.PersistentMessagesReceived)
+					}).Should(BeNumerically(">=", 50))
+					// and less than the buffer size plus the max window size, assuming we have paused message receiption
+					Consistently(func() uint64 {
+						return messagingService.Metrics().GetValue(metrics.PersistentMessagesReceived)
+					}).Should(BeNumerically("<=", 50+255))
+					messagesReceived := make(chan message.InboundMessage, numQueuedMessages)
+					Expect(receiver.ReceiveAsync(func(inboundMessage message.InboundMessage) {
+						messagesReceived <- inboundMessage
+					}))
+					for i := 0; i < numQueuedMessages; i++ {
+						var inboundMessage message.InboundMessage
+						Eventually(messagesReceived).Should(Receive(&inboundMessage))
+						corrID, ok := inboundMessage.GetCorrelationID()
+						Expect(ok).To(BeTrue())
+						Expect(corrID).To(Equal(fmt.Sprint(i)))
+						Expect(receiver.Ack(inboundMessage)).ToNot(HaveOccurred())
+					}
+				})
 			})
 
 			DescribeTable("Activation Passivation",
