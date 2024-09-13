@@ -377,7 +377,6 @@ var _ = Describe("MessagingService Lifecycle", func() {
 				var invalidServerCertificate string
 				JustBeforeEach(func() {
 					Skip("Currently failing in Git actions - SOL-117804")
-					return
 
 					certContent, err := ioutil.ReadFile(invalidServerCertificate)
 					Expect(err).ToNot(HaveOccurred())
@@ -401,7 +400,7 @@ var _ = Describe("MessagingService Lifecycle", func() {
 				})
 				AfterEach(func() {
 					Skip("Currently failing in Git actions - SOL-117804")
-					return
+
 					certContent, err := ioutil.ReadFile(constants.ValidServerCertificate)
 					Expect(err).ToNot(HaveOccurred())
 					// Git actions seems to have some trouble with this particular SEMP request and occasionally gets EOF errors
