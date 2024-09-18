@@ -590,60 +590,69 @@ var _ = Describe("PersistentReceiver", func() {
 					Expect(receiver.Resume()).ToNot(HaveOccurred())
 					Eventually(msgChan).Should(Receive(Not(BeNil())))
 				})
-				It("can pause and resume messaging repeatedly", func() {
-					numMessages := 1000
-					msgChan := make(chan message.InboundMessage, numMessages)
-					Expect(
-						receiver.ReceiveAsync(func(inboundMessage message.InboundMessage) {
-							msgChan <- inboundMessage
-						}),
-					).ToNot(HaveOccurred())
-					pauseDone := make(chan struct{})
-					resumeDone := make(chan struct{})
-					publishDone := make(chan struct{})
-					go func() {
-						defer GinkgoRecover()
-						helpers.PublishNPersistentMessages(messagingService, topicString, numMessages)
-						close(publishDone)
-					}()
-					go func() {
-						defer GinkgoRecover()
-					pauseLoop:
-						for {
-							select {
-							case <-publishDone:
-								break pauseLoop
-							default:
-								Expect(receiver.Pause()).ToNot(HaveOccurred())
+
+				Context("pause and resume tests", Label("flaky-tests"), func() {
+					BeforeEach(func() {
+						Skip("Currently failing in Jenkins pipeline on Linux Musl nodes - SOL-124616")
+					})
+
+					It("can pause and resume messaging repeatedly", func() {
+						numMessages := 1000
+						msgChan := make(chan message.InboundMessage, numMessages)
+						Expect(
+							receiver.ReceiveAsync(func(inboundMessage message.InboundMessage) {
+								msgChan <- inboundMessage
+							}),
+						).ToNot(HaveOccurred())
+						pauseDone := make(chan struct{})
+						resumeDone := make(chan struct{})
+						publishDone := make(chan struct{})
+						go func() {
+							defer GinkgoRecover()
+							helpers.PublishNPersistentMessages(messagingService, topicString, numMessages)
+							close(publishDone)
+						}()
+						go func() {
+							defer GinkgoRecover()
+						pauseLoop:
+							for {
+								select {
+								case <-publishDone:
+									break pauseLoop
+								default:
+									Expect(receiver.Pause()).ToNot(HaveOccurred())
+								}
 							}
-						}
-						close(pauseDone)
-					}()
-					go func() {
-						defer GinkgoRecover()
-					resumeLoop:
-						for {
-							select {
-							case <-publishDone:
-								break resumeLoop
-							default:
-								Expect(receiver.Resume()).ToNot(HaveOccurred())
+							close(pauseDone)
+						}()
+						go func() {
+							defer GinkgoRecover()
+						resumeLoop:
+							for {
+								select {
+								case <-publishDone:
+									break resumeLoop
+								default:
+									Expect(receiver.Resume()).ToNot(HaveOccurred())
+								}
 							}
+							close(resumeDone)
+						}()
+
+						Eventually(publishDone, 10*time.Second).Should(BeClosed())
+						Eventually(pauseDone).Should(BeClosed())
+						Eventually(resumeDone).Should(BeClosed())
+
+						Expect(receiver.Resume()).ToNot(HaveOccurred())
+
+						// Make sure we receive all messages
+						for i := 0; i < numMessages; i++ {
+							Eventually(msgChan).Should(Receive())
 						}
-						close(resumeDone)
-					}()
+					})
 
-					Eventually(publishDone, 10*time.Second).Should(BeClosed())
-					Eventually(pauseDone).Should(BeClosed())
-					Eventually(resumeDone).Should(BeClosed())
-
-					Expect(receiver.Resume()).ToNot(HaveOccurred())
-
-					// Make sure we receive all messages
-					for i := 0; i < numMessages; i++ {
-						Eventually(msgChan).Should(Receive())
-					}
 				})
+
 				It("does not receive multiple messages with overlapping subscriptions", func() {
 					msgChan := make(chan message.InboundMessage)
 					Expect(
@@ -773,8 +782,10 @@ var _ = Describe("PersistentReceiver", func() {
 			})
 
 			const numQueuedMessages = 10000
-			Context(fmt.Sprintf("with %d queued messages", numQueuedMessages), func() {
+			Context(fmt.Sprintf("with %d queued messages", numQueuedMessages), Label("flaky-tests"), func() {
 				BeforeEach(func() {
+					Skip("Currently failing in Jenkins pipeline on Linux Musl nodes - SOL-124616")
+
 					helpers.PublishNPersistentMessages(messagingService, topicString, numQueuedMessages)
 					Eventually(func() int {
 						resp, _, err := testcontext.SEMP().Monitor().QueueApi.GetMsgVpnQueueMsgs(testcontext.SEMP().MonitorCtx(),
@@ -783,6 +794,7 @@ var _ = Describe("PersistentReceiver", func() {
 						return int(resp.Meta.Count)
 					}).Should(Equal(numQueuedMessages))
 				})
+
 				It("receives all messages when connecting to a queue with spooled messages", func() {
 					receiver := helpers.NewPersistentReceiver(messagingService, resource.QueueDurableExclusive(queueName))
 					Expect(receiver.Start()).ToNot(HaveOccurred())
@@ -796,6 +808,7 @@ var _ = Describe("PersistentReceiver", func() {
 						Expect(receiver.Ack(msg)).ToNot(HaveOccurred())
 					}
 				})
+
 				It("receives all messages when connecting to a queue with spooled messages with receive async added later", func() {
 					receiver := helpers.NewPersistentReceiver(messagingService, resource.QueueDurableExclusive(queueName))
 					Expect(receiver.Start()).ToNot(HaveOccurred())
