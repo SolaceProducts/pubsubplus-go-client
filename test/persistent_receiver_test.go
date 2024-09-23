@@ -156,7 +156,6 @@ var _ = Describe("PersistentReceiver", func() {
             modifiedQueueName := "#P2P/QTMP/v:solbroker/" + basicQueueName
 
 			BeforeEach(func() {
-                fmt.Println("Starting test")
 				helpers.ConnectMessagingService(messagingService)
 				helpers.CreateQueue(modifiedQueueName)
 			})
@@ -170,11 +169,9 @@ var _ = Describe("PersistentReceiver", func() {
 
             Describe("Invalid Queue or Topic Endpoint", func() {
                 It("can return an error when configured to bind to a non-durable queue but attempts to bind to a durable queue.", func() {
-                    fmt.Println("Got to It section")
                     receiver := helpers.NewPersistentReceiver(messagingService, resource.QueueNonDurableExclusive(basicQueueName))
                     err := receiver.Start()
                     Expect(err).ShouldNot(BeNil())
-                    fmt.Printf("err is: %s", err.Error())
                     helpers.ValidateNativeError(err, subcode.InvalidDurability)
                 })
             })
