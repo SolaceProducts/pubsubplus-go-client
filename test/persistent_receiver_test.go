@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"time"
-    "log/slog"
     "net/url"
 
 	toxiproxy "github.com/Shopify/toxiproxy/v2/client"
@@ -151,7 +150,6 @@ var _ = Describe("PersistentReceiver", func() {
 			Expect(fmt.Sprint(receiver)).To(ContainSubstring(fmt.Sprintf("%p", receiver)))
 		})
 		Context("with a connected messaging service and specially formatted queue", func() {
-            slog.SetLogLoggerLevel(slog.LevelDebug)
             const basicQueueName = "test_invalid_durability_on_bind_raises_exception"
             modifiedQueueName := "#P2P/QTMP/v:solbroker/" + basicQueueName
 
