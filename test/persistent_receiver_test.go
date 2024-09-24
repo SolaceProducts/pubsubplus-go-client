@@ -1697,13 +1697,13 @@ var _ = Describe("PersistentReceiver", func() {
 					signal := make(chan bool)
 					messageChannel := make(chan message.InboundMessage, numMessages+1)
 
-                    // This timer needs to be big enough to give us a very
+					// This timer needs to be big enough to give us a very
 					// high chance of both receiving the messages and getting
 					// past the state change in Terminate. It may need to be
 					// updated in the future since this only mitigates the
 					// race condition and doesn't eliminate it.
 					waitToReceiveMessages := 30 * time.Second
-                    waitForTermination := waitToReceiveMessages
+					waitForTermination := waitToReceiveMessages
 					messageReceiver.ReceiveAsync(func(inboundMessage message.InboundMessage) {
 						signal <- true
 						<-blocker
@@ -1712,14 +1712,13 @@ var _ = Describe("PersistentReceiver", func() {
 					helpers.PublishNPersistentMessages(messagingService, topicString, numMessages+1)
 					helpers.ValidateMetric(messagingService, metrics.PersistentMessagesReceived, numMessages+1)
 					terminateDuration := 2 * time.Second
-                    Eventually(signal, waitToReceiveMessages).Should(Receive())
+					Eventually(signal, waitToReceiveMessages).Should(Receive())
 					terminateChan := messageReceiver.TerminateAsync(terminateDuration)
-                    Eventually(messageReceiver.IsRunning, waitForTermination).Should(BeFalse())
+					Eventually(messageReceiver.IsRunning, waitForTermination).Should(BeFalse())
 					Expect(messageReceiver.IsRunning()).To(BeFalse())
 					terminationFunction(messagingService, messageReceiver)
 					Consistently(terminationReceived).ShouldNot(Receive())
-                    Consistently(terminateChan).ShouldNot(Receive())
-					time.Sleep(terminateDuration)
+					Consistently(terminateChan, terminateDuration).ShouldNot(Receive())
 					close(blocker)
 					close(signal)
 					Eventually(terminateChan).Should(Receive())
