@@ -1696,40 +1696,29 @@ var _ = Describe("PersistentReceiver", func() {
 					blocker := make(chan struct{})
 					signal := make(chan bool)
 					messageChannel := make(chan message.InboundMessage, numMessages+1)
-					waitToReceiveMessages := 30 * time.Second // This timer needs to be big enough to give us a very
+
+                    // This timer needs to be big enough to give us a very
 					// high chance of both receiving the messages and getting
 					// past the state change in Terminate. It may need to be
 					// updated in the future since this only mitigates the
 					// race condition and doesn't eliminate it.
+					waitToReceiveMessages := 30 * time.Second
+                    waitForTermination := waitToReceiveMessages
 					messageReceiver.ReceiveAsync(func(inboundMessage message.InboundMessage) {
-					loop:
-						for timeout := time.After(waitToReceiveMessages); ; {
-							select {
-							case <-timeout:
-								break loop
-							default:
-							}
-							if !messageReceiver.IsRunning() {
-								break loop
-							}
-						}
 						signal <- true
 						<-blocker
 						messageChannel <- inboundMessage
 					})
 					helpers.PublishNPersistentMessages(messagingService, topicString, numMessages+1)
 					helpers.ValidateMetric(messagingService, metrics.PersistentMessagesReceived, numMessages+1)
-					terminateDuration := 2 * time.Second // This timer does not need to be especially long, since we're
-					// only needed a fraction of a second to block on signal
-					// and wait for that channel to be written to in the receiver
-					// callback.
+					terminateDuration := 2 * time.Second
+                    Eventually(signal, waitToReceiveMessages).Should(Receive())
 					terminateChan := messageReceiver.TerminateAsync(terminateDuration)
-					// Blocking on this signal prevents us from proceeding with the test unless either the timer has
-					// expired or the state transition has occured.
-					<-signal
+                    Eventually(messageReceiver.IsRunning, waitForTermination).Should(BeFalse())
 					Expect(messageReceiver.IsRunning()).To(BeFalse())
 					terminationFunction(messagingService, messageReceiver)
 					Consistently(terminationReceived).ShouldNot(Receive())
+                    Consistently(terminateChan).ShouldNot(Receive())
 					time.Sleep(terminateDuration)
 					close(blocker)
 					close(signal)
