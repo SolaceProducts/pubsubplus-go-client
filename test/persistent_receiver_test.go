@@ -1561,6 +1561,7 @@ var _ = Describe("PersistentReceiver", func() {
 	Describe("Unsolicited Termination Tests", func() {
 		var messagingService solace.MessagingService
 		var messageReceiver solace.PersistentMessageReceiver
+		const queueName = "unsolicitedPersistentTerminationQueue"
 
 		type unsolicitedTerminationContext struct {
 			terminateFunction func(messagingService solace.MessagingService,
@@ -1599,10 +1600,8 @@ var _ = Describe("PersistentReceiver", func() {
 			},
 			"queue delete": {
 				terminateFunction: func(messagingService solace.MessagingService, messageReceiver solace.PersistentMessageReceiver) {
-					receiverInfo, err := messageReceiver.ReceiverInfo()
-					Expect(err).ToNot(HaveOccurred())
-					_, _, err = testcontext.SEMP().Config().QueueApi.DeleteMsgVpnQueue(testcontext.SEMP().ConfigCtx(),
-						testcontext.Messaging().VPN, receiverInfo.GetResourceInfo().GetName())
+					_, _, err := testcontext.SEMP().Config().QueueApi.DeleteMsgVpnQueue(testcontext.SEMP().ConfigCtx(),
+						testcontext.Messaging().VPN, queueName)
 					Expect(err).ToNot(HaveOccurred())
 				},
 				configuration: func() config.ServicePropertyMap {
@@ -1617,7 +1616,6 @@ var _ = Describe("PersistentReceiver", func() {
 			terminationCleanup := terminationContextRef.cleanupFunc
 			Context("using "+terminationCaseName, func() {
 				const topicString = "unsolicited-persistent-terminations"
-				const queueName = "unsolicitedPersistentTerminationQueue"
 				const numMessages = 5
 
 				var terminate func()
@@ -1696,19 +1694,33 @@ var _ = Describe("PersistentReceiver", func() {
 
 				It("handles unsolicited terminations while already terminating", func() {
 					blocker := make(chan struct{})
+					signal := make(chan bool)
 					messageChannel := make(chan message.InboundMessage, numMessages+1)
+
+					// This timer needs to be big enough to give us a very
+					// high chance of both receiving the messages and getting
+					// past the state change in Terminate. It may need to be
+					// updated in the future since this only mitigates the
+					// race condition and doesn't eliminate it.
+					waitToReceiveMessages := 30 * time.Second
+					waitForTermination := waitToReceiveMessages
 					messageReceiver.ReceiveAsync(func(inboundMessage message.InboundMessage) {
+						signal <- true
 						<-blocker
 						messageChannel <- inboundMessage
 					})
 					helpers.PublishNPersistentMessages(messagingService, topicString, numMessages+1)
 					helpers.ValidateMetric(messagingService, metrics.PersistentMessagesReceived, numMessages+1)
 					terminateDuration := 2 * time.Second
+					Eventually(signal, waitToReceiveMessages).Should(Receive())
 					terminateChan := messageReceiver.TerminateAsync(terminateDuration)
+					Eventually(messageReceiver.IsRunning, waitForTermination).Should(BeFalse())
+					Expect(messageReceiver.IsRunning()).To(BeFalse())
 					terminationFunction(messagingService, messageReceiver)
 					Consistently(terminationReceived).ShouldNot(Receive())
-					time.Sleep(terminateDuration)
+					Consistently(terminateChan, terminateDuration).ShouldNot(Receive())
 					close(blocker)
+					close(signal)
 					Eventually(terminateChan).Should(Receive())
 					helpers.ValidateMetric(messagingService, metrics.ReceivedMessagesTerminationDiscarded, numMessages)
 					Eventually(messageChannel).Should(Receive(Not(BeNil())))
