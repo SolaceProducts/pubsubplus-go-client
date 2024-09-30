@@ -251,6 +251,8 @@ func (provisioner *endpointProvisionerImpl) Provision(queueName string, ignoreEx
 // after this function is called is to create a new instance.
 // Any attempt to call this function will provision the queue
 // on the broker, even if this function completes.
+// The maximum number of outstanding requests for provision is set to 32.
+// This function will return an error when this limit is reached or exceeded.
 // Returns a channel immediately that receives the endpoint provision outcome when completed.
 func (provisioner *endpointProvisionerImpl) ProvisionAsync(queueName string, ignoreExists bool) <-chan solace.ProvisionOutcome {
 	// Implementation here
