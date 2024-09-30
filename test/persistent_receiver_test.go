@@ -151,14 +151,18 @@ var _ = Describe("PersistentReceiver", func() {
 		})
 		Context("with a connected messaging service and specially formatted queue", func() {
 			const basicQueueName = "test_invalid_durability_on_bind_raises_exception"
-			modifiedQueueName := "#P2P/QTMP/v:solbroker/" + basicQueueName
+			var modifiedQueueName string
 
 			BeforeEach(func() {
 				helpers.ConnectMessagingService(messagingService)
+				foundHostName, _ := helpers.GetHostName(messagingService, basicQueueName)
+				modifiedQueueName = "#P2P/QTMP/v:" + foundHostName + "/" + basicQueueName
 				helpers.CreateQueue(modifiedQueueName)
 			})
 
 			AfterEach(func() {
+				foundHostName, _ := helpers.GetHostName(nil, basicQueueName)
+				modifiedQueueName = "#P2P/QTMP/v:" + foundHostName + "/" + basicQueueName
 				if messagingService.IsConnected() {
 					helpers.DisconnectMessagingService(messagingService)
 				}
