@@ -20,6 +20,7 @@ package receiver
 import (
 	"fmt"
 	"runtime/debug"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -1314,6 +1315,44 @@ func (builder *persistentMessageReceiverBuilderImpl) Build(queue *resource.Queue
 		}
 	}
 
+	// message settlement outcome property
+	if settlementOutcomesInterface, ok := builder.properties[config.ReceiverPropertyPersistentMessageRequiredOutcomeSupport]; ok {
+		if settlementOutcomesStr, ok := settlementOutcomesInterface.(string); ok {
+			addedOutcomes := make(map[string]bool) // to track duplicates
+			settlementOutcomes := strings.Split(settlementOutcomesStr, ",")
+			// iterate through to validate the message settlement outcome values
+			for _, settlementOutcome := range settlementOutcomes {
+				_, present, err := validation.StringPropertyValidation(
+					string(config.ReceiverPropertyPersistentMessageRequiredOutcomeSupport),
+					settlementOutcome,
+					string(config.PersistentReceiverAcceptedOutcome),
+					string(config.PersistentReceiverFailedOutcome),
+					string(config.PersistentReceiverRejectedOutcome))
+
+				if !present || err != nil {
+					return nil, solace.NewError(&solace.IllegalArgumentError{},
+						fmt.Sprintf("invalid value for receiver message settlement outcome, expected either 'ACCEPTED', 'FAILED' or 'REJECTED', got %T", settlementOutcome), nil)
+				}
+
+				// ignore duplicate message settlement outcomes from the ccsmp properties array
+				if _, added := addedOutcomes[settlementOutcome]; !added {
+					// add the corresponding ccsmp property to the properties array
+					switch config.MessageSettlementOutcome(settlementOutcome) {
+					case config.PersistentReceiverFailedOutcome:
+						properties = append(properties, ccsmp.SolClientFlowPropRequiredOutcomeFailed, settlementOutcome)
+					case config.PersistentReceiverRejectedOutcome:
+						properties = append(properties, ccsmp.SolClientFlowPropRequiredOutcomeRejected, settlementOutcome)
+					case config.PersistentReceiverAcceptedOutcome:
+					default:
+						logging.Default.Info(builder.String() + ": Receiver message settlement outcome of 'ACCEPTED' is supported by default")
+					}
+					// mark it as added
+					addedOutcomes[settlementOutcome] = true
+				}
+			}
+		}
+	}
+
 	// Create the receiver with the given properties
 	receiver := &persistentMessageReceiverImpl{}
 	receiver.construct(
@@ -1413,6 +1452,27 @@ func (builder *persistentMessageReceiverBuilderImpl) WithMessageReplay(strategy 
 	return builder
 }
 
+// WithRequiredMessageOutcomeSupport configures the types of settlements the receiver can use.
+// Any combination of PersistentReceiverAcceptedOutcome, PersistentReceiverFailedOutcome, and
+// PersistentReceiverRejectedOutcome; the order is irrelevant.
+// Attempting to Settle() a message later with an Outcome not listed here may result in an error.
+func (builder *persistentMessageReceiverBuilderImpl) WithRequiredMessageOutcomeSupport(messageSettlementOutcomes ...config.MessageSettlementOutcome) solace.PersistentMessageReceiverBuilder {
+	settlementOutcomesStrArray := []string{}
+	addedOutcomes := make(map[config.MessageSettlementOutcome]bool)
+	for _, settlementOutcome := range messageSettlementOutcomes {
+		if _, added := addedOutcomes[settlementOutcome]; !added && isSupportedMessageSettlementOutcome(settlementOutcome) {
+			addedOutcomes[settlementOutcome] = true // mark it as added
+			settlementOutcomesStrArray = append(settlementOutcomesStrArray, string(settlementOutcome))
+		} else {
+			logging.Default.Warning(
+				builder.String() + ": Unknown message settlement outcome(s) passed to WithRequiredMessageOutcomeSupport, " +
+					"allowed values are: 'config.PersistentReceiverAcceptedOutcome', 'config.PersistentReceiverFailedOutcome' and 'config.PersistentReceiverRejectedOutcome'")
+		}
+	}
+	builder.properties[config.ReceiverPropertyPersistentMessageRequiredOutcomeSupport] = strings.Join(settlementOutcomesStrArray, ",")
+	return builder
+}
+
 func (builder *persistentMessageReceiverBuilderImpl) String() string {
 	return fmt.Sprintf("solace.PersistentMessageReceiverBuilder at %p", builder)
 }
@@ -1424,6 +1484,12 @@ func checkPersistentMessageReceiverSubscriptionType(subscription resource.Subscr
 		return nil
 	}
 	return solace.NewError(&solace.IllegalArgumentError{}, fmt.Sprintf(constants.PersistentReceiverUnsupportedSubscriptionType, subscription), nil)
+}
+
+func isSupportedMessageSettlementOutcome(messageSettlementOutcome config.MessageSettlementOutcome) bool {
+	return (messageSettlementOutcome == config.PersistentReceiverAcceptedOutcome ||
+		messageSettlementOutcome == config.PersistentReceiverFailedOutcome ||
+		messageSettlementOutcome == config.PersistentReceiverRejectedOutcome)
 }
 
 type persistentReceiverInfoImpl struct {

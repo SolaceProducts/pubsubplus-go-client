@@ -113,6 +113,12 @@ type PersistentMessageReceiverBuilder interface {
 	// to when starting the receiver. Accepts *resource.TopicSubscription subscriptions.
 	WithSubscriptions(topics ...resource.Subscription) PersistentMessageReceiverBuilder
 
+	// WithRequiredMessageOutcomeSupport configures the types of settlements the receiver can use.
+	// Any combination of PersistentReceiverAcceptedOutcome, PersistentReceiverFailedOutcome, and
+	// PersistentReceiverRejectedOutcome; the order is irrelevant.
+	// Attempting to Settle() a message later with an Outcome not listed here may result in an error.
+	WithRequiredMessageOutcomeSupport(messageSettlementOutcomes ...config.MessageSettlementOutcome) PersistentMessageReceiverBuilder
+
 	// FromConfigurationProvider configures the persistent receiver with the specified properties.
 	// The built-in ReceiverPropertiesConfigurationProvider implementations include:
 	//   ReceiverPropertyMap, a map of ReceiverProperty keys to values
