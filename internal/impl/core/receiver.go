@@ -85,7 +85,13 @@ type PersistentReceiver interface {
 	// Unsubscribe will remove the subscription from the persistent receiver
 	Unsubscribe(topic string) (SubscriptionCorrelationID, <-chan SubscriptionEvent, ErrorInfo)
 	// Ack will acknowledge the given message
+	// This method is equivalent to calling the Settle method with the ACCEPTED outcome.
 	Ack(msgID MessageID) ErrorInfo
+	// Settle generates and sends a positive or negative acknowledgement for a message.InboundMessage as
+	// indicated by the MessageSettlementOutcome argument. To use the negative outcomes FAILED and REJECTED,
+	// the receiver has to have been preconfigured via its builder to support these settlement outcomes.
+	// Attempts to settle a message on an auto-acking receiver is ignored for ACCEPTED and raises error for FAILED and REJECTED.
+	Settle(msgID MessageID, msgSettlementOutcome MessageSettlementOutcome) ErrorInfo
 	// Destionation returns the destination if retrievable, or an error if one occurred
 	Destination() (destination string, durable bool, errorInfo ErrorInfo)
 }
@@ -98,6 +104,9 @@ type ReplyPublishable = ccsmp.SolClientMessagePt
 
 // MessageID type defined
 type MessageID = ccsmp.SolClientMessageID
+
+// MessageSettlementOutcome type defined
+type MessageSettlementOutcome = ccsmp.SolClientMessageSettlementOutcome
 
 // RxCallback type defined
 type RxCallback func(msg Receivable) bool
@@ -406,6 +415,10 @@ func (receiver *ccsmpBackedPersistentReceiver) Unsubscribe(topic string) (Subscr
 
 func (receiver *ccsmpBackedPersistentReceiver) Ack(msgID MessageID) ErrorInfo {
 	return receiver.flow.SolClientFlowAck(msgID)
+}
+
+func (receiver *ccsmpBackedPersistentReceiver) Settle(msgID MessageID, msgSettlementOutcome MessageSettlementOutcome) ErrorInfo {
+	return receiver.flow.SolClientFlowSettleMessage(msgID, msgSettlementOutcome)
 }
 
 func (receiver *ccsmpBackedPersistentReceiver) Destination() (destination string, durable bool, errorInfo ErrorInfo) {

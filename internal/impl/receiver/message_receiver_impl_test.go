@@ -378,6 +378,7 @@ type mockPersistentReceiver struct {
 	subscribe   func(topic string) (core.SubscriptionCorrelationID, <-chan core.SubscriptionEvent, core.ErrorInfo)
 	unsubscribe func(topic string) (core.SubscriptionCorrelationID, <-chan core.SubscriptionEvent, core.ErrorInfo)
 	ack         func(msg core.MessageID) *ccsmp.SolClientErrorInfoWrapper
+	settle      func(msg core.MessageID, outcome core.MessageSettlementOutcome) *ccsmp.SolClientErrorInfoWrapper
 }
 
 // Destroy destroys the flow
@@ -425,6 +426,14 @@ func (mock *mockPersistentReceiver) Unsubscribe(topic string) (core.Subscription
 func (mock *mockPersistentReceiver) Ack(msgID core.MessageID) *ccsmp.SolClientErrorInfoWrapper {
 	if mock.ack != nil {
 		return mock.ack(msgID)
+	}
+	return nil
+}
+
+// Settle will settle the given message with the provided outcome
+func (mock *mockPersistentReceiver) Settle(msgID core.MessageID, outcome core.MessageSettlementOutcome) *ccsmp.SolClientErrorInfoWrapper {
+	if mock.settle != nil {
+		return mock.settle(msgID, outcome)
 	}
 	return nil
 }

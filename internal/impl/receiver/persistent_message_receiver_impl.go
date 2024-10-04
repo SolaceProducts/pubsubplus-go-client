@@ -809,6 +809,8 @@ func (receiver *persistentMessageReceiverImpl) ReceiverInfo() (solace.Persistent
 }
 
 // Ack will acknowledge a message
+// This method is equivalent to calling the settle method with
+// the ACCEPTED outcome like this: PersistentMessageReceiver.Settle(inboundMessage, config.PersistentReceiverAcceptedOutcome)
 func (receiver *persistentMessageReceiverImpl) Ack(msg apimessage.InboundMessage) error {
 	state := receiver.getState()
 	if state != messageReceiverStateStarted && state != messageReceiverStateTerminating {
@@ -829,6 +831,54 @@ func (receiver *persistentMessageReceiverImpl) Ack(msg apimessage.InboundMessage
 		return solace.NewError(&solace.IllegalArgumentError{}, constants.UnableToRetrieveMessageID, nil)
 	}
 	errInfo := receiver.internalFlow.Ack(msgID)
+	if errInfo != nil {
+		return core.ToNativeError(errInfo)
+	}
+	return nil
+}
+
+// Settle generates and sends a positive or negative acknowledgement for a message.InboundMessage as
+// indicated by the MessageSettlementOutcome argument. To use the negative outcomes FAILED and REJECTED,
+// the receiver has to have been preconfigured via its builder to support these settlement outcomes.
+// Attempts to settle a message on an auto-acking receiver is ignored for ACCEPTED
+// (albeit it counts as a manual ACCEPTED in the stats), raises error for FAILED and REJECTED.
+// this returns an error object with the reason for the error if it was not possible to settle the message.
+func (receiver *persistentMessageReceiverImpl) Settle(msg apimessage.InboundMessage, outcome config.MessageSettlementOutcome) error {
+	state := receiver.getState()
+	if state != messageReceiverStateStarted && state != messageReceiverStateTerminating {
+		var message string
+		if state == messageReceiverStateTerminated {
+			message = constants.UnableToSettleAlreadyTerminated
+		} else {
+			message = constants.UnableToSettleNotStarted
+		}
+		return solace.NewError(&solace.IllegalStateError{}, message, nil)
+	}
+	msgImpl, ok := msg.(*message.InboundMessageImpl)
+	if !ok {
+		return solace.NewError(&solace.IllegalArgumentError{}, fmt.Sprintf(constants.InvalidInboundMessageType, msg), nil)
+	}
+	msgID, present := message.GetMessageID(msgImpl)
+	if !present {
+		return solace.NewError(&solace.IllegalArgumentError{}, constants.UnableToRetrieveMessageID, nil)
+	}
+
+	// to hold the settlement outcome
+	var msgSettlementOutcome ccsmp.SolClientMessageSettlementOutcome
+
+	switch outcome {
+	case config.PersistentReceiverAcceptedOutcome:
+		msgSettlementOutcome = ccsmp.SolClientSettlementOutcomeAccepted
+	case config.PersistentReceiverFailedOutcome:
+		msgSettlementOutcome = ccsmp.SolClientSettlementOutcomeFailed
+	case config.PersistentReceiverRejectedOutcome:
+		msgSettlementOutcome = ccsmp.SolClientSettlementOutcomeRejected
+	default:
+		// return error here
+		return solace.NewError(&solace.IllegalArgumentError{}, constants.InvalidMessageSettlementOutcome, nil)
+	}
+
+	errInfo := receiver.internalFlow.Settle(msgID, msgSettlementOutcome)
 	if errInfo != nil {
 		return core.ToNativeError(errInfo)
 	}
