@@ -270,6 +270,9 @@ solClient_msg_tracing_setBaggage(solClient_opaqueMsg_pt msg_p,
  *                 to solClient_msg_alloc() or received in a receive
  *                 message callback.
  * @param contextType The type of context to delete; one of ::solClient_msg_tracing_context_type.
+ * @returns              ::SOLCLIENT_OK or ::SOLCLIENT_FAIL if msg_p is invalid
+ * @subcodes
+ * @see ::solClient_subCode for a description of all subcodes.
  *
  */
 solClient_dllExport solClient_returnCode_t
@@ -282,6 +285,9 @@ solClient_msg_tracing_deleteContext(solClient_opaqueMsg_pt opaqueMsg_p,
  * @param msg_p    A solClient_opaqueMsg_pt that is returned from a previous call
  *                 to solClient_msg_alloc() or received in a receive
  *                 message callback.
+ * @returns              ::SOLCLIENT_OK or ::SOLCLIENT_FAIL if msg_p is invalid
+ * @subcodes
+ * @see ::solClient_subCode for a description of all subcodes.
  *
  */
 solClient_dllExport solClient_returnCode_t
