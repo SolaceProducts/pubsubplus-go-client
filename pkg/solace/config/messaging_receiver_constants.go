@@ -16,7 +16,7 @@
 
 package config
 
-// Represents the type for supported message settlement outcome on a PersistentMessageReceiver.
+// MessageSettlementOutcome - represents the type for supported message settlement outcome on a PersistentMessageReceiver.
 type MessageSettlementOutcome string
 
 // The various message settlement outcomes available for use when configuring a PersistentMessageReceiver.
