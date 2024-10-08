@@ -43,6 +43,9 @@ var rxMetrics = map[metrics.Metric]ccsmp.SolClientStatsRX{
 	metrics.TotalBytesReceived:                        ccsmp.SolClientStatsRXTotalDataBytes,
 	metrics.TotalMessagesReceived:                     ccsmp.SolClientStatsRXTotalDataMsgs,
 	metrics.CompressedBytesReceived:                   ccsmp.SolClientStatsRXCompressedBytes,
+	metrics.PersistentMessagesAccepted:                ccsmp.SolClientStatsRXSettleAccepted,
+	metrics.PersistentMessagesFailed:                  ccsmp.SolClientStatsRXSettleFailed,
+	metrics.PersistentMessagesRejected:                ccsmp.SolClientStatsRXSettleRejected,
 }
 
 var txMetrics = map[metrics.Metric]ccsmp.SolClientStatsTX{
