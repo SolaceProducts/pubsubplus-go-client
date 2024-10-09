@@ -812,29 +812,8 @@ func (receiver *persistentMessageReceiverImpl) ReceiverInfo() (solace.Persistent
 // This method is equivalent to calling the settle method with
 // the ACCEPTED outcome like this: PersistentMessageReceiver.Settle(inboundMessage, config.PersistentReceiverAcceptedOutcome)
 func (receiver *persistentMessageReceiverImpl) Ack(msg apimessage.InboundMessage) error {
-	state := receiver.getState()
-	if state != messageReceiverStateStarted && state != messageReceiverStateTerminating {
-		var message string
-		if state == messageReceiverStateTerminated {
-			message = constants.UnableToAcknowledgeAlreadyTerminated
-		} else {
-			message = constants.UnableToAcknowledgeNotStarted
-		}
-		return solace.NewError(&solace.IllegalStateError{}, message, nil)
-	}
-	msgImpl, ok := msg.(*message.InboundMessageImpl)
-	if !ok {
-		return solace.NewError(&solace.IllegalArgumentError{}, fmt.Sprintf(constants.InvalidInboundMessageType, msg), nil)
-	}
-	msgID, present := message.GetMessageID(msgImpl)
-	if !present {
-		return solace.NewError(&solace.IllegalArgumentError{}, constants.UnableToRetrieveMessageID, nil)
-	}
-	errInfo := receiver.internalFlow.Ack(msgID)
-	if errInfo != nil {
-		return core.ToNativeError(errInfo)
-	}
-	return nil
+	// call the Settle() method with the accepted message settlement outcome
+	return receiver.Settle(msg, config.PersistentReceiverAcceptedOutcome)
 }
 
 // Settle generates and sends a positive or negative acknowledgement for a message.InboundMessage as
@@ -1012,6 +991,8 @@ func (receiver *persistentMessageReceiverImpl) ReceiveMessage(timeout time.Durat
 				msg.Dispose()
 				return nil, core.ToNativeError(errInfo)
 			}
+			// Successful Auto-ack, increment the auto-ack duplicate counter
+			receiver.internalReceiver.IncrementDuplicateAckCount()
 		} else {
 			receiver.logger.Error(fmt.Sprintf("Could not retrieve message ID from message %s", msg))
 		}
@@ -1180,6 +1161,9 @@ func (receiver *persistentMessageReceiverImpl) run() {
 						errInfo := receiver.internalFlow.Ack(msgID)
 						if errInfo != nil {
 							receiver.logger.Warning("Failed to acknowledge message: " + errInfo.GetMessageAsString() + ", sub code: " + fmt.Sprint(errInfo.SubCode))
+						} else {
+							// Successful Auto-Ack, increment the auto-ack duplicate counter
+							receiver.internalReceiver.IncrementDuplicateAckCount()
 						}
 					}
 				}

@@ -283,15 +283,16 @@ type result struct {
 }
 
 type mockInternalReceiver struct {
-	events                func() core.Events
-	replier               func() core.Replier
-	isRunning             func() bool
-	registerRxCallback    func(callback core.RxCallback) uintptr
-	unregisterRxCallback  func(ptr uintptr)
-	subscribe             func(topic string, ptr uintptr) (core.SubscriptionCorrelationID, <-chan core.SubscriptionEvent, core.ErrorInfo)
-	unsubscribe           func(topic string, ptr uintptr) (core.SubscriptionCorrelationID, <-chan core.SubscriptionEvent, core.ErrorInfo)
-	incrementMetric       func(metric core.NextGenMetric, amount uint64)
-	newPersistentReceiver func(props []string, callback core.RxCallback, eventCallback core.PersistentEventCallback) (core.PersistentReceiver, *ccsmp.SolClientErrorInfoWrapper)
+	events                     func() core.Events
+	replier                    func() core.Replier
+	isRunning                  func() bool
+	registerRxCallback         func(callback core.RxCallback) uintptr
+	unregisterRxCallback       func(ptr uintptr)
+	subscribe                  func(topic string, ptr uintptr) (core.SubscriptionCorrelationID, <-chan core.SubscriptionEvent, core.ErrorInfo)
+	unsubscribe                func(topic string, ptr uintptr) (core.SubscriptionCorrelationID, <-chan core.SubscriptionEvent, core.ErrorInfo)
+	incrementMetric            func(metric core.NextGenMetric, amount uint64)
+	incrementDuplicateAckCount func()
+	newPersistentReceiver      func(props []string, callback core.RxCallback, eventCallback core.PersistentEventCallback) (core.PersistentReceiver, *ccsmp.SolClientErrorInfoWrapper)
 }
 
 func (mock *mockInternalReceiver) Events() core.Events {
@@ -361,6 +362,12 @@ func (mock *mockInternalReceiver) EndpointUnsubscribe(queueName string, topic st
 func (mock *mockInternalReceiver) IncrementMetric(metric core.NextGenMetric, amount uint64) {
 	if mock.incrementMetric != nil {
 		mock.incrementMetric(metric, amount)
+	}
+}
+
+func (mock *mockInternalReceiver) IncrementDuplicateAckCount() {
+	if mock.incrementDuplicateAckCount != nil {
+		mock.incrementDuplicateAckCount()
 	}
 }
 

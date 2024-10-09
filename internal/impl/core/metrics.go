@@ -108,8 +108,9 @@ type Metrics interface {
 
 // Implementation
 type ccsmpBackedMetrics struct {
-	session *ccsmp.SolClientSession
-	metrics []uint64
+	session       *ccsmp.SolClientSession
+	metrics       []uint64
+	duplicateAcks uint64
 
 	metricLock        sync.RWMutex
 	capturedTxMetrics map[ccsmp.SolClientStatsTX]uint64
@@ -118,98 +119,111 @@ type ccsmpBackedMetrics struct {
 
 func newCcsmpMetrics(session *ccsmp.SolClientSession) *ccsmpBackedMetrics {
 	return &ccsmpBackedMetrics{
-		metrics: make([]uint64, metricCount),
-		session: session,
+		metrics:       make([]uint64, metricCount),
+		duplicateAcks: uint64(0), // used to track duplicate acks count (auto-acks)
+		session:       session,
 	}
 }
 
-func (metrics *ccsmpBackedMetrics) terminate() {
-	metrics.metricLock.Lock()
-	defer metrics.metricLock.Unlock()
-	metrics.captureTXStats()
-	metrics.captureRXStats()
+func (backedMetrics *ccsmpBackedMetrics) terminate() {
+	backedMetrics.metricLock.Lock()
+	defer backedMetrics.metricLock.Unlock()
+	backedMetrics.captureTXStats()
+	backedMetrics.captureRXStats()
 }
 
-func (metrics *ccsmpBackedMetrics) captureTXStats() {
-	if metrics.capturedTxMetrics != nil {
+func (backedMetrics *ccsmpBackedMetrics) captureTXStats() {
+	if backedMetrics.capturedTxMetrics != nil {
 		return
 	}
-	metrics.capturedTxMetrics = make(map[ccsmp.SolClientStatsTX]uint64)
+	backedMetrics.capturedTxMetrics = make(map[ccsmp.SolClientStatsTX]uint64)
 	for _, txStat := range txMetrics {
-		metrics.capturedTxMetrics[txStat] = metrics.session.SolClientSessionGetTXStat(txStat)
+		backedMetrics.capturedTxMetrics[txStat] = backedMetrics.session.SolClientSessionGetTXStat(txStat)
 	}
 }
 
-func (metrics *ccsmpBackedMetrics) captureRXStats() {
-	if metrics.capturedRxMetrics != nil {
+func (backedMetrics *ccsmpBackedMetrics) captureRXStats() {
+	if backedMetrics.capturedRxMetrics != nil {
 		return
 	}
-	metrics.capturedRxMetrics = make(map[ccsmp.SolClientStatsRX]uint64)
+	backedMetrics.capturedRxMetrics = make(map[ccsmp.SolClientStatsRX]uint64)
 	for _, rxStat := range rxMetrics {
-		metrics.capturedRxMetrics[rxStat] = metrics.session.SolClientSessionGetRXStat(rxStat)
+		backedMetrics.capturedRxMetrics[rxStat] = backedMetrics.session.SolClientSessionGetRXStat(rxStat)
 	}
 }
 
-func (metrics *ccsmpBackedMetrics) getTXStat(stat ccsmp.SolClientStatsTX) uint64 {
-	metrics.metricLock.RLock()
-	defer metrics.metricLock.RUnlock()
-	if metrics.capturedTxMetrics != nil {
-		return metrics.capturedTxMetrics[stat]
+func (backedMetrics *ccsmpBackedMetrics) getTXStat(stat ccsmp.SolClientStatsTX) uint64 {
+	backedMetrics.metricLock.RLock()
+	defer backedMetrics.metricLock.RUnlock()
+	if backedMetrics.capturedTxMetrics != nil {
+		return backedMetrics.capturedTxMetrics[stat]
 	}
-	return metrics.session.SolClientSessionGetTXStat(stat)
+	return backedMetrics.session.SolClientSessionGetTXStat(stat)
 }
 
-func (metrics *ccsmpBackedMetrics) getRXStat(stat ccsmp.SolClientStatsRX) uint64 {
-	metrics.metricLock.RLock()
-	defer metrics.metricLock.RUnlock()
-	if metrics.capturedRxMetrics != nil {
-		return metrics.capturedRxMetrics[stat]
+func (backedMetrics *ccsmpBackedMetrics) getRXStat(stat ccsmp.SolClientStatsRX) uint64 {
+	backedMetrics.metricLock.RLock()
+	defer backedMetrics.metricLock.RUnlock()
+	if backedMetrics.capturedRxMetrics != nil {
+		return backedMetrics.capturedRxMetrics[stat]
 	}
-	return metrics.session.SolClientSessionGetRXStat(stat)
+	return backedMetrics.session.SolClientSessionGetRXStat(stat)
 }
 
-func (metrics *ccsmpBackedMetrics) getNextGenStat(metric NextGenMetric) uint64 {
-	return atomic.LoadUint64(&metrics.metrics[metric])
+func (backedMetrics *ccsmpBackedMetrics) getNextGenStat(metric NextGenMetric) uint64 {
+	return atomic.LoadUint64(&backedMetrics.metrics[metric])
 }
 
-func (metrics *ccsmpBackedMetrics) GetStat(metric metrics.Metric) uint64 {
+func (backedMetrics *ccsmpBackedMetrics) GetStat(metric metrics.Metric) uint64 {
 	if rxMetric, ok := rxMetrics[metric]; ok {
-		return metrics.getRXStat(rxMetric)
+		// check for duplicate counts due to auto-acks and remove from final result
+		rxStat := backedMetrics.getRXStat(rxMetric)
+		duplicateAck := uint64(0)
+		// take the difference and retrun as the settled accepted metric
+		if duplicateAck > 0 && metric == metrics.PersistentMessagesAccepted {
+			return rxStat - duplicateAck
+		}
+		return rxStat // return other types of metrics as is
 	} else if txMetric, ok := txMetrics[metric]; ok {
-		return metrics.getTXStat(txMetric)
+		return backedMetrics.getTXStat(txMetric)
 	} else if clientMetric, ok := clientMetrics[metric]; ok {
-		return metrics.getNextGenStat(clientMetric)
+		return backedMetrics.getNextGenStat(clientMetric)
 	}
 	logging.Default.Warning("Could not find mapping for metric with ID " + fmt.Sprint(metric))
 	return 0
 
 }
 
-func (metrics *ccsmpBackedMetrics) ResetStats() {
+func (backedMetrics *ccsmpBackedMetrics) ResetStats() {
 	for i := 0; i < metricCount; i++ {
-		atomic.StoreUint64(&metrics.metrics[i], 0)
+		atomic.StoreUint64(&backedMetrics.metrics[i], 0)
 	}
-	metrics.resetNativeStats()
+	atomic.StoreUint64(&backedMetrics.duplicateAcks, 0) // reset this duplicate acks counter to zero
+	backedMetrics.resetNativeStats()
 }
 
-func (metrics *ccsmpBackedMetrics) resetNativeStats() {
-	metrics.metricLock.Lock()
-	defer metrics.metricLock.Unlock()
-	if metrics.capturedRxMetrics != nil {
-		for key := range metrics.capturedRxMetrics {
-			metrics.capturedRxMetrics[key] = 0
+func (backedMetrics *ccsmpBackedMetrics) resetNativeStats() {
+	backedMetrics.metricLock.Lock()
+	defer backedMetrics.metricLock.Unlock()
+	if backedMetrics.capturedRxMetrics != nil {
+		for key := range backedMetrics.capturedRxMetrics {
+			backedMetrics.capturedRxMetrics[key] = 0
 		}
-		for key := range metrics.capturedTxMetrics {
-			metrics.capturedTxMetrics[key] = 0
+		for key := range backedMetrics.capturedTxMetrics {
+			backedMetrics.capturedTxMetrics[key] = 0
 		}
 	} else {
-		errorInfo := metrics.session.SolClientSessionClearStats()
+		errorInfo := backedMetrics.session.SolClientSessionClearStats()
 		if errorInfo != nil {
 			logging.Default.Warning("Could not reset metrics: " + errorInfo.String())
 		}
 	}
 }
 
-func (metrics *ccsmpBackedMetrics) IncrementMetric(metric NextGenMetric, amount uint64) {
-	atomic.AddUint64(&metrics.metrics[metric], amount)
+func (backedMetrics *ccsmpBackedMetrics) IncrementMetric(metric NextGenMetric, amount uint64) {
+	atomic.AddUint64(&backedMetrics.metrics[metric], amount)
+}
+
+func (backedMetrics *ccsmpBackedMetrics) incrementDuplicateAckCount() {
+	atomic.AddUint64(&backedMetrics.duplicateAcks, uint64(1))
 }

@@ -65,8 +65,10 @@ type Receiver interface {
 	ProvisionEndpoint(queueName string, isExclusive bool) ErrorInfo
 	// EndpointUnsubscribe will call endpoint unsubscribe on the endpoint
 	EndpointUnsubscribe(queueName string, topic string) (SubscriptionCorrelationID, <-chan SubscriptionEvent, ErrorInfo)
-	// Increments receiver metrics
+	// IncrementMetric - Increments receiver metrics
 	IncrementMetric(metric NextGenMetric, amount uint64)
+	// IncrementDuplicateAckCount - Increments receiver duplicate acks (track duplicate accepted settlement outcome metrics from auto-acks)
+	IncrementDuplicateAckCount()
 	// Creates a new persistent receiver with the given callback
 	NewPersistentReceiver(properties []string, callback RxCallback, eventCallback PersistentEventCallback) (PersistentReceiver, ErrorInfo)
 }
@@ -287,6 +289,10 @@ func getEndpointProperties(queueName string) []string {
 
 func (receiver *ccsmpBackedReceiver) IncrementMetric(metric NextGenMetric, amount uint64) {
 	receiver.metrics.IncrementMetric(metric, amount)
+}
+
+func (receiver *ccsmpBackedReceiver) IncrementDuplicateAckCount() {
+	receiver.metrics.incrementDuplicateAckCount()
 }
 
 func (receiver *ccsmpBackedReceiver) ClearSubscriptionCorrelation(id SubscriptionCorrelationID) {
