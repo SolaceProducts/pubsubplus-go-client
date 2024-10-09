@@ -56,10 +56,10 @@ func TestReplierFailedSendReply(t *testing.T) {
 	replier := &replierImpl{}
 	internalReplier := &mockReplier{}
 
-	replyErrInfo := &ccsmp.SolClientErrorInfoWrapper{
-		ReturnCode: ccsmp.SolClientReturnCodeFail,
-		SubCode:    ccsmp.SolClientSubCode(subCode),
-	}
+	replyErrInfo := ccsmp.GenerateTestSolClientErrorInfoWrapper(ccsmp.SolClientReturnCodeFail,
+		ccsmp.SolClientSubCode(subCode),
+		ccsmp.SolClientResponseCode(0),
+		"This is a generated error ErrorInfo")
 
 	internalReplier.sendReply = func(replyMsg core.ReplyPublishable) core.ErrorInfo {
 		return replyErrInfo
@@ -84,11 +84,10 @@ func TestReplierWouldBlockSendReply(t *testing.T) {
 	replier := &replierImpl{}
 	internalReplier := &mockReplier{}
 
-	replyErrInfo := &ccsmp.SolClientErrorInfoWrapper{
-		ReturnCode: ccsmp.SolClientReturnCodeWouldBlock,
-		SubCode:    ccsmp.SolClientSubCode(subCode),
-	}
-
+	replyErrInfo := ccsmp.GenerateTestSolClientErrorInfoWrapper(ccsmp.SolClientReturnCodeWouldBlock,
+		ccsmp.SolClientSubCode(subCode),
+		ccsmp.SolClientResponseCode(0),
+		"This is a generated error info.")
 	internalReplier.sendReply = func(replyMsg core.ReplyPublishable) core.ErrorInfo {
 		return replyErrInfo
 	}

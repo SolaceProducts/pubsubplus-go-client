@@ -498,9 +498,11 @@ func TestDirectReceiverSubscribeWithError(t *testing.T) {
 	}
 	topic := "some topic"
 	subscription := resource.TopicSubscriptionOf(topic)
-	solClientErr := &ccsmp.SolClientErrorInfoWrapper{
-		SubCode: 123,
-	}
+	subCode := 123
+	solClientErr := ccsmp.GenerateTestSolClientErrorInfoWrapper(ccsmp.SolClientReturnCode(0),
+		ccsmp.SolClientSubCode(subCode),
+		ccsmp.SolClientResponseCode(0),
+		"This is a generated error info")
 	for _, fn := range subscriptionFunctions {
 		receiver.subscriptions = []string{}
 		internalReceiverCalled := false
@@ -642,9 +644,11 @@ func TestDirectReceiverUnsubscribeWithError(t *testing.T) {
 	}
 	topic := "some topic"
 	subscription := resource.TopicSubscriptionOf(topic)
-	solClientErr := &ccsmp.SolClientErrorInfoWrapper{
-		SubCode: 123,
-	}
+	subCode := 123
+	solClientErr := ccsmp.GenerateTestSolClientErrorInfoWrapper(ccsmp.SolClientReturnCode(0),
+		ccsmp.SolClientSubCode(subCode),
+		ccsmp.SolClientResponseCode(0),
+		"This is a generated error info")
 	for _, fn := range unsubscriptionFunctions {
 		receiver.subscriptions = []string{topic}
 		internalReceiverCalled := false

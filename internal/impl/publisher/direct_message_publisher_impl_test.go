@@ -921,10 +921,10 @@ func TestDirectMessagePublisherPublishFunctionalityDirect(t *testing.T) {
 
 	subCode := 21
 	internalPublisher.publish = func(message ccsmp.SolClientMessagePt) core.ErrorInfo {
-		return &ccsmp.SolClientErrorInfoWrapper{
-			ReturnCode: ccsmp.SolClientReturnCodeFail,
-			SubCode:    ccsmp.SolClientSubCode(subCode),
-		}
+		return ccsmp.GenerateTestSolClientErrorInfoWrapper(ccsmp.SolClientReturnCodeFail,
+			ccsmp.SolClientSubCode(subCode),
+			ccsmp.SolClientResponseCode(0),
+			"This error info is generated")
 	}
 
 	err = publisher.Publish(testMessage, testTopic)
@@ -1109,10 +1109,10 @@ func TestDirectMessagePublisherTaskFailure(t *testing.T) {
 
 	subCode := 23
 	internalPublisher.publish = func(message ccsmp.SolClientMessagePt) core.ErrorInfo {
-		return &ccsmp.SolClientErrorInfoWrapper{
-			ReturnCode: ccsmp.SolClientReturnCodeFail,
-			SubCode:    ccsmp.SolClientSubCode(subCode),
-		}
+		return ccsmp.GenerateTestSolClientErrorInfoWrapper(ccsmp.SolClientReturnCodeFail,
+			ccsmp.SolClientSubCode(subCode),
+			ccsmp.SolClientResponseCode(0),
+			"This is a generated error info")
 	}
 
 	testMessage, _ := message.NewOutboundMessage()
