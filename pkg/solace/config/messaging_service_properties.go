@@ -169,6 +169,31 @@ const (
 	// for a direct message receiver the value type is boolean.
 	ServicePropertyReceiverDirectSubscriptionReapply ServiceProperty = "solace.messaging.service.receivers.direct.subscription.reapply"
 
+	// ServicePropertyProvisionTimeoutMs specifies the timeout for provision and deprovision operations, in milliseconds.
+	ServicePropertyProvisionTimeoutMs ServiceProperty = "solace.messaging.management.endpoint.provision-timeout"
+
+	// ServicePropertyPayloadCompressionLevel Enables (1-9) or disables (0, the default) outgoing payload compression.
+	// Incoming messages with payloads compressed this way are automatically and unconditionally decompressed before delivery to user code independently from this setting.
+	//
+	// Value meanings:
+	// 0 - disable outgoing payload compression (the default)
+	// 1 - least amount of compression and the fastest data throughput
+	// 9 - most compression and slowest data throughput
+	//
+	// The payload compression value should be adjusted according to particular network requirements and the performance required.
+	//
+	// Note: Please ensure that both publishers and consumers are updated to support payload compression before enabling this property.
+	// In the case where a publisher compresses the payload and a consumer does not support payload decompression, the untouched compressed message
+	// will be received which can lead to potential issues within the consuming application. Therefore, the consumer would either need to update
+	// to a newer version of the API or the user would need to handle the decompression on the receiving side in their own application.
+	// If a publishing application is able to send a compressed message, the broker's treatment of message-type will vary depending on the protocol.
+	// Lastly, do not enable payload compression when sending cache-requests. Applications that are sending cache-requests and receiving cache-responses
+	// may end up getting compressed messages that they are not able to handle.
+	//
+	// Default: 0 (disabled)
+	//
+	ServicePropertyPayloadCompressionLevel ServiceProperty = "solace.messaging.service.payload-compression-level"
+
 	/* TransportLayerProperties */
 
 	// TransportLayerPropertyHost is IPv4 or IPv6 address or host name of the broker to which to connect.

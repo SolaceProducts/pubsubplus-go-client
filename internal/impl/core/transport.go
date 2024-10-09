@@ -39,6 +39,7 @@ type Transport interface {
 	Receiver() Receiver
 	Metrics() Metrics
 	Events() Events
+	EndpointProvisioner() EndpointProvisioner
 	ID() string
 	Host() string
 	ModifySessionProperties([]string) error
@@ -78,6 +79,7 @@ func newCcsmpTransport(host string, properties []string) (*ccsmpTransport, error
 	ccsmpTransport.metrics = newCcsmpMetrics(ccsmpTransport.session)
 	ccsmpTransport.publisher = newCcsmpPublisher(ccsmpTransport.session, ccsmpTransport.events, ccsmpTransport.metrics)
 	ccsmpTransport.receiver = newCcsmpReceiver(ccsmpTransport.session, ccsmpTransport.events, ccsmpTransport.metrics)
+	ccsmpTransport.endpointProvisioner = newCcsmpEndpointProvisioner(ccsmpTransport.session, ccsmpTransport.events)
 	return ccsmpTransport, nil
 }
 
@@ -93,6 +95,8 @@ type ccsmpTransport struct {
 	metrics   *ccsmpBackedMetrics
 
 	events *ccsmpBackedEvents
+
+	endpointProvisioner *ccsmpBackedEndpointProvisioner
 
 	host, id string
 }
@@ -116,6 +120,7 @@ func (transport *ccsmpTransport) Connect() error {
 	transport.events.start()
 	transport.publisher.start()
 	transport.receiver.start()
+	transport.endpointProvisioner.start()
 	return nil
 }
 
@@ -136,11 +141,12 @@ func (transport *ccsmpTransport) Disconnect() error {
 }
 
 func (transport *ccsmpTransport) Close() error {
-	// notify publisher and receiver that they are down
+	// notify publisher, receiver and the endpoint provisioner that they are down
 	transport.metrics.terminate()
 	transport.events.terminate()
 	transport.publisher.terminate()
 	transport.receiver.terminate()
+	transport.endpointProvisioner.terminate()
 	// then clean up the session and context with calls to destroy.
 	// this will invalidate metrics, but we can copy them out into golang memory if needed in the future.
 	destroySession(transport.session)
@@ -176,6 +182,10 @@ func (transport *ccsmpTransport) Metrics() Metrics {
 
 func (transport *ccsmpTransport) Events() Events {
 	return transport.events
+}
+
+func (transport *ccsmpTransport) EndpointProvisioner() EndpointProvisioner {
+	return transport.endpointProvisioner
 }
 
 func (transport *ccsmpTransport) ID() string {

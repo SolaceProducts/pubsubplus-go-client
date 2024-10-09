@@ -77,6 +77,12 @@ const (
 
 	// SolClientSubscriptionError represents ccsmp.SolClientSessionEventSubscriptionError in sessionEventMapping
 	SolClientSubscriptionError
+
+	// SolClientProvisionOk represents ccsmp.SolClientSessionEventProvisionOk in sessionEventMapping
+	SolClientProvisionOk
+
+	// SolClientProvisionError represents ccsmp.SolClientSessionEventProvisionError in sessionEventMapping
+	SolClientProvisionError
 )
 
 var sessionEventMapping = map[ccsmp.SolClientSessionEvent]Event{
@@ -89,6 +95,9 @@ var sessionEventMapping = map[ccsmp.SolClientSessionEvent]Event{
 	ccsmp.SolClientSessionEventReconnectingNotice: SolClientEventReconnectAttempt,
 	ccsmp.SolClientSessionEventSubscriptionError:  SolClientSubscriptionError,
 	ccsmp.SolClientSessionEventSubscriptionOk:     SolClientSubscriptionOk,
+	// for provision and deprovision events
+	ccsmp.SolClientSessionEventProvisionError: SolClientProvisionError,
+	ccsmp.SolClientSessionEventProvisionOk:    SolClientProvisionOk,
 }
 
 // Implementation
