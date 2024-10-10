@@ -213,7 +213,7 @@ func (info *SolClientErrorInfoWrapper) String() string {
 
 // GetMessageAsString function outputs a string
 func (info *SolClientErrorInfoWrapper) GetMessageAsString() string {
-	if info.DetailedErrorInfo != nil || len(info.DetailedErrorInfo.ErrorStr) == 0 {
+	if info.DetailedErrorInfo == nil || len(info.DetailedErrorInfo.ErrorStr) == 0 {
 		return ""
 	}
 	return C.GoString((*C.char)(&info.DetailedErrorInfo.ErrorStr[0]))

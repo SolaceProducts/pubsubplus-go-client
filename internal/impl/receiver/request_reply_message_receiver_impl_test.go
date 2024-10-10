@@ -59,7 +59,7 @@ func TestReplierFailedSendReply(t *testing.T) {
 	replyErrInfo := ccsmp.GenerateTestSolClientErrorInfoWrapper(ccsmp.SolClientReturnCodeFail,
 		ccsmp.SolClientSubCode(subCode),
 		ccsmp.SolClientResponseCode(0),
-		"This is a generated error ErrorInfo")
+		"")
 
 	internalReplier.sendReply = func(replyMsg core.ReplyPublishable) core.ErrorInfo {
 		return replyErrInfo
