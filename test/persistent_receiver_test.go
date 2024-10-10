@@ -301,6 +301,10 @@ var _ = Describe("PersistentReceiver", func() {
 						err := receiver.Ack(nil)
 						helpers.ValidateError(err, &solace.IllegalStateError{})
 					})
+					It("should fail to settle a message", func() {
+						err := receiver.Settle(nil, config.PersistentReceiverAcceptedOutcome)
+						helpers.ValidateError(err, &solace.IllegalStateError{})
+					})
 				})
 
 				Context("with a terminated receiver", func() {
@@ -332,6 +336,10 @@ var _ = Describe("PersistentReceiver", func() {
 					})
 					It("should fail to acknowledge a message", func() {
 						err := receiver.Ack(nil)
+						helpers.ValidateError(err, &solace.IllegalStateError{})
+					})
+					It("should fail to settle a message", func() {
+						err := receiver.Settle(nil, config.PersistentReceiverAcceptedOutcome)
 						helpers.ValidateError(err, &solace.IllegalStateError{})
 					})
 				})
@@ -809,6 +817,15 @@ var _ = Describe("PersistentReceiver", func() {
 					err := receiver.Ack(directMsg)
 					helpers.ValidateError(err, &solace.IllegalArgumentError{})
 				})
+				It("fails to settle a direct message", func() {
+					const topic = "direct-message-ack"
+					directMsgChan := helpers.ReceiveOneMessage(messagingService, topic)
+					helpers.PublishOneMessage(messagingService, topic)
+					var directMsg message.InboundMessage
+					Eventually(directMsgChan).Should(Receive(&directMsg))
+					err := receiver.Settle(directMsg, config.PersistentReceiverRejectedOutcome) // should fail to settle message
+					helpers.ValidateError(err, &solace.IllegalArgumentError{})
+				})
 			})
 
 			const numQueuedMessages = 10000
@@ -1209,6 +1226,193 @@ var _ = Describe("PersistentReceiver", func() {
 				// should also be able to shut down properly
 				Expect(receiver.Terminate(10 * time.Second)).ToNot(HaveOccurred())
 			})
+
+			DescribeTable("Message Settlement Outcome with Client Ack Configured",
+				func(configFunc func(solace.PersistentMessageReceiverBuilder), outcome config.MessageSettlementOutcome, expectNackSupport bool, useReceiveAsync bool) {
+					receiverBuilder := messagingService.CreatePersistentMessageReceiverBuilder()
+					receiverBuilder.WithMessageClientAcknowledgement() // with Client- Ack configured (the default)
+					configFunc(receiverBuilder)
+					receiver, err := receiverBuilder.Build(resource.QueueDurableExclusive(queueName))
+					Expect(err).ToNot(HaveOccurred())
+					Expect(receiver.Start()).ToNot(HaveOccurred())
+
+					Expect(helpers.GetQueueMessages(queueName)).To(HaveLen(0))
+					messagingService.Metrics().Reset()
+
+					var msg message.InboundMessage
+					if useReceiveAsync {
+						msgChan := make(chan message.InboundMessage, 1)
+						receiver.ReceiveAsync(func(inboundMessage message.InboundMessage) {
+							defer GinkgoRecover()
+							Expect(helpers.GetQueueMessages(queueName)).To(HaveLen(1))
+							msgChan <- inboundMessage
+						})
+						helpers.PublishOnePersistentMessage(messagingService, topicString)
+						Eventually(msgChan).Should(Receive(&msg))
+					} else {
+						helpers.PublishOnePersistentMessage(messagingService, topicString)
+						inboundMessage, err := receiver.ReceiveMessage(10 * time.Second)
+						Expect(err).ToNot(HaveOccurred())
+						msg = inboundMessage
+					}
+
+					err = receiver.Settle(msg, outcome)
+					// message should still be in the queue - for FAILED settlement outcome
+					if expectNackSupport && outcome == config.PersistentReceiverFailedOutcome {
+						Expect(err).ToNot(HaveOccurred())
+						Consistently(func() []monitor.MsgVpnQueueMsg {
+							return helpers.GetQueueMessages(queueName)
+						}, 2*time.Second).Should(HaveLen(1))
+					} else if expectNackSupport {
+						// should be removed from the queue - for ACCEPTED and REJECTED settlement outcomes
+						Expect(err).ToNot(HaveOccurred())
+						Eventually(func() []monitor.MsgVpnQueueMsg {
+							return helpers.GetQueueMessages(queueName)
+						}, 2*time.Second).Should(HaveLen(0))
+					} else {
+						Expect(err).To(HaveOccurred())
+					}
+				},
+				// Message settlement not enabled on flow, expect error while caling settle() with Nack
+				Entry(
+					"RejectedOutcome - NACK not supported on flow sync receive", func(builder solace.PersistentMessageReceiverBuilder) {},
+					config.PersistentReceiverRejectedOutcome,
+					false, false),
+				Entry(
+					"FailedOutcome - NACK not supported on flow sync receive", func(builder solace.PersistentMessageReceiverBuilder) {},
+					config.PersistentReceiverFailedOutcome,
+					false, false),
+				Entry(
+					"RejectedOutcome - NACK not supported on flow with async receive", func(builder solace.PersistentMessageReceiverBuilder) {},
+					config.PersistentReceiverRejectedOutcome,
+					false, true),
+				Entry(
+					"FailedOutcome - NACK not supported on flow with async receive", func(builder solace.PersistentMessageReceiverBuilder) {},
+					config.PersistentReceiverFailedOutcome,
+					false, true),
+
+				// Nil Nack support through property - expected Nack to not be supported on flow
+				Entry("Property NACK not supported with sync receive", func(builder solace.PersistentMessageReceiverBuilder) {
+					builder.FromConfigurationProvider(config.ReceiverPropertyMap{
+						config.ReceiverPropertyPersistentMessageRequiredOutcomeSupport: nil,
+					})
+				}, config.PersistentReceiverRejectedOutcome, false, false),
+				Entry("Property NACK not supported with async receive", func(builder solace.PersistentMessageReceiverBuilder) {
+					builder.FromConfigurationProvider(config.ReceiverPropertyMap{
+						config.ReceiverPropertyPersistentMessageRequiredOutcomeSupport: nil,
+					})
+				}, config.PersistentReceiverRejectedOutcome, false, true),
+
+				// With configured Nack support through builder
+				Entry("RejectedOutcome - Builder Nack support with sync receive", func(builder solace.PersistentMessageReceiverBuilder) {
+					builder.WithRequiredMessageOutcomeSupport(config.PersistentReceiverFailedOutcome, config.PersistentReceiverRejectedOutcome)
+				}, config.PersistentReceiverRejectedOutcome, true, false),
+				Entry("FailedOutcome - Builder Nack support with sync receive", func(builder solace.PersistentMessageReceiverBuilder) {
+					builder.WithRequiredMessageOutcomeSupport(config.PersistentReceiverFailedOutcome, config.PersistentReceiverRejectedOutcome)
+				}, config.PersistentReceiverFailedOutcome, true, false),
+				Entry("RejectedOutcome - Builder Nack support with async receive", func(builder solace.PersistentMessageReceiverBuilder) {
+					builder.WithRequiredMessageOutcomeSupport(config.PersistentReceiverFailedOutcome, config.PersistentReceiverRejectedOutcome)
+				}, config.PersistentReceiverRejectedOutcome, true, true),
+				Entry("FailedOutcome - Builder Nack support with async receive", func(builder solace.PersistentMessageReceiverBuilder) {
+					builder.WithRequiredMessageOutcomeSupport(config.PersistentReceiverFailedOutcome, config.PersistentReceiverRejectedOutcome)
+				}, config.PersistentReceiverFailedOutcome, true, true),
+
+				// With configured Nack support through property
+				Entry("RejectedOutcome - Property Nack support with sync receive", func(builder solace.PersistentMessageReceiverBuilder) {
+					builder.FromConfigurationProvider(config.ReceiverPropertyMap{
+						config.ReceiverPropertyPersistentMessageRequiredOutcomeSupport: fmt.Sprintf("%s,%s", config.PersistentReceiverFailedOutcome, config.PersistentReceiverRejectedOutcome),
+					})
+				}, config.PersistentReceiverRejectedOutcome, true, false),
+				Entry("FailedOutcome - Property Nack support with sync receive", func(builder solace.PersistentMessageReceiverBuilder) {
+					builder.FromConfigurationProvider(config.ReceiverPropertyMap{
+						config.ReceiverPropertyPersistentMessageRequiredOutcomeSupport: fmt.Sprintf("%s,%s", config.PersistentReceiverFailedOutcome, config.PersistentReceiverRejectedOutcome),
+					})
+				}, config.PersistentReceiverFailedOutcome, true, false),
+				Entry("RejectedOutcome - Property Nack support with async receive", func(builder solace.PersistentMessageReceiverBuilder) {
+					builder.FromConfigurationProvider(config.ReceiverPropertyMap{
+						config.ReceiverPropertyPersistentMessageRequiredOutcomeSupport: fmt.Sprintf("%s,%s", config.PersistentReceiverFailedOutcome, config.PersistentReceiverRejectedOutcome),
+					})
+				}, config.PersistentReceiverRejectedOutcome, true, true),
+				Entry("FailedOutcome - Property Nack support with async receive", func(builder solace.PersistentMessageReceiverBuilder) {
+					builder.FromConfigurationProvider(config.ReceiverPropertyMap{
+						config.ReceiverPropertyPersistentMessageRequiredOutcomeSupport: fmt.Sprintf("%s,%s", config.PersistentReceiverFailedOutcome, config.PersistentReceiverRejectedOutcome),
+					})
+				}, config.PersistentReceiverFailedOutcome, true, true),
+			)
+
+			DescribeTable("Message Settlement Outcome with Auto Ack Configured",
+				func(configFunc func(solace.PersistentMessageReceiverBuilder), outcome config.MessageSettlementOutcome, useReceiveAsync bool) {
+					receiverBuilder := messagingService.CreatePersistentMessageReceiverBuilder()
+					receiverBuilder.WithMessageAutoAcknowledgement() // with Auto- Ack configured
+					configFunc(receiverBuilder)
+					receiver, err := receiverBuilder.Build(resource.QueueDurableExclusive(queueName))
+					Expect(err).ToNot(HaveOccurred())
+					Expect(receiver.Start()).ToNot(HaveOccurred())
+
+					Expect(helpers.GetQueueMessages(queueName)).To(HaveLen(0))
+					messagingService.Metrics().Reset()
+
+					var msg message.InboundMessage
+					if useReceiveAsync {
+						msgChan := make(chan message.InboundMessage, 1)
+						receiver.ReceiveAsync(func(inboundMessage message.InboundMessage) {
+							defer GinkgoRecover()
+							Expect(helpers.GetQueueMessages(queueName)).To(HaveLen(1))
+							msgChan <- inboundMessage
+						})
+						helpers.PublishOnePersistentMessage(messagingService, topicString)
+						Eventually(msgChan).Should(Receive(&msg))
+					} else {
+						helpers.PublishOnePersistentMessage(messagingService, topicString)
+						inboundMessage, err := receiver.ReceiveMessage(10 * time.Second)
+						Expect(err).ToNot(HaveOccurred())
+						msg = inboundMessage
+					}
+
+					// no message should be in the queue since already Auto-Acked
+					err = receiver.Settle(msg, outcome)
+					// we don't expect any errors when calling settle() since message not founf
+					Expect(err).ToNot(HaveOccurred())
+					Eventually(func() []monitor.MsgVpnQueueMsg {
+						return helpers.GetQueueMessages(queueName)
+					}, 2*time.Second).Should(HaveLen(0))
+				},
+				// With configured Nack support through builder
+				Entry("RejectedOutcome - Builder Nack support with sync receive", func(builder solace.PersistentMessageReceiverBuilder) {
+					builder.WithRequiredMessageOutcomeSupport(config.PersistentReceiverFailedOutcome, config.PersistentReceiverRejectedOutcome)
+				}, config.PersistentReceiverRejectedOutcome, false),
+				Entry("FailedOutcome - Builder Nack support with sync receive", func(builder solace.PersistentMessageReceiverBuilder) {
+					builder.WithRequiredMessageOutcomeSupport(config.PersistentReceiverFailedOutcome, config.PersistentReceiverRejectedOutcome)
+				}, config.PersistentReceiverFailedOutcome, false),
+				Entry("RejectedOutcome - Builder Nack support with async receive", func(builder solace.PersistentMessageReceiverBuilder) {
+					builder.WithRequiredMessageOutcomeSupport(config.PersistentReceiverFailedOutcome, config.PersistentReceiverRejectedOutcome)
+				}, config.PersistentReceiverRejectedOutcome, true),
+				Entry("FailedOutcome - Builder Nack support with async receive", func(builder solace.PersistentMessageReceiverBuilder) {
+					builder.WithRequiredMessageOutcomeSupport(config.PersistentReceiverFailedOutcome, config.PersistentReceiverRejectedOutcome)
+				}, config.PersistentReceiverFailedOutcome, true),
+
+				// With configured Nack support through property
+				Entry("RejectedOutcome - Property Nack support with sync receive", func(builder solace.PersistentMessageReceiverBuilder) {
+					builder.FromConfigurationProvider(config.ReceiverPropertyMap{
+						config.ReceiverPropertyPersistentMessageRequiredOutcomeSupport: fmt.Sprintf("%s,%s", config.PersistentReceiverFailedOutcome, config.PersistentReceiverRejectedOutcome),
+					})
+				}, config.PersistentReceiverRejectedOutcome, false),
+				Entry("FailedOutcome - Property Nack support with sync receive", func(builder solace.PersistentMessageReceiverBuilder) {
+					builder.FromConfigurationProvider(config.ReceiverPropertyMap{
+						config.ReceiverPropertyPersistentMessageRequiredOutcomeSupport: fmt.Sprintf("%s,%s", config.PersistentReceiverFailedOutcome, config.PersistentReceiverRejectedOutcome),
+					})
+				}, config.PersistentReceiverFailedOutcome, false),
+				Entry("RejectedOutcome - Property Nack support with async receive", func(builder solace.PersistentMessageReceiverBuilder) {
+					builder.FromConfigurationProvider(config.ReceiverPropertyMap{
+						config.ReceiverPropertyPersistentMessageRequiredOutcomeSupport: fmt.Sprintf("%s,%s", config.PersistentReceiverFailedOutcome, config.PersistentReceiverRejectedOutcome),
+					})
+				}, config.PersistentReceiverRejectedOutcome, true),
+				Entry("FailedOutcome - Property Nack support with async receive", func(builder solace.PersistentMessageReceiverBuilder) {
+					builder.FromConfigurationProvider(config.ReceiverPropertyMap{
+						config.ReceiverPropertyPersistentMessageRequiredOutcomeSupport: fmt.Sprintf("%s,%s", config.PersistentReceiverFailedOutcome, config.PersistentReceiverRejectedOutcome),
+					})
+				}, config.PersistentReceiverFailedOutcome, true),
+			)
 
 			Context("with an ACL deny exception", func() {
 				const deniedTopic = "persistent-receiver-acl-deny"

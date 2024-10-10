@@ -1373,9 +1373,9 @@ func (builder *persistentMessageReceiverBuilderImpl) Build(queue *resource.Queue
 					// add the corresponding ccsmp property to the properties array
 					switch config.MessageSettlementOutcome(settlementOutcome) {
 					case config.PersistentReceiverFailedOutcome:
-						properties = append(properties, ccsmp.SolClientFlowPropRequiredOutcomeFailed, settlementOutcome)
+						properties = append(properties, ccsmp.SolClientFlowPropRequiredOutcomeFailed, ccsmp.SolClientPropEnableVal)
 					case config.PersistentReceiverRejectedOutcome:
-						properties = append(properties, ccsmp.SolClientFlowPropRequiredOutcomeRejected, settlementOutcome)
+						properties = append(properties, ccsmp.SolClientFlowPropRequiredOutcomeRejected, ccsmp.SolClientPropEnableVal)
 					case config.PersistentReceiverAcceptedOutcome:
 					default:
 						logging.Default.Info(builder.String() + ": Receiver message settlement outcome of 'ACCEPTED' is supported by default")
