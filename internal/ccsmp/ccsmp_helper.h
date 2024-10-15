@@ -20,22 +20,13 @@
 #include "solclient/solClient.h"
 
 // Reexport error info fields as they need to be copied.
-// This struct allows detailed error info to be copied only when it needs to be, saving time and memory.
-typedef struct solClient_errorInfo_detailed
-{ 
-    solClient_subCode_t SubCode;
-    solClient_session_responseCode_t ResponseCode;
-    char ErrorStr[SOLCLIENT_ERRORINFO_STR_SIZE];
-} solClient_errorInfo_detailed_t;
-
-// Reexport error info fields as they need to be copied.
 // Since only a single error info struct will be returned,
 // we add the ReturnCode field. Fields are capitalized to
 // allow them to be exported by the CCSMP package.
 typedef struct solClient_errorInfo_wrapper
 {
     solClient_returnCode_t ReturnCode;
-    solClient_errorInfo_detailed_t * DetailedErrorInfo;
+    solClient_errorInfo_t * DetailedErrorInfo;
 } solClient_errorInfo_wrapper_t;
 
 /**

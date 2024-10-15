@@ -194,7 +194,7 @@ type SolClientResponseCode = C.solClient_session_responseCode_t
 type SolClientErrorInfoWrapper C.solClient_errorInfo_wrapper_t
 
 // SolClientErrorInfoWrapperDetailed is assigned a value
-type SolClientErrorInfoWrapperDetailed C.solClient_errorInfo_detailed_t
+type SolClientErrorInfoWrapperDetailed C.solClient_errorInfo_t
 
 func (info *SolClientErrorInfoWrapper) String() string {
 	if info == nil {
@@ -206,23 +206,23 @@ func (info *SolClientErrorInfoWrapper) String() string {
 	detailedErrorInfo := *(info.DetailedErrorInfo)
 	return fmt.Sprintf("{ReturnCode: %d, SubCode: %d, ResponseCode: %d, ErrorStr: %s}",
 		info.ReturnCode,
-		detailedErrorInfo.SubCode,
-		detailedErrorInfo.ResponseCode,
+		detailedErrorInfo.subCode,
+		detailedErrorInfo.responseCode,
 		info.GetMessageAsString())
 }
 
 // GetMessageAsString function outputs a string
 func (info *SolClientErrorInfoWrapper) GetMessageAsString() string {
-	if info.DetailedErrorInfo == nil || len(info.DetailedErrorInfo.ErrorStr) == 0 {
+	if info.DetailedErrorInfo == nil || len(info.DetailedErrorInfo.errorStr) == 0 {
 		return ""
 	}
-	return C.GoString((*C.char)(&info.DetailedErrorInfo.ErrorStr[0]))
+	return C.GoString((*C.char)(&info.DetailedErrorInfo.errorStr[0]))
 }
 
 // SubCode function returns subcode if available
 func (info *SolClientErrorInfoWrapper) SubCode() SolClientSubCode {
 	if info.DetailedErrorInfo != nil {
-		return (*(info.DetailedErrorInfo)).SubCode
+		return (*(info.DetailedErrorInfo)).subCode
 	}
 	return SolClientSubCode(0)
 }
@@ -230,7 +230,7 @@ func (info *SolClientErrorInfoWrapper) SubCode() SolClientSubCode {
 // ResponseCode function returns response code if available
 func (info *SolClientErrorInfoWrapper) ResponseCode() SolClientResponseCode {
 	if info.DetailedErrorInfo != nil {
-		return (*(info.DetailedErrorInfo)).ResponseCode
+		return (*(info.DetailedErrorInfo)).responseCode
 	}
 	return SolClientResponseCode(0)
 }
@@ -664,11 +664,11 @@ func GetLastErrorInfoReturnCodeOnly(returnCode SolClientReturnCode) *SolClientEr
 func GetLastErrorInfo(returnCode SolClientReturnCode) *SolClientErrorInfoWrapper {
 	errorInfo := GetLastErrorInfoReturnCodeOnly(returnCode)
 	if returnCode != SolClientReturnCodeNotFound {
-		detailedErrorInfo := C.solClient_errorInfo_detailed_t{}
+		detailedErrorInfo := C.solClient_errorInfo_t{}
 		solClientErrorInfoPt := C.solClient_getLastErrorInfo()
-		detailedErrorInfo.SubCode = solClientErrorInfoPt.subCode
-		detailedErrorInfo.ResponseCode = solClientErrorInfoPt.responseCode
-		C.strcpy((*C.char)(&detailedErrorInfo.ErrorStr[0]), (*C.char)(&solClientErrorInfoPt.errorStr[0]))
+		detailedErrorInfo.subCode = solClientErrorInfoPt.subCode
+		detailedErrorInfo.responseCode = solClientErrorInfoPt.responseCode
+		C.strcpy((*C.char)(&detailedErrorInfo.errorStr[0]), (*C.char)(&solClientErrorInfoPt.errorStr[0]))
 		errorInfo.DetailedErrorInfo = &detailedErrorInfo
 	}
 	return errorInfo
