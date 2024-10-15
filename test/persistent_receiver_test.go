@@ -301,6 +301,18 @@ var _ = Describe("PersistentReceiver", func() {
 						err := receiver.Ack(nil)
 						helpers.ValidateError(err, &solace.IllegalStateError{})
 					})
+					It("should fail to settle a message as accepted", func() {
+						err := receiver.Settle(nil, config.PersistentReceiverAcceptedOutcome)
+						helpers.ValidateError(err, &solace.IllegalStateError{})
+					})
+					It("should fail to settle a message as failed", func() {
+						err := receiver.Settle(nil, config.PersistentReceiverFailedOutcome)
+						helpers.ValidateError(err, &solace.IllegalStateError{})
+					})
+					It("should fail to settle a message as rejected", func() {
+						err := receiver.Settle(nil, config.PersistentReceiverRejectedOutcome)
+						helpers.ValidateError(err, &solace.IllegalStateError{})
+					})
 					It("should fail to settle a message", func() {
 						err := receiver.Settle(nil, config.PersistentReceiverAcceptedOutcome)
 						helpers.ValidateError(err, &solace.IllegalStateError{})
