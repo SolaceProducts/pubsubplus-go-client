@@ -829,13 +829,31 @@ var _ = Describe("PersistentReceiver", func() {
 					err := receiver.Ack(directMsg)
 					helpers.ValidateError(err, &solace.IllegalArgumentError{})
 				})
-				It("fails to settle a direct message", func() {
+				It("fails to settle a direct message as rejected", func() {
 					const topic = "direct-message-ack"
 					directMsgChan := helpers.ReceiveOneMessage(messagingService, topic)
 					helpers.PublishOneMessage(messagingService, topic)
 					var directMsg message.InboundMessage
 					Eventually(directMsgChan).Should(Receive(&directMsg))
 					err := receiver.Settle(directMsg, config.PersistentReceiverRejectedOutcome) // should fail to settle message
+					helpers.ValidateError(err, &solace.IllegalArgumentError{})
+				})
+				It("fails to settle a direct message as failed", func() {
+					const topic = "direct-message-ack"
+					directMsgChan := helpers.ReceiveOneMessage(messagingService, topic)
+					helpers.PublishOneMessage(messagingService, topic)
+					var directMsg message.InboundMessage
+					Eventually(directMsgChan).Should(Receive(&directMsg))
+					err := receiver.Settle(directMsg, config.PersistentReceiverFailedOutcome) // should fail to settle message
+					helpers.ValidateError(err, &solace.IllegalArgumentError{})
+				})
+				It("fails to settle a direct message as accepted", func() {
+					const topic = "direct-message-ack"
+					directMsgChan := helpers.ReceiveOneMessage(messagingService, topic)
+					helpers.PublishOneMessage(messagingService, topic)
+					var directMsg message.InboundMessage
+					Eventually(directMsgChan).Should(Receive(&directMsg))
+					err := receiver.Settle(directMsg, config.PersistentReceiverAcceptedOutcome) // should fail to settle message
 					helpers.ValidateError(err, &solace.IllegalArgumentError{})
 				})
 			})
