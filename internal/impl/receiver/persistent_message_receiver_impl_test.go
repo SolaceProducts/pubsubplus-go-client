@@ -412,7 +412,7 @@ func TestPersistentReceiverSubscribeWithError(t *testing.T) {
 	topic := "some topic"
 	subscription := resource.TopicSubscriptionOf(topic)
 	subCode := 123
-	solClientErr := ccsmp.GenerateTestSolClientErrorInfoWrapper(ccsmp.SolClientReturnCode(0),
+	solClientErr := ccsmp.NewInternalSolClientErrorInfoWrapper(ccsmp.SolClientReturnCode(0),
 		ccsmp.SolClientSubCode(subCode),
 		ccsmp.SolClientResponseCode(0),
 		"This is a generated error ErrorInfo")
@@ -563,7 +563,7 @@ func TestPersistentReceiverUnsubscribeWithError(t *testing.T) {
 	topic := "some topic"
 	subscription := resource.TopicSubscriptionOf(topic)
 	subCode := 123
-	solClientErr := ccsmp.GenerateTestSolClientErrorInfoWrapper(ccsmp.SolClientReturnCode(0),
+	solClientErr := ccsmp.NewInternalSolClientErrorInfoWrapper(ccsmp.SolClientReturnCode(0),
 		ccsmp.SolClientSubCode(subCode),
 		ccsmp.SolClientResponseCode(0),
 		"This is a generated error info")

@@ -1002,7 +1002,7 @@ func TestPersistentMessagePublisherPublishFunctionalityPersistent(t *testing.T) 
 
 	subCode := 21
 	internalPublisher.publish = func(message ccsmp.SolClientMessagePt) core.ErrorInfo {
-		return ccsmp.GenerateTestSolClientErrorInfoWrapper(ccsmp.SolClientReturnCodeFail,
+		return ccsmp.NewInternalSolClientErrorInfoWrapper(ccsmp.SolClientReturnCodeFail,
 			ccsmp.SolClientSubCode(subCode),
 			ccsmp.SolClientResponseCode(0),
 			"This is a generated error info")
@@ -1190,7 +1190,7 @@ func TestPersistentMessagePublisherTaskFailure(t *testing.T) {
 
 	subCode := 23
 	internalPublisher.publish = func(message ccsmp.SolClientMessagePt) core.ErrorInfo {
-		return ccsmp.GenerateTestSolClientErrorInfoWrapper(ccsmp.SolClientReturnCodeFail,
+		return ccsmp.NewInternalSolClientErrorInfoWrapper(ccsmp.SolClientReturnCodeFail,
 			ccsmp.SolClientSubCode(subCode),
 			ccsmp.SolClientResponseCode(0),
 			"This is a generated error info")

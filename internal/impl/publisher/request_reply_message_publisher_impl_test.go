@@ -770,7 +770,7 @@ func TestRequestReplyStartFailedToGetReplyTo(t *testing.T) {
 	internalPublisher.requestor = func() core.Requestor {
 		mock := &mockRequestor{}
 		mock.addRequestorReplyHandler = func(handler core.RequestorReplyHandler) (string, func() (messageID uint64, correlationID string), core.ErrorInfo) {
-			return "", nil, ccsmp.GenerateTestSolClientErrorInfoWrapper(ccsmp.SolClientReturnCodeFail,
+			return "", nil, ccsmp.NewInternalSolClientErrorInfoWrapper(ccsmp.SolClientReturnCodeFail,
 				ccsmp.SolClientSubCode(subCode),
 				ccsmp.SolClientResponseCode(0),
 				"This is a generated error info")
@@ -1424,7 +1424,7 @@ func TestRequestReplyMessagePublisherPublishFunctionalityDirect(t *testing.T) {
 
 	subCode := 21 // ClientDeleteInProgress , note this subcode does not matter just need a subcode that is not OK.
 	internalPublisher.publish = func(message ccsmp.SolClientMessagePt) core.ErrorInfo {
-		return ccsmp.GenerateTestSolClientErrorInfoWrapper(ccsmp.SolClientReturnCodeFail,
+		return ccsmp.NewInternalSolClientErrorInfoWrapper(ccsmp.SolClientReturnCodeFail,
 			ccsmp.SolClientSubCode(subCode),
 			ccsmp.SolClientResponseCode(0),
 			"This is a generated error info")
@@ -1633,7 +1633,7 @@ func TestRequestReplyMessagePublisherTaskFailureReplyOutcome(t *testing.T) {
 
 	subCode := 58 // MissingReplyTo, note this subcode does not matter and does not represent a real scenario
 	internalPublisher.publish = func(message ccsmp.SolClientMessagePt) core.ErrorInfo {
-		return ccsmp.GenerateTestSolClientErrorInfoWrapper(ccsmp.SolClientReturnCodeFail,
+		return ccsmp.NewInternalSolClientErrorInfoWrapper(ccsmp.SolClientReturnCodeFail,
 			ccsmp.SolClientSubCode(subCode),
 			ccsmp.SolClientResponseCode(0),
 			"This is a generated error info")
