@@ -56,7 +56,7 @@ func ToCArray(arr []string, nullTerminated bool) (cArray **C.char, freeArray fun
 	return (**C.char)(unsafe.Pointer(&cArr[0])), freeFunction
 }
 
-// NewInternalSolClientERrorInfoWrapper manually creates a Go representation of the error struct usually passed to the
+// NewInternalSolClientErrorInfoWrapper manually creates a Go representation of the error struct usually passed to the
 // Go API by CCSMP. This function is intended to be used only when such an error struct is required but cannot be
 // provided by CCSMP.
 func NewInternalSolClientErrorInfoWrapper(returnCode SolClientReturnCode, subCode SolClientSubCode, responseCode SolClientResponseCode, errorInfo string) *SolClientErrorInfoWrapper {
