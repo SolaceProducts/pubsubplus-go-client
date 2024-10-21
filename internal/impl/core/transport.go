@@ -157,14 +157,14 @@ func (transport *ccsmpTransport) Close() error {
 func destroySession(session *ccsmp.SolClientSession) {
 	err := session.SolClientSessionDestroy()
 	if err != nil {
-		logging.Default.Error(fmt.Sprintf("an error occurred while cleaning up session: %s (subcode %d)", err.GetMessageAsString(), err.SubCode))
+		logging.Default.Error(fmt.Sprintf("an error occurred while cleaning up session: %s (subcode %d)", err.GetMessageAsString(), err.SubCode()))
 	}
 }
 
 func destroyContext(context *ccsmp.SolClientContext) {
 	err := context.SolClientContextDestroy()
 	if err != nil {
-		logging.Default.Error(fmt.Sprintf("an error occurred while cleaning up context: %s (subcode %d)", err.GetMessageAsString(), err.SubCode))
+		logging.Default.Error(fmt.Sprintf("an error occurred while cleaning up context: %s (subcode %d)", err.GetMessageAsString(), err.SubCode()))
 	}
 }
 

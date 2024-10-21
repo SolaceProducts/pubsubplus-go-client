@@ -26,9 +26,7 @@
 typedef struct solClient_errorInfo_wrapper
 {
     solClient_returnCode_t ReturnCode;
-    solClient_subCode_t SubCode;
-    solClient_session_responseCode_t ResponseCode;
-    char ErrorStr[SOLCLIENT_ERRORINFO_STR_SIZE];
+    solClient_errorInfo_t * DetailedErrorInfo;
 } solClient_errorInfo_wrapper_t;
 
 /**
