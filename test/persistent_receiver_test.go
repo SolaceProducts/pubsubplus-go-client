@@ -301,20 +301,18 @@ var _ = Describe("PersistentReceiver", func() {
 						err := receiver.Ack(nil)
 						helpers.ValidateError(err, &solace.IllegalStateError{})
 					})
-					It("should fail to settle a message as accepted", func() {
-						err := receiver.Settle(nil, config.PersistentReceiverAcceptedOutcome)
-						helpers.ValidateError(err, &solace.IllegalStateError{})
-					})
-					It("should fail to settle a message as failed", func() {
-						err := receiver.Settle(nil, config.PersistentReceiverFailedOutcome)
-						helpers.ValidateError(err, &solace.IllegalStateError{})
-					})
-					It("should fail to settle a message as rejected", func() {
-						err := receiver.Settle(nil, config.PersistentReceiverRejectedOutcome)
-						helpers.ValidateError(err, &solace.IllegalStateError{})
-					})
-					It("should fail to settle a message", func() {
-						err := receiver.Settle(nil, config.PersistentReceiverAcceptedOutcome)
+					DescribeTable("should fail to settle a message as ",
+						func(outcome config.MessageSettlementOutcome) {
+							err := receiver.Settle(nil, outcome)
+							helpers.ValidateError(err, &solace.IllegalStateError{})
+						},
+						Entry("accepted", config.PersistentReceiverAcceptedOutcome),
+						Entry("rejected", config.PersistentReceiverRejectedOutcome),
+						Entry("failed", config.PersistentReceiverFailedOutcome),
+						//Entry("garbage", "garbage"),
+					)
+					It("should fail to settle a message with garbage", func() {
+						err := receiver.Settle(nil, "garbage")
 						helpers.ValidateError(err, &solace.IllegalStateError{})
 					})
 				})
@@ -350,8 +348,18 @@ var _ = Describe("PersistentReceiver", func() {
 						err := receiver.Ack(nil)
 						helpers.ValidateError(err, &solace.IllegalStateError{})
 					})
-					It("should fail to settle a message", func() {
-						err := receiver.Settle(nil, config.PersistentReceiverAcceptedOutcome)
+					DescribeTable("should fail to settle a message as ",
+						func(outcome config.MessageSettlementOutcome) {
+							err := receiver.Settle(nil, outcome)
+							helpers.ValidateError(err, &solace.IllegalStateError{})
+						},
+						Entry("accepted", config.PersistentReceiverAcceptedOutcome),
+						Entry("rejected", config.PersistentReceiverRejectedOutcome),
+						Entry("failed", config.PersistentReceiverFailedOutcome),
+						//Entry("garbage", "garbage"),
+					)
+					It("should fail to settle a message with garbage", func() {
+						err := receiver.Settle(nil, "garbage")
 						helpers.ValidateError(err, &solace.IllegalStateError{})
 					})
 				})
@@ -446,8 +454,11 @@ var _ = Describe("PersistentReceiver", func() {
 						actualPayload, ok := msg.GetPayloadAsString()
 						Expect(ok).To(BeTrue())
 						Expect(actualPayload).To(Equal(payload))
+
+						helpers.ValidateMetric(messagingService, metrics.PersistentMessagesAccepted, 0)
 						err := receiver.Ack(msg)
 						Expect(err).ToNot(HaveOccurred())
+						helpers.ValidateMetric(messagingService, metrics.PersistentMessagesAccepted, 1)
 					})
 				}
 
@@ -829,31 +840,28 @@ var _ = Describe("PersistentReceiver", func() {
 					err := receiver.Ack(directMsg)
 					helpers.ValidateError(err, &solace.IllegalArgumentError{})
 				})
-				It("fails to settle a direct message as rejected", func() {
+				DescribeTable("fails to settle a direct message as ", func(outcome config.MessageSettlementOutcome) {
 					const topic = "direct-message-ack"
 					directMsgChan := helpers.ReceiveOneMessage(messagingService, topic)
 					helpers.PublishOneMessage(messagingService, topic)
 					var directMsg message.InboundMessage
 					Eventually(directMsgChan).Should(Receive(&directMsg))
-					err := receiver.Settle(directMsg, config.PersistentReceiverRejectedOutcome) // should fail to settle message
+					err := receiver.Settle(directMsg, outcome) // should fail to settle message
 					helpers.ValidateError(err, &solace.IllegalArgumentError{})
-				})
-				It("fails to settle a direct message as failed", func() {
+				},
+				Entry("accepted", config.PersistentReceiverAcceptedOutcome),
+				Entry("rejected", config.PersistentReceiverRejectedOutcome),
+				Entry("failed", config.PersistentReceiverFailedOutcome),
+				//Entry("garbage", "garbage"),
+				)
+				It("fails to settle a direct message as garbage", func() {
 					const topic = "direct-message-ack"
 					directMsgChan := helpers.ReceiveOneMessage(messagingService, topic)
 					helpers.PublishOneMessage(messagingService, topic)
 					var directMsg message.InboundMessage
 					Eventually(directMsgChan).Should(Receive(&directMsg))
-					err := receiver.Settle(directMsg, config.PersistentReceiverFailedOutcome) // should fail to settle message
-					helpers.ValidateError(err, &solace.IllegalArgumentError{})
-				})
-				It("fails to settle a direct message as accepted", func() {
-					const topic = "direct-message-ack"
-					directMsgChan := helpers.ReceiveOneMessage(messagingService, topic)
-					helpers.PublishOneMessage(messagingService, topic)
-					var directMsg message.InboundMessage
-					Eventually(directMsgChan).Should(Receive(&directMsg))
-					err := receiver.Settle(directMsg, config.PersistentReceiverAcceptedOutcome) // should fail to settle message
+					// I don't know why this compiles, but the Entry version doesn't.
+					err := receiver.Settle(directMsg, "garbage")
 					helpers.ValidateError(err, &solace.IllegalArgumentError{})
 				})
 			})
@@ -1256,6 +1264,38 @@ var _ = Describe("PersistentReceiver", func() {
 				// should also be able to shut down properly
 				Expect(receiver.Terminate(10 * time.Second)).ToNot(HaveOccurred())
 			})
+
+			DescribeTable("Happy cases for outcome configuration on ReceiverBuilder",
+				func(configFunc func(solace.PersistentMessageReceiverBuilder), outcome config.MessageSettlementOutcome) {
+					receiverBuilder := messagingService.CreatePersistentMessageReceiverBuilder()
+					configFunc(receiverBuilder)
+					receiver, err := receiverBuilder.Build(resource.QueueDurableExclusive(queueName))
+					Expect(err).ToNot(HaveOccurred())
+					Expect(receiver.Start()).ToNot(HaveOccurred())
+					Expect(helpers.GetQueueMessages(queueName)).To(HaveLen(0))
+					messagingService.Metrics().Reset()
+					Expect(err).ToNot(HaveOccurred())
+					//TODO: metrics! Does the builder or receiver have getters for autoack?
+
+					// I guess this drains the queue?
+					if (outcome == config.PersistentReceiverFailedOutcome){
+						Consistently(
+							func() []monitor.MsgVpnQueueMsg {
+								return helpers.GetQueueMessages(queueName)
+							},
+							2*time.Second).Should(HaveLen(1))
+					}
+				},
+				Entry(
+					"Default can Accept", func(builder solace.PersistentMessageReceiverBuilder) {},
+					config.PersistentReceiverAcceptedOutcome),
+				Entry(
+					"Accept via setter", func(builder solace.PersistentMessageReceiverBuilder) {
+						builder.WithRequiredMessageOutcomeSupport(config.PersistentReceiverAcceptedOutcome)
+					},
+					config.PersistentReceiverAcceptedOutcome),
+			)
+
 
 			DescribeTable("Message Settlement Outcome with Client Ack Configured",
 				func(configFunc func(solace.PersistentMessageReceiverBuilder), outcome config.MessageSettlementOutcome, expectNackSupport bool, useReceiveAsync bool) {
