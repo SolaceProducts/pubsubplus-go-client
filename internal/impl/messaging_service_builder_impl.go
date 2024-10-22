@@ -19,6 +19,7 @@ package impl
 
 import (
 	"fmt"
+	"time"
 
 	"solace.dev/go/messaging/internal/ccsmp"
 	"solace.dev/go/messaging/internal/impl/constants"
@@ -238,6 +239,12 @@ func (builder *messagingServiceBuilderImpl) WithReconnectionRetryStrategy(retryS
 // with the given transport security strategy
 func (builder *messagingServiceBuilderImpl) WithTransportSecurityStrategy(transportSecurityStrategy config.TransportSecurityStrategy) solace.MessagingServiceBuilder {
 	builder.mergeProperties(transportSecurityStrategy.ToProperties())
+	return builder
+}
+
+// WithProvisionTimeoutMs configures the timeout for provision and deprovision operations, in milliseconds
+func (builder *messagingServiceBuilderImpl) WithProvisionTimeoutMs(timeout time.Duration) solace.MessagingServiceBuilder {
+	builder.configuration[config.ServicePropertyProvisionTimeoutMs] = timeout
 	return builder
 }
 

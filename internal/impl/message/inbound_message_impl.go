@@ -70,7 +70,7 @@ func (message *InboundMessageImpl) Dispose() {
 func freeInboundMessage(message *InboundMessageImpl) {
 	err := ccsmp.SolClientMessageFree(&message.messagePointer)
 	if err != nil && logging.Default.IsErrorEnabled() {
-		logging.Default.Error("encountered unexpected error while freeing message pointer: " + err.GetMessageAsString() + " [sub code = " + strconv.Itoa(int(err.SubCode)) + "]")
+		logging.Default.Error("encountered unexpected error while freeing message pointer: " + err.GetMessageAsString() + " [sub code = " + strconv.Itoa(int(err.SubCode())) + "]")
 	}
 }
 
@@ -81,7 +81,7 @@ func (message *InboundMessageImpl) GetDestinationName() string {
 	destName, errorInfo := ccsmp.SolClientMessageGetDestinationName(message.messagePointer)
 	if errorInfo != nil {
 		if errorInfo.ReturnCode == ccsmp.SolClientReturnCodeFail {
-			logging.Default.Debug(fmt.Sprintf("Unable to retrieve the destination this message was published to: %s, subcode: %d", errorInfo.GetMessageAsString(), errorInfo.SubCode))
+			logging.Default.Debug(fmt.Sprintf("Unable to retrieve the destination this message was published to: %s, subcode: %d", errorInfo.GetMessageAsString(), errorInfo.SubCode()))
 		}
 	}
 	return destName
@@ -94,7 +94,7 @@ func (message *InboundMessageImpl) GetTimeStamp() (time.Time, bool) {
 	t, errInfo := ccsmp.SolClientMessageGetTimestamp(message.messagePointer)
 	if errInfo != nil {
 		if errInfo.ReturnCode == ccsmp.SolClientReturnCodeFail {
-			logging.Default.Debug(fmt.Sprintf("Encountered error retrieving Sender Timestamp: %s, subcode: %d", errInfo.GetMessageAsString(), errInfo.SubCode))
+			logging.Default.Debug(fmt.Sprintf("Encountered error retrieving Sender Timestamp: %s, subcode: %d", errInfo.GetMessageAsString(), errInfo.SubCode()))
 		}
 		return t, false
 	}
@@ -107,7 +107,7 @@ func (message *InboundMessageImpl) GetSenderTimestamp() (time.Time, bool) {
 	t, errInfo := ccsmp.SolClientMessageGetSenderTimestamp(message.messagePointer)
 	if errInfo != nil {
 		if errInfo.ReturnCode == ccsmp.SolClientReturnCodeFail {
-			logging.Default.Debug(fmt.Sprintf("Encountered error retrieving Sender Timestamp: %s, subcode: %d", errInfo.GetMessageAsString(), errInfo.SubCode))
+			logging.Default.Debug(fmt.Sprintf("Encountered error retrieving Sender Timestamp: %s, subcode: %d", errInfo.GetMessageAsString(), errInfo.SubCode()))
 		}
 		return t, false
 	}
@@ -119,7 +119,7 @@ func (message *InboundMessageImpl) GetSenderID() (string, bool) {
 	id, errInfo := ccsmp.SolClientMessageGetSenderID(message.messagePointer)
 	if errInfo != nil {
 		if errInfo.ReturnCode == ccsmp.SolClientReturnCodeFail {
-			logging.Default.Debug(fmt.Sprintf("Encountered error retrieving Sender ID: %s, subcode: %d", errInfo.GetMessageAsString(), errInfo.SubCode))
+			logging.Default.Debug(fmt.Sprintf("Encountered error retrieving Sender ID: %s, subcode: %d", errInfo.GetMessageAsString(), errInfo.SubCode()))
 		}
 		return id, false
 	}
@@ -136,7 +136,7 @@ func (message *InboundMessageImpl) GetReplicationGroupMessageID() (rgmid.Replica
 	rmidPt, errInfo := ccsmp.SolClientMessageGetRGMID(message.messagePointer)
 	if errInfo != nil {
 		if errInfo.ReturnCode == ccsmp.SolClientReturnCodeFail {
-			logging.Default.Debug(fmt.Sprintf("Encountered error retrieving ReplicationGroupMessageID: %s, subcode: %d", errInfo.GetMessageAsString(), errInfo.SubCode))
+			logging.Default.Debug(fmt.Sprintf("Encountered error retrieving ReplicationGroupMessageID: %s, subcode: %d", errInfo.GetMessageAsString(), errInfo.SubCode()))
 		}
 		return nil, false
 	}
@@ -197,7 +197,7 @@ func GetReplyToDestinationName(message *InboundMessageImpl) (string, bool) {
 	destName, errorInfo := ccsmp.SolClientMessageGetReplyToDestinationName(message.messagePointer)
 	if errorInfo != nil {
 		if errorInfo.ReturnCode == ccsmp.SolClientReturnCodeFail {
-			logging.Default.Debug(fmt.Sprintf("Unable to retrieve the reply to destination this message was published to: %s, subcode: %d", errorInfo.GetMessageAsString(), errorInfo.SubCode))
+			logging.Default.Debug(fmt.Sprintf("Unable to retrieve the reply to destination this message was published to: %s, subcode: %d", errorInfo.GetMessageAsString(), errorInfo.SubCode()))
 		}
 		return destName, false
 	}

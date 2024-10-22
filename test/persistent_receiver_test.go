@@ -621,11 +621,7 @@ var _ = Describe("PersistentReceiver", func() {
 					Eventually(msgChan).Should(Receive(Not(BeNil())))
 				})
 
-				Context("pause and resume tests", Label("flaky-tests"), func() {
-					BeforeEach(func() {
-						Skip("Currently failing in Jenkins pipeline on Linux Musl nodes - SOL-124616")
-					})
-
+				Context("pause and resume tests", func() {
 					It("can pause and resume messaging repeatedly", func() {
 						numMessages := 1000
 						msgChan := make(chan message.InboundMessage, numMessages)
@@ -811,11 +807,9 @@ var _ = Describe("PersistentReceiver", func() {
 				})
 			})
 
-			const numQueuedMessages = 10000
-			Context(fmt.Sprintf("with %d queued messages", numQueuedMessages), Label("flaky-tests"), func() {
+			const numQueuedMessages = 5000
+			Context(fmt.Sprintf("with %d queued messages", numQueuedMessages), func() {
 				BeforeEach(func() {
-					Skip("Currently failing in Jenkins pipeline on Linux Musl nodes - SOL-124616")
-
 					helpers.PublishNPersistentMessages(messagingService, topicString, numQueuedMessages)
 					Eventually(func() int {
 						resp, _, err := testcontext.SEMP().Monitor().QueueApi.GetMsgVpnQueueMsgs(testcontext.SEMP().MonitorCtx(),

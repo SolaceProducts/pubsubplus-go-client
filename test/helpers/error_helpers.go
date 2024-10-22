@@ -76,7 +76,7 @@ func DecodeActionSwaggerError(err error, response interface{}) {
 func decodeActionSwaggerError(err error, response interface{}, offset int) {
 	ExpectWithOffset(offset, err).To(HaveOccurred(), "Expected action swagger error to have occurred")
 	var swaggerError action.GenericSwaggerError
-	ExpectWithOffset(offset, errors.As(err, &swaggerError)).To(BeTrue(), "Expecter action swagger error to be of type action.GenericSwaggerError")
+	ExpectWithOffset(offset, errors.As(err, &swaggerError)).To(BeTrue(), "Expected action swagger error to be of type action.GenericSwaggerError")
 	jsonErr := json.Unmarshal(swaggerError.Body(), response)
 	ExpectWithOffset(offset, jsonErr).ToNot(HaveOccurred(), "Expected to be able to decode response body to response object. Data: '"+string(swaggerError.Body())+"'")
 }
@@ -89,7 +89,7 @@ func DecodeConfigSwaggerError(err error, response interface{}) {
 func decodeConfigSwaggerError(err error, response interface{}, offset int) {
 	ExpectWithOffset(offset, err).To(HaveOccurred(), "Expected config swagger error to have occurred")
 	var swaggerError config.GenericSwaggerError
-	ExpectWithOffset(offset, errors.As(err, &swaggerError)).To(BeTrue(), "Expecter config swagger error to be of type config.GenericSwaggerError")
+	ExpectWithOffset(offset, errors.As(err, &swaggerError)).To(BeTrue(), "Expected config swagger error to be of type config.GenericSwaggerError")
 	jsonErr := json.Unmarshal(swaggerError.Body(), response)
 	ExpectWithOffset(offset, jsonErr).ToNot(HaveOccurred(), "Expected to be able to decode response body to response object. Data: '"+string(swaggerError.Body())+"'")
 }
@@ -102,7 +102,7 @@ func DecodeMonitorSwaggerError(err error, response interface{}) {
 func decodeMonitorSwaggerError(err error, response interface{}, offset int) {
 	ExpectWithOffset(offset, err).To(HaveOccurred(), "Expected monitor swagger error to have occurred")
 	var swaggerError monitor.GenericSwaggerError
-	ExpectWithOffset(offset, errors.As(err, &swaggerError)).To(BeTrue(), "Expecter monitor swagger error to be of type monitor.GenericSwaggerError")
+	ExpectWithOffset(offset, errors.As(err, &swaggerError)).To(BeTrue(), "Expected monitor swagger error to be of type monitor.GenericSwaggerError")
 	jsonErr := json.Unmarshal(swaggerError.Body(), response)
 	ExpectWithOffset(offset, jsonErr).ToNot(HaveOccurred(), "Expected to be able to decode response body to response object. Data: '"+string(swaggerError.Body())+"'")
 }

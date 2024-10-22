@@ -33,7 +33,7 @@ func ToNativeError(err ErrorInfo, args ...string) error {
 	if len(args) > 0 {
 		prefix = args[0]
 	}
-	nativeError := solace.NewNativeError(prefix+err.GetMessageAsString(), subcode.Code(err.SubCode))
+	nativeError := solace.NewNativeError(prefix+err.GetMessageAsString(), subcode.Code(err.SubCode()))
 	switch nativeError.SubCode() {
 	case subcode.LoginFailure:
 		return solace.NewError(&solace.AuthenticationError{}, constants.LoginFailure+nativeError.Error(), nativeError)

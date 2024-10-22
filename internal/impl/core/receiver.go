@@ -346,7 +346,7 @@ func (receiver *ccsmpBackedReceiver) NewPersistentReceiver(properties []string, 
 	flowEventCallback := func(flowEvent ccsmp.SolClientFlowEvent, responseCode ccsmp.SolClientResponseCode, info string) {
 		lastErrorInfo := ccsmp.GetLastErrorInfo(0)
 		var err error
-		if lastErrorInfo.SubCode != ccsmp.SolClientSubCodeOK {
+		if lastErrorInfo.SubCode() != ccsmp.SolClientSubCodeOK {
 			err = ToNativeError(lastErrorInfo)
 		}
 		eventCallback(flowEvent, &flowEventInfo{err: err, infoString: info})

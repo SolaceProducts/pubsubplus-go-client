@@ -169,6 +169,9 @@ const (
 	// for a direct message receiver the value type is boolean.
 	ServicePropertyReceiverDirectSubscriptionReapply ServiceProperty = "solace.messaging.service.receivers.direct.subscription.reapply"
 
+	// ServicePropertyProvisionTimeoutMs specifies the timeout for provision and deprovision operations, in milliseconds.
+	ServicePropertyProvisionTimeoutMs ServiceProperty = "solace.messaging.management.endpoint.provision-timeout"
+
 	// ServicePropertyPayloadCompressionLevel Enables (1-9) or disables (0, the default) outgoing payload compression.
 	// Incoming messages with payloads compressed this way are automatically and unconditionally decompressed before delivery to user code independently from this setting.
 	//

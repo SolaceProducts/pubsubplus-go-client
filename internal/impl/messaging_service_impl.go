@@ -30,6 +30,7 @@ import (
 	"solace.dev/go/messaging/internal/impl/core"
 	"solace.dev/go/messaging/internal/impl/logging"
 	"solace.dev/go/messaging/internal/impl/message"
+	"solace.dev/go/messaging/internal/impl/provisioner"
 	"solace.dev/go/messaging/internal/impl/publisher"
 	"solace.dev/go/messaging/pkg/solace"
 	"solace.dev/go/messaging/pkg/solace/config"
@@ -320,6 +321,13 @@ func (service *messagingServiceImpl) CreatePersistentMessageReceiverBuilder() so
 // Should this just be called MessageBuilder?
 func (service *messagingServiceImpl) MessageBuilder() solace.OutboundMessageBuilder {
 	return message.NewOutboundMessageBuilder()
+}
+
+// EndpointProvisioner aids the type-safe collection of queue properties,
+// and can provision multiple queues with different names (but identical properties) on the broker.
+// Warning: This is a mutable object. The fluent builder style setters modify and return the original object. Make copies explicitly.
+func (service *messagingServiceImpl) EndpointProvisioner() solace.EndpointProvisioner {
+	return provisioner.NewEndpointProvisionerImpl(service.transport.EndpointProvisioner())
 }
 
 // Disconnect disconnect the messaging service.
