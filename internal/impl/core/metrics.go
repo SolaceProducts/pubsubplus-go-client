@@ -178,7 +178,7 @@ func (backedMetrics *ccsmpBackedMetrics) GetStat(metric metrics.Metric) uint64 {
 	if rxMetric, ok := rxMetrics[metric]; ok {
 		// check for duplicate counts due to auto-acks and remove from final result
 		rxStat := backedMetrics.getRXStat(rxMetric)
-		duplicateAck := uint64(0)
+		duplicateAck := atomic.LoadUint64(&backedMetrics.duplicateAcks)
 		// take the difference and retrun as the settled accepted metric
 		if duplicateAck > 0 && metric == metrics.PersistentMessagesAccepted {
 			return rxStat - duplicateAck

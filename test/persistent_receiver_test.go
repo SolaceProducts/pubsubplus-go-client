@@ -1265,37 +1265,178 @@ var _ = Describe("PersistentReceiver", func() {
 				Expect(receiver.Terminate(10 * time.Second)).ToNot(HaveOccurred())
 			})
 
-			DescribeTable("Happy cases for outcome configuration on ReceiverBuilder",
-				func(configFunc func(solace.PersistentMessageReceiverBuilder), outcome config.MessageSettlementOutcome) {
-					receiverBuilder := messagingService.CreatePersistentMessageReceiverBuilder()
-					configFunc(receiverBuilder)
-					receiver, err := receiverBuilder.Build(resource.QueueDurableExclusive(queueName))
-					Expect(err).ToNot(HaveOccurred())
-					Expect(receiver.Start()).ToNot(HaveOccurred())
-					Expect(helpers.GetQueueMessages(queueName)).To(HaveLen(0))
-					messagingService.Metrics().Reset()
-					Expect(err).ToNot(HaveOccurred())
-					//TODO: metrics! Does the builder or receiver have getters for autoack?
 
-					// I guess this drains the queue?
-					if (outcome == config.PersistentReceiverFailedOutcome){
-						Consistently(
-							func() []monitor.MsgVpnQueueMsg {
-								return helpers.GetQueueMessages(queueName)
-							},
-							2*time.Second).Should(HaveLen(1))
-					}
-				},
-				Entry(
-					"Default can Accept", func(builder solace.PersistentMessageReceiverBuilder) {},
-					config.PersistentReceiverAcceptedOutcome),
-				Entry(
-					"Accept via setter", func(builder solace.PersistentMessageReceiverBuilder) {
-						builder.WithRequiredMessageOutcomeSupport(config.PersistentReceiverAcceptedOutcome)
+			for _, autoAck := range []bool{true, false} {
+				autoAckText := ""
+				// ??? I don't speak go, so I'm just rolling with it.
+				autoAck2 := autoAck
+				if autoAck {autoAckText = " withAutoAck"}
+				FDescribeTable("Happy cases for outcome configuration on ReceiverBuilder" + autoAckText,
+					func(configFunc func(solace.PersistentMessageReceiverBuilder), outcome config.MessageSettlementOutcome) {
+						receiverBuilder := messagingService.CreatePersistentMessageReceiverBuilder()
+						configFunc(receiverBuilder)
+						if autoAck2 {
+							receiverBuilder.WithMessageAutoAcknowledgement()
+						}
+						receiver, err := receiverBuilder.Build(resource.QueueDurableExclusive(queueName))
+						Expect(err).ToNot(HaveOccurred())
+						Expect(receiver.Start()).ToNot(HaveOccurred())
+						Expect(helpers.GetQueueMessages(queueName)).To(HaveLen(0))
+						messagingService.Metrics().Reset()
+						Expect(err).ToNot(HaveOccurred())
+
+						helpers.PublishOnePersistentMessage(messagingService, topicString)
+						msg, err := receiver.ReceiveMessage(10 * time.Second)
+						Expect(err).ToNot(HaveOccurred())
+
+						err = receiver.Settle(msg, outcome)
+						Expect(err).ToNot(HaveOccurred())
+						/* if (autoAck2) {
+							helpers.ValidateMetric(messagingService, metrics.PersistentMessagesAccepted, 0)
+							helpers.ValidateMetric(messagingService, metrics.PersistentMessagesRejected, 0)
+							helpers.ValidateMetric(messagingService, metrics.PersistentMessagesFailed, 0)
+						} else */ if (outcome == config.PersistentReceiverAcceptedOutcome) {
+							helpers.ValidateMetric(messagingService, metrics.PersistentMessagesAccepted, 1)
+							helpers.ValidateMetric(messagingService, metrics.PersistentMessagesRejected, 0)
+							helpers.ValidateMetric(messagingService, metrics.PersistentMessagesFailed, 0)
+						} else if (outcome == config.PersistentReceiverRejectedOutcome) {
+							helpers.ValidateMetric(messagingService, metrics.PersistentMessagesAccepted, 0)
+							helpers.ValidateMetric(messagingService, metrics.PersistentMessagesRejected, 1)
+							helpers.ValidateMetric(messagingService, metrics.PersistentMessagesFailed, 0)
+						} else if (outcome == config.PersistentReceiverFailedOutcome) {
+							helpers.ValidateMetric(messagingService, metrics.PersistentMessagesAccepted, 0)
+							helpers.ValidateMetric(messagingService, metrics.PersistentMessagesRejected, 0)
+							helpers.ValidateMetric(messagingService, metrics.PersistentMessagesFailed, 1)
+						}
+						// I guess this drains the queue?
+						if (!autoAck2 && outcome == config.PersistentReceiverFailedOutcome){
+							Consistently(
+								func() []monitor.MsgVpnQueueMsg {
+									return helpers.GetQueueMessages(queueName)
+								},
+								2*time.Second).Should(HaveLen(1))
+						}
 					},
-					config.PersistentReceiverAcceptedOutcome),
-			)
+					Entry(
+						"Default can Accept", func(builder solace.PersistentMessageReceiverBuilder) {},
+						config.PersistentReceiverAcceptedOutcome),
+					Entry(
+						"Accept via setter", func(builder solace.PersistentMessageReceiverBuilder) {
+							builder.WithRequiredMessageOutcomeSupport(config.PersistentReceiverAcceptedOutcome)
+						},
+						config.PersistentReceiverAcceptedOutcome),
+					Entry(
+						"Accept & Fail via setter can accept", func(builder solace.PersistentMessageReceiverBuilder) {
+							builder.WithRequiredMessageOutcomeSupport(config.PersistentReceiverFailedOutcome, config.PersistentReceiverAcceptedOutcome)
+						},
+						config.PersistentReceiverAcceptedOutcome),
+					Entry(
+						"Accept & Fail via setter can fail", func(builder solace.PersistentMessageReceiverBuilder) {
+							builder.WithRequiredMessageOutcomeSupport(config.PersistentReceiverFailedOutcome, config.PersistentReceiverAcceptedOutcome)
+						},
+						config.PersistentReceiverFailedOutcome),
+					Entry(
+						"Fail via setter can accept", func(builder solace.PersistentMessageReceiverBuilder) {
+							builder.WithRequiredMessageOutcomeSupport(config.PersistentReceiverFailedOutcome)
+						},
+						config.PersistentReceiverAcceptedOutcome),
+					Entry(
+						"Fail via setter can fail", func(builder solace.PersistentMessageReceiverBuilder) {
+							builder.WithRequiredMessageOutcomeSupport(config.PersistentReceiverFailedOutcome)
+						},
+						config.PersistentReceiverFailedOutcome),
+					Entry(
+						"Accept via property", func(builder solace.PersistentMessageReceiverBuilder) {
+							builder.FromConfigurationProvider(config.ReceiverPropertyMap{
+								config.ReceiverPropertyPersistentMessageRequiredOutcomeSupport: fmt.Sprintf("%s",config.PersistentReceiverAcceptedOutcome),
+							})
+						},
+						config.PersistentReceiverAcceptedOutcome),
+					Entry(
+						"Fail via property can accept", func(builder solace.PersistentMessageReceiverBuilder) {
+							builder.FromConfigurationProvider(config.ReceiverPropertyMap{
+								config.ReceiverPropertyPersistentMessageRequiredOutcomeSupport: fmt.Sprintf("%s",config.PersistentReceiverFailedOutcome),
+							})
+						},
+						config.PersistentReceiverAcceptedOutcome),
+					Entry(
+						"Fail via property can fail", func(builder solace.PersistentMessageReceiverBuilder) {
+							builder.FromConfigurationProvider(config.ReceiverPropertyMap{
+								config.ReceiverPropertyPersistentMessageRequiredOutcomeSupport: fmt.Sprintf("%s",config.PersistentReceiverFailedOutcome),
+							})
+						},
+						config.PersistentReceiverFailedOutcome),
+					Entry(
+						"Accept & Fail via property can accept", func(builder solace.PersistentMessageReceiverBuilder) {
+							builder.FromConfigurationProvider(config.ReceiverPropertyMap{
+								config.ReceiverPropertyPersistentMessageRequiredOutcomeSupport: fmt.Sprintf("%s,%s",config.PersistentReceiverFailedOutcome, config.PersistentReceiverAcceptedOutcome),
+							})
+						},
+						config.PersistentReceiverAcceptedOutcome),
+					Entry(
+						"Accept & Fail via property can fail", func(builder solace.PersistentMessageReceiverBuilder) {
+							builder.FromConfigurationProvider(config.ReceiverPropertyMap{
+								config.ReceiverPropertyPersistentMessageRequiredOutcomeSupport: fmt.Sprintf("%s,%s",config.PersistentReceiverFailedOutcome, config.PersistentReceiverAcceptedOutcome),
+							})
+						},
+						config.PersistentReceiverFailedOutcome),
 
+
+					Entry(
+						"Accept & Reject via setter can accept", func(builder solace.PersistentMessageReceiverBuilder) {
+							builder.WithRequiredMessageOutcomeSupport(config.PersistentReceiverRejectedOutcome, config.PersistentReceiverAcceptedOutcome)
+						},
+						config.PersistentReceiverAcceptedOutcome),
+					Entry(
+						"Accept & Reject via setter can reject", func(builder solace.PersistentMessageReceiverBuilder) {
+							builder.WithRequiredMessageOutcomeSupport(config.PersistentReceiverRejectedOutcome, config.PersistentReceiverAcceptedOutcome)
+						},
+						config.PersistentReceiverRejectedOutcome),
+					Entry(
+						"Reject via setter can accept", func(builder solace.PersistentMessageReceiverBuilder) {
+							builder.WithRequiredMessageOutcomeSupport(config.PersistentReceiverRejectedOutcome)
+						},
+						config.PersistentReceiverAcceptedOutcome),
+					Entry(
+						"Reject via setter can reject", func(builder solace.PersistentMessageReceiverBuilder) {
+							builder.WithRequiredMessageOutcomeSupport(config.PersistentReceiverRejectedOutcome)
+						},
+						config.PersistentReceiverRejectedOutcome),
+					Entry(
+						"Reject via property can accept", func(builder solace.PersistentMessageReceiverBuilder) {
+							builder.FromConfigurationProvider(config.ReceiverPropertyMap{
+								config.ReceiverPropertyPersistentMessageRequiredOutcomeSupport: fmt.Sprintf("%s",config.PersistentReceiverRejectedOutcome),
+							})
+						},
+						config.PersistentReceiverAcceptedOutcome),
+					Entry(
+						"Reject via property can reject", func(builder solace.PersistentMessageReceiverBuilder) {
+							builder.FromConfigurationProvider(config.ReceiverPropertyMap{
+								config.ReceiverPropertyPersistentMessageRequiredOutcomeSupport: fmt.Sprintf("%s",config.PersistentReceiverRejectedOutcome),
+							})
+						},
+						config.PersistentReceiverRejectedOutcome),
+					Entry(
+						"Accept & Reject via property can accept", func(builder solace.PersistentMessageReceiverBuilder) {
+							builder.FromConfigurationProvider(config.ReceiverPropertyMap{
+								config.ReceiverPropertyPersistentMessageRequiredOutcomeSupport: fmt.Sprintf("%s,%s",config.PersistentReceiverRejectedOutcome, config.PersistentReceiverAcceptedOutcome),
+							})
+						},
+						config.PersistentReceiverAcceptedOutcome),
+					Entry(
+						"Accept & Reject via property can reject", func(builder solace.PersistentMessageReceiverBuilder) {
+							builder.FromConfigurationProvider(config.ReceiverPropertyMap{
+								config.ReceiverPropertyPersistentMessageRequiredOutcomeSupport: fmt.Sprintf("%s,%s",config.PersistentReceiverRejectedOutcome, config.PersistentReceiverAcceptedOutcome),
+							})
+						},
+						config.PersistentReceiverRejectedOutcome),
+				) // describe
+			} // for
+
+
+			// Config time fail cases
+
+			// Settle() time fail cases
 
 			DescribeTable("Message Settlement Outcome with Client Ack Configured",
 				func(configFunc func(solace.PersistentMessageReceiverBuilder), outcome config.MessageSettlementOutcome, expectNackSupport bool, useReceiveAsync bool) {
@@ -1482,7 +1623,7 @@ var _ = Describe("PersistentReceiver", func() {
 						config.ReceiverPropertyPersistentMessageRequiredOutcomeSupport: fmt.Sprintf("%s,%s", config.PersistentReceiverFailedOutcome, config.PersistentReceiverRejectedOutcome),
 					})
 				}, config.PersistentReceiverFailedOutcome, true),
-			)
+							)
 
 			Context("with an ACL deny exception", func() {
 				const deniedTopic = "persistent-receiver-acl-deny"
