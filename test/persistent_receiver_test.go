@@ -1271,7 +1271,7 @@ var _ = Describe("PersistentReceiver", func() {
 				// ??? I don't speak go, so I'm just rolling with it.
 				autoAck2 := autoAck
 				if autoAck {autoAckText = " withAutoAck"}
-				FDescribeTable("Happy cases for outcome configuration on ReceiverBuilder" + autoAckText,
+				DescribeTable("Happy cases for outcome configuration on ReceiverBuilder" + autoAckText,
 					func(configFunc func(solace.PersistentMessageReceiverBuilder), outcome config.MessageSettlementOutcome) {
 						receiverBuilder := messagingService.CreatePersistentMessageReceiverBuilder()
 						configFunc(receiverBuilder)
