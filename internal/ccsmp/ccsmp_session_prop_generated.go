@@ -82,6 +82,8 @@ const (
 	SolClientSessionPropClientName = C.SOLCLIENT_SESSION_PROP_CLIENT_NAME
 	// SolClientSessionPropCompressionLevel: Enables messages to be compressed with ZLIB before transmission and decompressed on receive. The valid range is 0 (off) or 1..9, where 1 is less compression (fastest) and 9 is most compression (slowest). Default: ::SOLCLIENT_SESSION_PROP_DEFAULT_COMPRESSION_LEVEL
 	SolClientSessionPropCompressionLevel = C.SOLCLIENT_SESSION_PROP_COMPRESSION_LEVEL
+	// SolClientSessionPropPayloadCompressionLevel: Enables binary attachment in the message to be compressed with ZLIB before transmission and decompressed on receive. The valid range is 0 (off) or 1..9, where 1 is less compression (fastest) and 9 is most compression (slowest). Default: ::SOLCLIENT_SESSION_PROP_DEFAULT_PAYLOAD_COMPRESSION_LEVEL
+	SolClientSessionPropPayloadCompressionLevel = C.SOLCLIENT_SESSION_PROP_PAYLOAD_COMPRESSION_LEVEL
 	// SolClientSessionPropGenerateRcvTimestamps: When enabled, a receive timestamp is recorded for each message and passed to the application callback in the rxCallbackInfo_t structure. Default: ::SOLCLIENT_SESSION_PROP_DEFAULT_GENERATE_RCV_TIMESTAMPS
 	SolClientSessionPropGenerateRcvTimestamps = C.SOLCLIENT_SESSION_PROP_GENERATE_RCV_TIMESTAMPS
 	// SolClientSessionPropGenerateSendTimestamps: When enabled, a send timestamp is automatically included (if not already present) in the Solace-defined fields for each message sent. Default: ::SOLCLIENT_SESSION_PROP_DEFAULT_GENERATE_SEND_TIMESTAMPS
@@ -132,7 +134,7 @@ const (
 	SolClientSessionPropSslClientPrivateKeyFile = C.SOLCLIENT_SESSION_PROP_SSL_CLIENT_PRIVATE_KEY_FILE
 	// SolClientSessionPropSslClientPrivateKeyFilePassword: This property specifies the password used to encrypt the client private key file.
 	SolClientSessionPropSslClientPrivateKeyFilePassword = C.SOLCLIENT_SESSION_PROP_SSL_CLIENT_PRIVATE_KEY_FILE_PASSWORD
-	// SolClientSessionPropSslConnectionDowngradeTo: This property specifies a transport protocol that SSL connection will be downgraded to after client authentication. Allowed transport protocol is "PLAIN_TEXT". May be combined with non-zero compression level to achieve compression without encryption.
+	// SolClientSessionPropSslConnectionDowngradeTo: This property specifies a transport protocol that TLS connection will be downgraded to after client authentication. Allowed transport protocol is "PLAIN_TEXT". May be combined with non-zero compression level to achieve compression without encryption. .<p><b>NOTE:</b> TLS connection downgrade is not supported on Websocket or HTTP transports
 	SolClientSessionPropSslConnectionDowngradeTo = C.SOLCLIENT_SESSION_PROP_SSL_CONNECTION_DOWNGRADE_TO
 	// SolClientSessionPropInitialReceiveBufferSize: If not zero, the minimum starting size for the API receive buffer. Must be zero or >= 1024 and <=64*1024*1024
 	SolClientSessionPropInitialReceiveBufferSize = C.SOLCLIENT_SESSION_PROP_INITIAL_RECEIVE_BUFFER_SIZE
@@ -208,6 +210,8 @@ const (
 	SolClientSessionPropDefaultSubscriberNetworkPriority = C.SOLCLIENT_SESSION_PROP_DEFAULT_SUBSCRIBER_NETWORK_PRIORITY
 	// SolClientSessionPropDefaultCompressionLevel: The default compression level (no compression).
 	SolClientSessionPropDefaultCompressionLevel = C.SOLCLIENT_SESSION_PROP_DEFAULT_COMPRESSION_LEVEL
+	// SolClientSessionPropDefaultPayloadCompressionLevel: The default payload compression level (no compression).
+	SolClientSessionPropDefaultPayloadCompressionLevel = C.SOLCLIENT_SESSION_PROP_DEFAULT_PAYLOAD_COMPRESSION_LEVEL
 	// SolClientSessionPropDefaultConnectRetriesPerHost: The default number of connect retries per host. Zero means only try once when connecting.
 	SolClientSessionPropDefaultConnectRetriesPerHost = C.SOLCLIENT_SESSION_PROP_DEFAULT_CONNECT_RETRIES_PER_HOST
 	// SolClientSessionPropDefaultConnectRetries: The default number of connect retries. Zero means only try once when connecting.

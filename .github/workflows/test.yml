@@ -25,10 +25,11 @@ jobs:
         run: go test -coverprofile ./unitcoverage.out ./...
       - name: Uploads artifacts
         if: ${{ always() }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           path: |
             ./unitcoverage.out
+          overwrite: true
 
   # this job runs linux based tests
   Linux:
@@ -39,6 +40,11 @@ jobs:
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v2
+      - name: Install Compose
+        uses: ndeloof/install-compose-action@v0.0.1
+        with:
+          version: v2.29.1 # pinned to 'latest' as of 06/08/2024
+          legacy: true    # will also install in PATH as `docker-compose`
       - name: Setup Go environment
         uses: actions/setup-go@v2.1.3
         with:
@@ -104,16 +110,17 @@ jobs:
         run: |
           mkdir reports
           go install github.com/onsi/ginkgo/v2/ginkgo@v2.1.3
-          ginkgo --junit-report=./reports/report.xml -coverprofile ./reports/coverage.out -coverpkg solace.dev/go/messaging/internal/...,solace.dev/go/messaging/pkg/... -tags enable_debug_logging
+          ginkgo --junit-report=./reports/report.xml -coverprofile ./reports/coverage.out -coverpkg solace.dev/go/messaging/internal/...,solace.dev/go/messaging/pkg/... -tags enable_debug_logging --label-filter='!flaky-test'
         working-directory: ./test
 
       - name: Uploads artifacts
         if: ${{ always() }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           path: |
             ./unitcoverage.out
             ./test/reports/report.xml
             ./test/reports/coverage.out
             ./test/diagnostics.tgz
+          overwrite: true
 

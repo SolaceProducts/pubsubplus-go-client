@@ -243,7 +243,7 @@ func (receiver *persistentMessageReceiverImpl) Start() (err error) {
 	defer func() {
 		// if we don't cleanup, when we destroy the flow we might orphan entries in the map causing a memory leak
 		if err != nil {
-			receiver.logger.Debug("Encountered error while adding subscriptions, removoing outstanding correlations")
+			receiver.logger.Debug("Encountered error while adding subscriptions, removing outstanding correlations")
 			for _, id := range outstandingCorrelations {
 				receiver.internalReceiver.ClearSubscriptionCorrelation(id)
 			}
@@ -275,7 +275,7 @@ func (receiver *persistentMessageReceiverImpl) provisionEndpoint() error {
 	if receiver.doCreateMissingResources && receiver.queue.IsDurable() {
 		errInfo := receiver.internalReceiver.ProvisionEndpoint(receiver.queue.GetName(), receiver.queue.IsExclusivelyAccessible())
 		if errInfo != nil {
-			if subcode.Code(errInfo.SubCode) == subcode.EndpointAlreadyExists {
+			if subcode.Code(errInfo.SubCode()) == subcode.EndpointAlreadyExists {
 				receiver.logger.Info("Endpoint '" + receiver.queue.GetName() + "' already exists")
 			} else {
 				receiver.logger.Warning("Failed to provision endpoint '" + receiver.queue.GetName() + "', " + errInfo.GetMessageAsString())
@@ -1128,7 +1128,7 @@ func (receiver *persistentMessageReceiverImpl) run() {
 					} else {
 						errInfo := receiver.internalFlow.Ack(msgID)
 						if errInfo != nil {
-							receiver.logger.Warning("Failed to acknowledge message: " + errInfo.GetMessageAsString() + ", sub code: " + fmt.Sprint(errInfo.SubCode))
+							receiver.logger.Warning("Failed to acknowledge message: " + errInfo.GetMessageAsString() + ", sub code: " + fmt.Sprint(errInfo.SubCode()))
 						}
 					}
 				}

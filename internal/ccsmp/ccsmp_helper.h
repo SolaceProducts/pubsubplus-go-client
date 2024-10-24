@@ -26,9 +26,7 @@
 typedef struct solClient_errorInfo_wrapper
 {
     solClient_returnCode_t ReturnCode;
-    solClient_subCode_t SubCode;
-    solClient_session_responseCode_t ResponseCode;
-    char ErrorStr[SOLCLIENT_ERRORINFO_STR_SIZE];
+    solClient_errorInfo_t * DetailedErrorInfo;
 } solClient_errorInfo_wrapper_t;
 
 /**
@@ -100,6 +98,18 @@ solClient_returnCode_t  SessionTopicEndpointUnsubscribeWithFlags(
                         solClient_subscribeFlags_t flags,
                         const char              *topicSubscription_p,
                         solClient_uint64_t      correlationTag);
+
+solClient_returnCode_t  SessionEndpointProvisionWithFlags(
+                        solClient_opaqueSession_pt  opaqueSession_p,
+                        solClient_propertyArray_pt  endpointProps,
+                        solClient_uint32_t  flags,
+                        solClient_uint64_t          correlationTag);
+
+solClient_returnCode_t  SessionEndpointDeprovisionWithFlags(
+                        solClient_opaqueSession_pt  opaqueSession_p,
+                        solClient_propertyArray_pt  endpointProps,
+                        solClient_uint32_t  flags,
+                        solClient_uint64_t          correlationTag);
 
 /**
  * Definition of solclientgo correlation prefix

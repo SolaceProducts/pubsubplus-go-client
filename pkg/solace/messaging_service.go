@@ -65,6 +65,9 @@ type MessagingService interface {
 	// used to build messages to send via a message publisher.
 	MessageBuilder() OutboundMessageBuilder
 
+	// EndpointProvisioner is used to provision and deprovision endpoints on the broker.
+	EndpointProvisioner() EndpointProvisioner
+
 	// RequestReply creates a RequestReplyMessagingService that inherits
 	// the configuration of this MessagingService instance.
 	RequestReply() RequestReplyMessagingService
@@ -208,6 +211,9 @@ type MessagingServiceBuilder interface {
 	// WithTransportSecurityStrategy configures the resulting messaging service
 	// with the specified transport security strategy.
 	WithTransportSecurityStrategy(transportSecurityStrategy config.TransportSecurityStrategy) MessagingServiceBuilder
+
+	// WithProvisionTimeoutMs configures the timeout for provision and deprovision operations, in milliseconds.
+	WithProvisionTimeoutMs(timeout time.Duration) MessagingServiceBuilder
 }
 
 // ReconnectionListener is a handler that can be registered to a MessagingService.

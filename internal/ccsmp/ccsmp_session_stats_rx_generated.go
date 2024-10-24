@@ -60,7 +60,7 @@ const (
 	SolClientStatsRXTotalDataBytes SolClientStatsRX = C.SOLCLIENT_STATS_RX_TOTAL_DATA_BYTES
 	// SolClientStatsRXTotalDataMsgs: The total number of data messages received.
 	SolClientStatsRXTotalDataMsgs SolClientStatsRX = C.SOLCLIENT_STATS_RX_TOTAL_DATA_MSGS
-	// SolClientStatsRXCompressedBytes: The number of bytes received before decompression.
+	// SolClientStatsRXCompressedBytes: The number of bytes received before decompression. This metric only applies to transport/channel compression
 	SolClientStatsRXCompressedBytes SolClientStatsRX = C.SOLCLIENT_STATS_RX_COMPRESSED_BYTES
 	// SolClientStatsRXReplyMsg:  The reply messages received.
 	SolClientStatsRXReplyMsg SolClientStatsRX = C.SOLCLIENT_STATS_RX_REPLY_MSG

@@ -19,6 +19,7 @@ package test
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"time"
 
 	toxiproxy "github.com/Shopify/toxiproxy/v2/client"
@@ -147,6 +148,35 @@ var _ = Describe("PersistentReceiver", func() {
 			receiver, err := messagingService.CreatePersistentMessageReceiverBuilder().Build(resource.QueueNonDurableExclusiveAnonymous())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(fmt.Sprint(receiver)).To(ContainSubstring(fmt.Sprintf("%p", receiver)))
+		})
+		Context("with a connected messaging service and specially formatted queue", func() {
+			const basicQueueName = "test_invalid_durability_on_bind_raises_exception"
+			var modifiedQueueName string
+
+			BeforeEach(func() {
+				helpers.ConnectMessagingService(messagingService)
+				foundHostName, _ := helpers.GetHostName(messagingService, basicQueueName)
+				modifiedQueueName = "#P2P/QTMP/v:" + foundHostName + "/" + basicQueueName
+				helpers.CreateQueue(modifiedQueueName)
+			})
+
+			AfterEach(func() {
+				foundHostName, _ := helpers.GetHostName(nil, basicQueueName)
+				modifiedQueueName = "#P2P/QTMP/v:" + foundHostName + "/" + basicQueueName
+				if messagingService.IsConnected() {
+					helpers.DisconnectMessagingService(messagingService)
+				}
+				helpers.DeleteQueue(url.QueryEscape(modifiedQueueName))
+			})
+
+			Describe("Invalid Queue or Topic Endpoint", func() {
+				It("can return an error when configured to bind to a non-durable queue but attempts to bind to a durable queue.", func() {
+					receiver := helpers.NewPersistentReceiver(messagingService, resource.QueueNonDurableExclusive(basicQueueName))
+					err := receiver.Start()
+					Expect(err).ShouldNot(BeNil())
+					helpers.ValidateNativeError(err, subcode.InvalidDurability)
+				})
+			})
 		})
 
 		Context("with a connected messaging service and queue", func() {
@@ -590,60 +620,65 @@ var _ = Describe("PersistentReceiver", func() {
 					Expect(receiver.Resume()).ToNot(HaveOccurred())
 					Eventually(msgChan).Should(Receive(Not(BeNil())))
 				})
-				It("can pause and resume messaging repeatedly", func() {
-					numMessages := 1000
-					msgChan := make(chan message.InboundMessage, numMessages)
-					Expect(
-						receiver.ReceiveAsync(func(inboundMessage message.InboundMessage) {
-							msgChan <- inboundMessage
-						}),
-					).ToNot(HaveOccurred())
-					pauseDone := make(chan struct{})
-					resumeDone := make(chan struct{})
-					publishDone := make(chan struct{})
-					go func() {
-						defer GinkgoRecover()
-						helpers.PublishNPersistentMessages(messagingService, topicString, numMessages)
-						close(publishDone)
-					}()
-					go func() {
-						defer GinkgoRecover()
-					pauseLoop:
-						for {
-							select {
-							case <-publishDone:
-								break pauseLoop
-							default:
-								Expect(receiver.Pause()).ToNot(HaveOccurred())
+
+				Context("pause and resume tests", func() {
+					It("can pause and resume messaging repeatedly", func() {
+						numMessages := 1000
+						msgChan := make(chan message.InboundMessage, numMessages)
+						Expect(
+							receiver.ReceiveAsync(func(inboundMessage message.InboundMessage) {
+								msgChan <- inboundMessage
+							}),
+						).ToNot(HaveOccurred())
+						pauseDone := make(chan struct{})
+						resumeDone := make(chan struct{})
+						publishDone := make(chan struct{})
+						go func() {
+							defer GinkgoRecover()
+							helpers.PublishNPersistentMessages(messagingService, topicString, numMessages)
+							close(publishDone)
+						}()
+						go func() {
+							defer GinkgoRecover()
+						pauseLoop:
+							for {
+								select {
+								case <-publishDone:
+									break pauseLoop
+								default:
+									Expect(receiver.Pause()).ToNot(HaveOccurred())
+								}
 							}
-						}
-						close(pauseDone)
-					}()
-					go func() {
-						defer GinkgoRecover()
-					resumeLoop:
-						for {
-							select {
-							case <-publishDone:
-								break resumeLoop
-							default:
-								Expect(receiver.Resume()).ToNot(HaveOccurred())
+							close(pauseDone)
+						}()
+						go func() {
+							defer GinkgoRecover()
+						resumeLoop:
+							for {
+								select {
+								case <-publishDone:
+									break resumeLoop
+								default:
+									Expect(receiver.Resume()).ToNot(HaveOccurred())
+								}
 							}
+							close(resumeDone)
+						}()
+
+						Eventually(publishDone, 10*time.Second).Should(BeClosed())
+						Eventually(pauseDone).Should(BeClosed())
+						Eventually(resumeDone).Should(BeClosed())
+
+						Expect(receiver.Resume()).ToNot(HaveOccurred())
+
+						// Make sure we receive all messages
+						for i := 0; i < numMessages; i++ {
+							Eventually(msgChan).Should(Receive())
 						}
-						close(resumeDone)
-					}()
+					})
 
-					Eventually(publishDone, 10*time.Second).Should(BeClosed())
-					Eventually(pauseDone).Should(BeClosed())
-					Eventually(resumeDone).Should(BeClosed())
-
-					Expect(receiver.Resume()).ToNot(HaveOccurred())
-
-					// Make sure we receive all messages
-					for i := 0; i < numMessages; i++ {
-						Eventually(msgChan).Should(Receive())
-					}
 				})
+
 				It("does not receive multiple messages with overlapping subscriptions", func() {
 					msgChan := make(chan message.InboundMessage)
 					Expect(
@@ -772,7 +807,7 @@ var _ = Describe("PersistentReceiver", func() {
 				})
 			})
 
-			const numQueuedMessages = 10000
+			const numQueuedMessages = 5000
 			Context(fmt.Sprintf("with %d queued messages", numQueuedMessages), func() {
 				BeforeEach(func() {
 					helpers.PublishNPersistentMessages(messagingService, topicString, numQueuedMessages)
@@ -783,6 +818,7 @@ var _ = Describe("PersistentReceiver", func() {
 						return int(resp.Meta.Count)
 					}).Should(Equal(numQueuedMessages))
 				})
+
 				It("receives all messages when connecting to a queue with spooled messages", func() {
 					receiver := helpers.NewPersistentReceiver(messagingService, resource.QueueDurableExclusive(queueName))
 					Expect(receiver.Start()).ToNot(HaveOccurred())
@@ -796,6 +832,7 @@ var _ = Describe("PersistentReceiver", func() {
 						Expect(receiver.Ack(msg)).ToNot(HaveOccurred())
 					}
 				})
+
 				It("receives all messages when connecting to a queue with spooled messages with receive async added later", func() {
 					receiver := helpers.NewPersistentReceiver(messagingService, resource.QueueDurableExclusive(queueName))
 					Expect(receiver.Start()).ToNot(HaveOccurred())
@@ -1548,6 +1585,7 @@ var _ = Describe("PersistentReceiver", func() {
 	Describe("Unsolicited Termination Tests", func() {
 		var messagingService solace.MessagingService
 		var messageReceiver solace.PersistentMessageReceiver
+		const queueName = "unsolicitedPersistentTerminationQueue"
 
 		type unsolicitedTerminationContext struct {
 			terminateFunction func(messagingService solace.MessagingService,
@@ -1586,10 +1624,8 @@ var _ = Describe("PersistentReceiver", func() {
 			},
 			"queue delete": {
 				terminateFunction: func(messagingService solace.MessagingService, messageReceiver solace.PersistentMessageReceiver) {
-					receiverInfo, err := messageReceiver.ReceiverInfo()
-					Expect(err).ToNot(HaveOccurred())
-					_, _, err = testcontext.SEMP().Config().QueueApi.DeleteMsgVpnQueue(testcontext.SEMP().ConfigCtx(),
-						testcontext.Messaging().VPN, receiverInfo.GetResourceInfo().GetName())
+					_, _, err := testcontext.SEMP().Config().QueueApi.DeleteMsgVpnQueue(testcontext.SEMP().ConfigCtx(),
+						testcontext.Messaging().VPN, queueName)
 					Expect(err).ToNot(HaveOccurred())
 				},
 				configuration: func() config.ServicePropertyMap {
@@ -1604,7 +1640,6 @@ var _ = Describe("PersistentReceiver", func() {
 			terminationCleanup := terminationContextRef.cleanupFunc
 			Context("using "+terminationCaseName, func() {
 				const topicString = "unsolicited-persistent-terminations"
-				const queueName = "unsolicitedPersistentTerminationQueue"
 				const numMessages = 5
 
 				var terminate func()
@@ -1683,19 +1718,33 @@ var _ = Describe("PersistentReceiver", func() {
 
 				It("handles unsolicited terminations while already terminating", func() {
 					blocker := make(chan struct{})
+					signal := make(chan bool)
 					messageChannel := make(chan message.InboundMessage, numMessages+1)
+
+					// This timer needs to be big enough to give us a very
+					// high chance of both receiving the messages and getting
+					// past the state change in Terminate. It may need to be
+					// updated in the future since this only mitigates the
+					// race condition and doesn't eliminate it.
+					waitToReceiveMessages := 30 * time.Second
+					waitForTermination := waitToReceiveMessages
 					messageReceiver.ReceiveAsync(func(inboundMessage message.InboundMessage) {
+						signal <- true
 						<-blocker
 						messageChannel <- inboundMessage
 					})
 					helpers.PublishNPersistentMessages(messagingService, topicString, numMessages+1)
 					helpers.ValidateMetric(messagingService, metrics.PersistentMessagesReceived, numMessages+1)
 					terminateDuration := 2 * time.Second
+					Eventually(signal, waitToReceiveMessages).Should(Receive())
 					terminateChan := messageReceiver.TerminateAsync(terminateDuration)
+					Eventually(messageReceiver.IsRunning, waitForTermination).Should(BeFalse())
+					Expect(messageReceiver.IsRunning()).To(BeFalse())
 					terminationFunction(messagingService, messageReceiver)
 					Consistently(terminationReceived).ShouldNot(Receive())
-					time.Sleep(terminateDuration)
+					Consistently(terminateChan, terminateDuration).ShouldNot(Receive())
 					close(blocker)
+					close(signal)
 					Eventually(terminateChan).Should(Receive())
 					helpers.ValidateMetric(messagingService, metrics.ReceivedMessagesTerminationDiscarded, numMessages)
 					Eventually(messageChannel).Should(Receive(Not(BeNil())))

@@ -1978,8 +1978,7 @@ typedef struct solClient_uuid
 #define SOLCLIENT_PROP_DISABLE_VAL "0" /**< The value used to disable the property. */
 /*@}*/
 
-/** @anchor globalProps
- * @name Global Configuration Properties 
+/** @defgroup globalProps Global Configuration Properties 
  * Items that can be configured globally for an API instance.  Global properties are set in
  * solClient_initialize().  Global properties may not be changed after this, they exist for 
  * the duration of the API instance.
@@ -2014,7 +2013,7 @@ typedef struct solClient_uuid
       @li ::SOLCLIENT_GLOBAL_PROP_DEFAULT_CRYPTO_LIB_WINDOWS for Windows.*/
 /*@}*/
 
-/** @name Default global configuration properties
+/** @defgroup DefaultGlobalProps Default Global Gonfiguration Groperties
 * The default values for global configuration properties that are not explicitly set.
 */
 /*@{*/
@@ -2030,13 +2029,13 @@ typedef struct solClient_uuid
 #define SOLCLIENT_GLOBAL_PROP_DEFAULT_GSS_KRB_LIB_AIX    "libgssapi_krb5.a(libgssapi_krb5.a.so)" /**< The default GSS Kerberos library name for AIX. */
 #define SOLCLIENT_GLOBAL_PROP_DEFAULT_IBM_CODESET        "TPF_CCSID_IBM1047"  /**< The default IBM character set in use by the application */
 #define SOLCLIENT_GLOBAL_PROP_DEFAULT_SSL_LIB_UNIX       "libssl.so"          /**< The default SSL library name for Unix (including Linux and AIX) */
-#define SOLCLIENT_GLOBAL_PROP_DEFAULT_SSL_LIB_MACOSX     "libssl.1.1.dylib"       /**< The default SSL library name for MacOSX */
+#define SOLCLIENT_GLOBAL_PROP_DEFAULT_SSL_LIB_MACOSX     "libssl.3.dylib"       /**< The default SSL library name for MacOSX */
 #define SOLCLIENT_GLOBAL_PROP_DEFAULT_SSL_LIB_VMS        "SSL1$LIBSSL_SHR.EXE"      /**< The default SSL library name for OpenVMS */
-#define SOLCLIENT_GLOBAL_PROP_DEFAULT_SSL_LIB_WINDOWS    "libssl-1_1.dll"       /**< The default SSL library name for Windows */
+#define SOLCLIENT_GLOBAL_PROP_DEFAULT_SSL_LIB_WINDOWS    "libssl-3.dll"       /**< The default SSL library name for Windows */
 #define SOLCLIENT_GLOBAL_PROP_DEFAULT_CRYPTO_LIB_UNIX    "libcrypto.so"       /**< The default crypto library name for Unix (including Linux and AIX). */
-#define SOLCLIENT_GLOBAL_PROP_DEFAULT_CRYPTO_LIB_MACOSX  "libcrypto.1.1.dylib"    /**< The default crypto library name for MacOSX. */
+#define SOLCLIENT_GLOBAL_PROP_DEFAULT_CRYPTO_LIB_MACOSX  "libcrypto.3.dylib"    /**< The default crypto library name for MacOSX. */
 #define SOLCLIENT_GLOBAL_PROP_DEFAULT_CRYPTO_LIB_VMS     "SSL1$LIBCRYPTO_SHR.EXE"   /**< The default crypto library name for OpenVMS. */
-#define SOLCLIENT_GLOBAL_PROP_DEFAULT_CRYPTO_LIB_WINDOWS "libcrypto-1_1.dll"      /**< The default crypto library name for Windows. */
+#define SOLCLIENT_GLOBAL_PROP_DEFAULT_CRYPTO_LIB_WINDOWS "libcrypto-3.dll"      /**< The default crypto library name for Windows. */
 
 /*@}*/
 
@@ -2115,11 +2114,12 @@ solClient_dllExport extern const char *_solClient_contextPropsDefaultWithCreateT
 #define SOLCLIENT_SESSION_PROP_VPN_NAME                      "SESSION_VPN_NAME"    /**< The name of the Message VPN to attempt to join when connecting to an broker running SolOS-TR. Default: ::SOLCLIENT_SESSION_PROP_DEFAULT_VPN_NAME */
 #define SOLCLIENT_SESSION_PROP_VPN_NAME_IN_USE               "SESSION_VPN_NAME_IN_USE"    /**< A read-only Session property that indicates which Message VPN the Session is connected to. When not connected, an empty string is returned. */
 #define SOLCLIENT_SESSION_PROP_CLIENT_NAME                   "SESSION_CLIENT_NAME" /**< The Session client name that is used during client login to create a unique Session. An empty string causes a unique client name to be generated automatically. If specified, it must be a valid Topic name, and a maximum of 160 bytes in length. For all brokers (SolOS-TR or SolOS-CR) the SOLCLIENT_SESSION_PROP_CLIENT_NAME is also used to uniquely identify the sender in a message's senderId field if ::SOLCLIENT_SESSION_PROP_GENERATE_SENDER_ID is set. Default: ::SOLCLIENT_SESSION_PROP_DEFAULT_CLIENT_NAME */
-#define SOLCLIENT_SESSION_PROP_COMPRESSION_LEVEL             "SESSION_COMPRESSION_LEVEL"  /**< Enables messages to be compressed with ZLIB before transmission and decompressed on receive. The valid range is 0 (off) or 1..9, where 1 is less compression (fastest) and 9 is most compression (slowest). Default: ::SOLCLIENT_SESSION_PROP_DEFAULT_COMPRESSION_LEVEL
+#define SOLCLIENT_SESSION_PROP_COMPRESSION_LEVEL             "SESSION_COMPRESSION_LEVEL"  /**< Enables messages to be compressed with ZLIB before transmission and decompressed on receive. The valid range is 0 (off) or 1..9, where 1 is less compression (fastest) and 9 is most compression (slowest). Default: ::SOLCLIENT_SESSION_PROP_DEFAULT_COMPRESSION_LEVEL 
 
 Note: If no port is specified in the SESSION_HOST property, the API will automatically connect to either the default non-compressed listen port (55555)
 or default compressed listen port (55003) based on the specified COMPRESSION_LEVEL. If a port is specified in the SESSION_HOST property you must
 specify the non-compressed listen port if not using compression (compression level 0) or the compressed listen port if using compression (compression levels 1 to 9). */
+#define SOLCLIENT_SESSION_PROP_PAYLOAD_COMPRESSION_LEVEL     "SESSION_PAYLOAD_COMPRESSION_LEVEL" /**< Enables binary attachment in the message to be compressed with ZLIB before transmission and decompressed on receive. The valid range is 0 (off) or 1..9, where 1 is less compression (fastest) and 9 is most compression (slowest). Default: ::SOLCLIENT_SESSION_PROP_DEFAULT_PAYLOAD_COMPRESSION_LEVEL*/
 #define SOLCLIENT_SESSION_PROP_GENERATE_RCV_TIMESTAMPS       "SESSION_RCV_TIMESTAMP"  /**< When enabled, a receive timestamp is recorded for each message and passed to the application callback in the rxCallbackInfo_t structure. Default: ::SOLCLIENT_SESSION_PROP_DEFAULT_GENERATE_RCV_TIMESTAMPS */
 #define SOLCLIENT_SESSION_PROP_GENERATE_SEND_TIMESTAMPS      "SESSION_SEND_TIMESTAMP" /**< When enabled, a send timestamp is automatically included (if not already present) in the Solace-defined fields for each message sent. Default: ::SOLCLIENT_SESSION_PROP_DEFAULT_GENERATE_SEND_TIMESTAMPS */ 
 #define SOLCLIENT_SESSION_PROP_GENERATE_SENDER_ID            "SESSION_SEND_SENDER_ID" /**< When enabled, a sender ID is automatically included (if not already present) in the Solace-defined fields for each message sent. Default: ::SOLCLIENT_SESSION_PROP_DEFAULT_GENERATE_SENDER_ID */ 
@@ -2156,7 +2156,7 @@ The valid range is >=0. Default: ::SOLCLIENT_SESSION_PROP_DEFAULT_RECONNECT_RETR
 #define SOLCLIENT_SESSION_PROP_SSL_CLIENT_CERTIFICATE_FILE           "SESSION_SSL_CLIENT_CERTIFICATE_FILE"         /**< This property specifies the client certificate file name. */
 #define SOLCLIENT_SESSION_PROP_SSL_CLIENT_PRIVATE_KEY_FILE           "SESSION_SSL_CLIENT_PRIVATE_KEY_FILE"  /**< This property specifies the client private key file name. */
 #define SOLCLIENT_SESSION_PROP_SSL_CLIENT_PRIVATE_KEY_FILE_PASSWORD  "SESSION_SSL_CLIENT_PRIVATE_KEY_FILE_PASSWORD"     /**< This property specifies the password used to encrypt the client private key file. */
-#define SOLCLIENT_SESSION_PROP_SSL_CONNECTION_DOWNGRADE_TO       "SESSION_SSL_CONNECTION_DOWNGRADE_TO"  /**< This property specifies a transport protocol that SSL connection will be downgraded to after client authentication. Allowed transport protocol is "PLAIN_TEXT". May be combined with non-zero compression level to achieve compression without encryption. */
+#define SOLCLIENT_SESSION_PROP_SSL_CONNECTION_DOWNGRADE_TO       "SESSION_SSL_CONNECTION_DOWNGRADE_TO"  /**< This property specifies a transport protocol that TLS connection will be downgraded to after client authentication. Allowed transport protocol is "PLAIN_TEXT". May be combined with non-zero compression level to achieve compression without encryption. .<p><b>NOTE:</b> TLS connection downgrade is not supported on Websocket or HTTP transports */
 #define SOLCLIENT_SESSION_PROP_INITIAL_RECEIVE_BUFFER_SIZE   "SESSION_INITIAL_RECEIVE_BUFFER_SIZE" /**< If not zero, the minimum starting size for the API receive buffer. Must be zero or >= 1024 and <=64*1024*1024 */
 #define SOLCLIENT_SESSION_PROP_AUTHENTICATION_SCHEME  "SESSION_AUTHENTICATION_SCHEME"   /**< This property specifies the authentication scheme. Default: ::SOLCLIENT_SESSION_PROP_DEFAULT_AUTHENTICATION_SCHEME. */
 #define SOLCLIENT_SESSION_PROP_KRB_SERVICE_NAME        "SESSION_KRB_SERVICE_NAME"  /**< This property specifies the first part of Kerberos Service Principal Name (SPN) of the form <i>ServiceName/Hostname\@REALM</i> (for Windows) or Host Based Service of the form <i>ServiceName\@Hostname</i> (for Linux and SunOS).
@@ -2201,8 +2201,7 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
 
 /*@}*/
 /**
- * @anchor transportProtocol
- * @name Session transport protocol types
+ * @defgroup transportProtocol Session Transport Trotocol Types
  * Definition of the valid set of transport protocols when setting ::SOLCLIENT_SESSION_PROP_WEB_TRANSPORT_PROTOCOL, or returned
  * via the read-only session property ::SOLCLIENT_SESSION_PROP_WEB_TRANSPORT_PROTOCOL_IN_USE
  * Note: the use of ::SOLCLIENT_SESSION_PROP_GUARANTEED_WITH_WEB_TRANSPORT effects what protocol are available for properties 
@@ -2216,14 +2215,14 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
 /*@}*/
 
 /**
- *@anchor sslDowngradeProtocol
- *@name Transport Protocols for SSL Downgrade
+ *@defgroup sslDowngradeProtocol Transport Protocols for SSL Downgrade
  */
+/*@{*/
 #define SOLCLIENT_TRANSPORT_PROTOCOL_PLAIN_TEXT             ("PLAIN_TEXT")
 /*@}*/
 
 /** 
- *@name Authentication Scheme
+ *@defgroup authSchemes  Authentication Scheme
  */
 /*@{*/
 #define SOLCLIENT_SESSION_PROP_AUTHENTICATION_SCHEME_BASIC    "AUTHENTICATION_SCHEME_BASIC"
@@ -2233,7 +2232,7 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
 
 /*@}*/
 /** 
- *@name Unbind Failure Actions
+ *@defgroup unbindFail Unbind Failure Actions
  */
 /*@{*/
 #define SOLCLIENT_SESSION_PROP_UNBIND_FAIL_ACTION_RETRY             "UNBIND_FAIL_ACTION_RETRY"
@@ -2248,7 +2247,7 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
 /*@}*/
 
 /**
- * @name Guaranteed Delivery Reconnect Fail Actions
+ * @defgroup gdFailAction Guaranteed Delivery Reconnect Fail Actions
  * Defines the valid set of actions the API will take if it is unable to reconnect
  * guaranteed delivery after a session reconnect.  This will occur when a host-list
  * is used, such as for disaster recovery. After session reconnect to the next router
@@ -2297,7 +2296,7 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
 #define SOLCLIENT_SESSION_PROP_DEFAULT_KEEP_ALIVE_INT_MS             "3000"         /**< The default amount of time (in milliseconds) to wait between sending out Keep-Alive messages. */
 #define SOLCLIENT_SESSION_PROP_DEFAULT_KEEP_ALIVE_LIMIT              "3"         /**< The default value for the number of consecutive Keep-Alive messages that can be sent without receiving a response before the connection is closed by the API.*/
 #define SOLCLIENT_SESSION_PROP_DEFAULT_APPLICATION_DESCRIPTION       ""          /**< The default value for the application description. */
-#define SOLCLIENT_SESSION_PROP_DEFAULT_CLIENT_MODE                   SOLCLIENT_PROP_DISABLE_VAL /**< The default value for client mode. When disabled, the Session uses three TCP connections for non-client mode. */
+#define SOLCLIENT_SESSION_PROP_DEFAULT_CLIENT_MODE                   SOLCLIENT_PROP_DISABLE_VAL /**<  Deprecated. ::SOLCLIENT_SESSION_PROP_CLIENT_MODE is deprecated. */
 #define SOLCLIENT_SESSION_PROP_DEFAULT_BIND_IP                       ""          /**< The default value for local IP on connect is unset (bind to any) .*/
 #define SOLCLIENT_SESSION_PROP_DEFAULT_PUB_ACK_TIMER                 "2000"      /**< The default value for publisher acknowledgment timer (in milliseconds). When a published message is not acknowledged within the time specified for this timer, the API automatically retransmits the message. There is no limit on the number of retransmissions for any message. However, while the API is resending, applications can become flow controlled. The flow control behavior is controlled by ::SOLCLIENT_SESSION_PROP_SEND_BLOCKING and ::SOLCLIENT_SESSION_PROP_BLOCKING_WRITE_TIMEOUT_MS.*/
 #define SOLCLIENT_SESSION_PROP_DEFAULT_PUB_WINDOW_SIZE               "50"        /**< The default Publisher Window size for Guaranteed messages. The Guaranteed Message Publish Window Size property limits the maximum number of messages that can be published before the API must receive an acknowledgment from the broker.*/
@@ -2306,6 +2305,7 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
 #define SOLCLIENT_SESSION_PROP_DEFAULT_SUBSCRIBER_LOCAL_PRIORITY     "1"         /**< The default subscriber priority for locally published messages.  */
 #define SOLCLIENT_SESSION_PROP_DEFAULT_SUBSCRIBER_NETWORK_PRIORITY   "1"         /**< The default subscriber priority for remotely published messages.  */
 #define SOLCLIENT_SESSION_PROP_DEFAULT_COMPRESSION_LEVEL             "0"         /**< The default compression level (no compression). */
+#define SOLCLIENT_SESSION_PROP_DEFAULT_PAYLOAD_COMPRESSION_LEVEL     "0"         /**< The default payload compression level (no compression). */
 #define SOLCLIENT_SESSION_PROP_DEFAULT_GENERATE_RCV_TIMESTAMPS       SOLCLIENT_PROP_DISABLE_VAL /**< The default receive message timestamps. */
 #define SOLCLIENT_SESSION_PROP_DEFAULT_GENERATE_SEND_TIMESTAMPS      SOLCLIENT_PROP_DISABLE_VAL /**< The default for automatically include send message timestamps. */
 #define SOLCLIENT_SESSION_PROP_DEFAULT_GENERATE_SENDER_ID            SOLCLIENT_PROP_DISABLE_VAL /**< The default for automatically include a sender id. */
@@ -2337,7 +2337,7 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
 /*@}*/
 
 
-/** @name SSL ciphers
+/** @defgroup sslCiphers SSL ciphers
 */
 /*@{*/
 #define SOLCLIENT_SESSION_PROP_SSL_CIPHER_ECDHE_RSA_AES256_GCM_SHA384              ("ECDHE-RSA-AES256-GCM-SHA384")
@@ -2374,7 +2374,7 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
 #define SOLCLIENT_SESSION_PROP_SSL_CIPHER_SSL_RSA_WITH_RC4_128_MD5                 ("SSL_RSA_WITH_RC4_128_MD5")
 /*@}*/
 
-/** @name SSL Protocols
+/** @defgroup sslProtocols SSL Protocols
 */
 /*@{*/
 #define SOLCLIENT_SESSION_PROP_SSL_PROTOCOL_TLSV1_2				  ("TLSv1.2")
@@ -2383,7 +2383,7 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
 #define SOLCLIENT_SESSION_PROP_SSL_PROTOCOL_SSLV3                 ("SSLv3")
 /*@}*/
 
-/** @name Configuration Properties Maximum Sizes
+/** @defgroup propertymax Configuration Properties Maximum Sizes
 * The maximum sizes for certain configuration property values. Maximum string lengths do not include the terminating NULL.
 * The actual strings including the terminating NULL can be one character longer.
 */
@@ -2398,11 +2398,11 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
 #define SOLCLIENT_CONTEXT_PROP_MAX_CPU_LIST_LEN    (255) /**< The maximum length of the SOLCLIENT_CONTEXT_PROP_THREAD_AFFINITY_CPU_LIST string (Context property), not including the NULL terminator. */
 /*@}*/
 
-/** @anchor flowProps
- *  @name Flow Configuration Properties
+/** @defgroup flowProps Flow Configuration Properties
  * Items that can be configured for a Flow.
  */
 
+/*@{*/
 #define SOLCLIENT_FLOW_PROP_BIND_BLOCKING      "FLOW_BIND_BLOCKING"        /**< This property controls whether or not to block in solClient_session_createFlow(). Default: ::SOLCLIENT_FLOW_PROP_DEFAULT_BIND_BLOCKING */
 #define SOLCLIENT_FLOW_PROP_BIND_TIMEOUT_MS    "FLOW_BIND_TIMEOUT_MS"      /**< The timeout (in milliseconds) used when creating a Flow in blocking mode. The valid range is > 0. Default: ::SOLCLIENT_FLOW_PROP_DEFAULT_BIND_TIMEOUT_MS */
 #define SOLCLIENT_FLOW_PROP_BIND_ENTITY_ID     "FLOW_BIND_ENTITY_ID"       /**< The type of object to which this Flow is bound. The valid values are ::SOLCLIENT_FLOW_PROP_BIND_ENTITY_SUB, ::SOLCLIENT_FLOW_PROP_BIND_ENTITY_QUEUE, and ::SOLCLIENT_FLOW_PROP_BIND_ENTITY_TE. Default: ::SOLCLIENT_FLOW_PROP_DEFAULT_BIND_ENTITY_ID */
@@ -2435,8 +2435,9 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
 #define SOLCLIENT_FLOW_PROP_RECONNECT_RETRY_INTERVAL_MS "FLOW_RECONNECT_RETRY_INTERVAL_MS" /**< When a flow is reconnecting, the API will attempt to reconnect immediately, if that bind attempt fails it will wait for the retry interval before attempting to connect again. Default:  ::SOLCLIENT_FLOW_PROP_DEFAULT_RECONNECT_RETRY_INTERVAL_MS */
 #define SOLCLIENT_FLOW_PROP_REQUIRED_OUTCOME_FAILED  "FLOW_REQUIRED_OUTCOME_FAILED" /**< Create a flow that allows solClient_flow_settleMsg() with SOLCLIENT_OUTCOME_FAILED. Ignored on transacted sessions. Requires SOLCLIENT_SESSION_CAPABILITY_AD_APP_ACK_FAILED. Default:  ::SOLCLIENT_FLOW_PROP_DEFAULT_REQUIRED_OUTCOME_FAILED */
 #define SOLCLIENT_FLOW_PROP_REQUIRED_OUTCOME_REJECTED  "FLOW_REQUIRED_OUTCOME_REJECTED" /**< Create a flow that allows solClient_flow_settleMsg() with SOLCLIENT_OUTCOME_REJECTED. Ignored on transacted sessions. Requires SOLCLIENT_SESSION_CAPABILITY_AD_APP_ACK_FAILED. Default:  ::SOLCLIENT_FLOW_PROP_DEFAULT_REQUIRED_OUTCOME_REJECTED */
+/*@}*/
 
-/** @name Default Flow Configuration Properties
+/** @defgroup defaultFlowProps  Default Flow Configuration Properties
  *  The default values for Flow configuration.
  */
 /*@{*/
@@ -2465,7 +2466,7 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
 
 /*@}*/
 
-/** @name Flow Bind Entities
+/** @defgroup flowBindEntity Flow Bind Entities
  */
 /*@{*/
 #define SOLCLIENT_FLOW_PROP_BIND_ENTITY_SUB             "1"     /**< A bind target of subscriber. */
@@ -2474,16 +2475,14 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
 #define SOLCLIENT_FLOW_PROP_BIND_ENTITY_DTE             SOLCLIENT_FLOW_PROP_BIND_ENTITY_TE     /**< Deprecated name; ::SOLCLIENT_FLOW_PROP_BIND_ENTITY_TE is preferred */
 /*@}*/
 
-/** @name Flow Acknowledgment Modes
+/** @name flowAckMode  Flow Acknowledgment Modes
 */
 /*@(*/
 #define SOLCLIENT_FLOW_PROP_ACKMODE_AUTO               "1"      /**< Automatic application acknowledgment of all received messages. If application calls ::solClient_flow_sendAck() in the ::SOLCLIENT_FLOW_PROP_ACKMODE_AUTO mode, a warning is generated. */
 #define SOLCLIENT_FLOW_PROP_ACKMODE_CLIENT             "2"      /**< Client must call solClient_flow_sendAck() to acknowledge the msgId specified. */
 /*@}*/
 
-/*@{*/
-/** @anchor endpointProps
- *  @name Endpoint Properties
+/** @defgroup  endpointProps Endpoint Configuration Properties
  * Endpoint properties are passed to solClient_session_endpointProvision()/solClient_session_endpointDeprovision(). The 
  * properties describe the endpoint (Queue or Topic Endpoint) to be created or destroyed on the target broker.
  *
@@ -2498,12 +2497,13 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
  *
  * Items that can be configured for a create endpoint operation.
  */
+/*@{*/
 #define SOLCLIENT_ENDPOINT_PROP_ID              "ENDPOINT_ID"             /**< The type of endpoint, the valid values are ::SOLCLIENT_ENDPOINT_PROP_QUEUE, ::SOLCLIENT_ENDPOINT_PROP_TE, and ::SOLCLIENT_ENDPOINT_PROP_CLIENT_NAME. Default: ::SOLCLIENT_ENDPOINT_PROP_TE */
 #define SOLCLIENT_ENDPOINT_PROP_NAME            "ENDPOINT_NAME"           /**< The name of the Queue or Topic endpoint as a NULL-terminated UTF-8 encoded string. */
 #define SOLCLIENT_ENDPOINT_PROP_DURABLE         "ENDPOINT_DURABLE"        /**< The durability of the endpoint to name. Default: ::SOLCLIENT_PROP_ENABLE_VAL, which means the endpoint is durable. Only ::SOLCLIENT_PROP_ENABLE_VAL is supported in solClient_session_endpointProvision(). This property is ignored in solClient_session_creatFlow(). */
 #define SOLCLIENT_ENDPOINT_PROP_PERMISSION      "ENDPOINT_PERMISSION"     /**< The created entity's permissions, a single character string. Permissions can be ::SOLCLIENT_ENDPOINT_PERM_DELETE, ::SOLCLIENT_ENDPOINT_PERM_MODIFY_TOPIC, ::SOLCLIENT_ENDPOINT_PERM_CONSUME, ::SOLCLIENT_ENDPOINT_PERM_READ_ONLY, ::SOLCLIENT_ENDPOINT_PERM_NONE. */
 #define SOLCLIENT_ENDPOINT_PROP_ACCESSTYPE      "ENDPOINT_ACCESSTYPE"     /**< Sets the access type for the endpoint. This applies to durable Queues only. */
-#define SOLCLIENT_ENDPOINT_PROP_QUOTA_MB        "ENDPOINT_QUOTA_MB"       /**< Maximum quota (in megabytes) for the endpoint. The valid range is 1 through 800000.
+#define SOLCLIENT_ENDPOINT_PROP_QUOTA_MB        "ENDPOINT_QUOTA_MB"       /**< Maximum quota (in megabytes) for the endpoint.
 * 
 * A value of 0 configures the endpoint to act as a Last-Value-Queue (LVQ), where the broker enforces a Queue depth of one, and only the most current message is spooled by the endpoint. When a new message is received, the current queued message is automatically deleted from the endpoint and the new message is spooled.*/
 #define SOLCLIENT_ENDPOINT_PROP_MAXMSG_SIZE     "ENDPOINT_MAXMSG_SIZE"    /**< Maximum size (in bytes) for any one message stored in the endpoint. */
@@ -2512,7 +2512,7 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
 #define SOLCLIENT_ENDPOINT_PROP_MAXMSG_REDELIVERY "ENDPOINT_MAXMSG_REDELIVERY" /**< Defines how many message redelivery retries before discarding or moving the message to the DMQ. The valid ranges is {0..255} where 0 means retry forever. Default: 0 */
 /*@}*/
 
-/** @name Default Endpoint Configuration Properties
+/** @defgroup  DefaultEndpointProps  Default Endpoint Configuration Properties
 */
 /*@{*/
 #define SOLCLIENT_ENDPOINT_PROP_DEFAULT_ID       SOLCLIENT_ENDPOINT_PROP_TE    /**< The endpoint type of the endpoint. */
@@ -2555,12 +2555,11 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
 /*@}*/
 
 
-/*@(*/
-/** @anchor provisionflags
- *  @name Provision Flags
+
+/** @anchor provisionflags Provision Flags
  * The provision operation may be modified by the use of one or more of the following flags:
  */
-
+/*@(*/
 #define SOLCLIENT_PROVISION_FLAGS_WAITFORCONFIRM        (0x01)  /**< The provision operation blocks until it has completed successfully on the broker or failed. */
 #define SOLCLIENT_PROVISION_FLAGS_IGNORE_EXIST_ERRORS   (0x02)  /**< When set, it is not considered an error if the endpoint already exists (create) or does not exist (delete). */
 /*@}*/
@@ -2571,11 +2570,12 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
 /*@}*/
 
 /**
-* @anchor sessioncapabilities
-* @name Session Capabilities
+* @defgroup SessionCapabilities Session Capabilities
 * The capabilities of the Session after connecting to a peer. Capabilities can vary depending on 
 * the broker platform or peer connection. Capabilities can be retrieved with the ::solClient_session_getCapability function.
+*
 */
+/*@{*/
 #define SOLCLIENT_SESSION_CAPABILITY_PUB_GUARANTEED                 "SESSION_CAPABILITY_PUB_GUARANTEED"   /**< Boolean - The Session allows publishing of Guaranteed messages. */
 #define SOLCLIENT_SESSION_CAPABILITY_SUB_FLOW_GUARANTEED            "SESSION_CAPABILITY_SUB_FLOW_GUARANTEED" /**< Boolean - The Session allows binding a Guaranteed Flow to an endpoint. */
 #define SOLCLIENT_SESSION_CAPABILITY_BROWSER                        "SESSION_CAPABILITY_BROWSER"      /**< Boolean - The Session allows binding to a Queue as a Browser.*/
@@ -2614,7 +2614,7 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
 #define SOLCLIENT_SESSION_CAPABILITY_ADCTRL_VERSION_MAX             "SESSION_CAPABILITY_ADCTRL_VERSION_MAX"   /**< Uint32 - Highest AdCtrl version supported by the broker. */
 /*@}*/
 
-/** @name TransactedSessionProps
+/** @defgroup  TransactedSessionProps Transacted Session Properties
  */
 /*@{*/
 #define SOLCLIENT_TRANSACTEDSESSION_PROP_HAS_PUBLISHER "TRANSACTEDSESSION_HAS_PUBLISHER" /**<If it is enabled, a publisher flow is created when a Transacted Session is created successfully. Default: ::SOLCLIENT_TRANSACTEDSESSION_PROP_DEFAULT_HAS_PUBLISHER. */
@@ -2624,7 +2624,7 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
 
 /*@}*/
 
-/** @name DefaultTransactedSessionProps
+/** @defgroup DefaultTransactedSessionProps Default Transacted Session Properties
  */
 /*@{*/
 #define SOLCLIENT_TRANSACTEDSESSION_PROP_DEFAULT_HAS_PUBLISHER SOLCLIENT_PROP_ENABLE_VAL /**<By default, a publisher flow is automatically created when a Transacted Session is created. */
@@ -2712,7 +2712,7 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
     SOLCLIENT_STATS_RX_CTL_BYTES                       = 15, /**< The number of bytes received in control (non-data) messages. */
     SOLCLIENT_STATS_RX_TOTAL_DATA_BYTES                = 16,  /**< The total number of data bytes received. */
     SOLCLIENT_STATS_RX_TOTAL_DATA_MSGS                 = 17,  /**< The total number of data messages received. */
-    SOLCLIENT_STATS_RX_COMPRESSED_BYTES                = 18, /**< The number of bytes received before decompression. */
+    SOLCLIENT_STATS_RX_COMPRESSED_BYTES                = 18, /**< The number of bytes received before decompression. This metric only applies to transport/channel compression */
     SOLCLIENT_STATS_RX_REPLY_MSG                       = 19, /**<  The reply messages received. */
     SOLCLIENT_STATS_RX_REPLY_MSG_DISCARD               = 20, /**<  The reply messages (including cache request response) discarded due to errors in response format or no outstanding request.*/
     SOLCLIENT_STATS_RX_CACHEREQUEST_OK_RESPONSE        = 21, /**< Cache requests completed OK. */
@@ -2764,7 +2764,7 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
     SOLCLIENT_STATS_TX_ACK_TIMEOUT                     = 16, /**< The number of times the acknowledgment timer expired. */
     SOLCLIENT_STATS_TX_CTL_MSGS                        = 17, /**< The number of control (non-data) messages transmitted. */
     SOLCLIENT_STATS_TX_CTL_BYTES                       = 18, /**< The number of bytes transmitted in control (non-data) messages. */
-    SOLCLIENT_STATS_TX_COMPRESSED_BYTES                = 19, /**< The number of bytes transmitted after compression. */
+    SOLCLIENT_STATS_TX_COMPRESSED_BYTES                = 19, /**< The number of bytes transmitted after compression. This metric only applies to transport/channel compression*/
     SOLCLIENT_STATS_TX_TOTAL_CONNECTION_ATTEMPTS       = 20, /**< The total number of TCP connections attempted by this Session. */
     SOLCLIENT_STATS_TX_REQUEST_SENT                    = 21, /**< The request messages sent. */
     SOLCLIENT_STATS_TX_REQUEST_TIMEOUT                 = 22, /**< The request messages sent that did not receive a reply due to timeout. */
@@ -3150,13 +3150,19 @@ typedef enum solClient_msgOutcome
  * @struct solClient_session_rxMsgDispatchFuncInfo
  *
  * Callback information for Session message receive dispatch. This can be set on a per-subscription basis.
- * This structure is used with ::solClient_session_topicSubscribeWithDispatch and ::solClient_session_topicUnsubscribeWithDispatch.
+ * This structure is passed to ::solClient_session_topicSubscribeWithDispatch and ::solClient_session_topicUnsubscribeWithDispatch.
+ *
+ * An application may create multiple solClient_session_rxMsgDispatchFuncInfo with different callback functions or different user pointers
+ * or both, to define alternate processing for incoming messages based on subscription used to attract the messages.
+ *
+ * Through the use of wildcards, multiple unique subscriptions may match the same received messages, for example messages received on topic <i>a/b</i>
+ * will match subscriptions to <i>a/></i> and <i>a/b</i>.  In this case both dispatches are invoked on the message.
  * 
  */
   typedef struct solClient_session_rxMsgDispatchFuncInfo
   {
     solClient_dispatchType_t           dispatchType;    /**< The type of dispatch described. */
-    solClient_session_rxMsgCallbackFunc_t callback_p;   /**< An application-defined callback function; may be NULL if there is no callback. */
+    solClient_session_rxMsgCallbackFunc_t callback_p;   /**< An application-defined callback function; may be NULL in which case the default session receive message callback is used. */
     void                                 *user_p;       /**< A user pointer to return with the callback; must be NULL if callback_p is NULL. */
     void                                 *rfu_p;        /**< Reserved for Future use; must be NULL. */
   } solClient_session_rxMsgDispatchFuncInfo_t;
@@ -3187,12 +3193,18 @@ typedef enum solClient_msgOutcome
  * @struct solClient_flow_rxMsgDispatchFuncInfo
  *
  * Callback information for Flow message receive dispatch. This can be set on a per-subscription basis.
- * This structure is used with ::solClient_flow_topicSubscribeWithDispatch and ::solClient_flow_topicUnsubscribeWithDispatch.
+ * This structure is passed to ::solClient_flow_topicSubscribeWithDispatch and ::solClient_flow_topicUnsubscribeWithDispatch.
+ *
+ * An application may create multiple solClient_flow_rxMsgDispatchFuncInfo with different callback functions or different user pointers
+ * or both, to define alternate processing for incoming messages based on subscription used to attract the messages.
+ *
+ * Through the use of wildcards, multiple unique subscriptions may match the same received messages, for example messages received on topic <i>a/b</i>
+ * will match subscriptions to <i>a/></i> and <i>a/b</i>.  In this case both dispatches are invoked on the message.
  */
   typedef struct solClient_flow_rxMsgDispatchFuncInfo
   {
     solClient_dispatchType_t           dispatchType; /**< The type of dispatch described */
-    solClient_flow_rxMsgCallbackFunc_t callback_p;   /**< An application-defined callback function; may be NULL if there is no callback */
+    solClient_flow_rxMsgCallbackFunc_t callback_p;   /**< An application-defined callback function; may be NULL in which case the default flow receive message callback is used. */
     void                              *user_p;       /**< A user pointer to return with the callback; must be NULL if callback_p is NULL */
     void                              *rfu_p;        /**< Reserved for future use; must be NULL. */
   } solClient_flow_rxMsgDispatchFuncInfo_t;
@@ -3997,7 +4009,7 @@ solClient_session_getProperty(
 * for the property requested.
 *
 * @param opaqueSession_p  The opaque Session returned when the Session was created.
-* @param capabilityName_p The name of the \ref sessioncapabilities "Session capability" the value is to be returned for.
+* @param capabilityName_p The name of the \ref SessionCapabilities "Session capability" the value is to be returned for.
 * @param field_p          A pointer to the solClient_field_t provided by the caller in which to place the capability value.
 * @param fieldSize        The size (in bytes) of the solClient_field_t provided by the caller.
 * @returns               ::SOLCLIENT_OK, ::SOLCLIENT_FAIL
@@ -4017,7 +4029,7 @@ solClient_session_getCapability(
 * Checks if the specified capability is set on the currently connected Session. Returns true if the Session has the capability requested.
 *
 * @param opaqueSession_p  The opaque Session returned when the Session was created.
-* @param capabilityName_p The name of the \ref sessioncapabilities "session capability" the value is to be returned for.
+* @param capabilityName_p The name of the \ref SessionCapabilities "session capability" the value is to be returned for.
 * @returns                True or False.
 */
 
@@ -4360,15 +4372,20 @@ solClient_session_isCapable(
                                       const char *topicSubscription_p);
                                       
 /**
-* Adds a Topic subscription to a Session like ::solClient_session_topicSubscribeExt(), 
-* but this function also allows a different message receive callback and dispatchUser_p to be specified.
-* Specifying a NULL funcInfo_p or if funcInfo_p references a NULL  dispatchCallback_p and a NULL dispatchUser_p makes this function
-* act the same as ::solClient_session_topicSubscribeExt(). Used in this manner, an application can set the correlationTag, which appears in asynchronouus confirmations (::SOLCLIENT_SESSION_EVENT_SUBSCRIPTION_OK). Setting correlationTag is not available when using 
+* Adds a Topic subscription to a Session similar to ::solClient_session_topicSubscribeExt(), 
+* but this function also allows the application to specifiy a different message receive callback and different user_p.
+*
+* The argument list includes a pointer to a struct solClient_session_rxMsgDispatchFuncInfo.
+* Specifying a NULL pointer to this structure, or if struct solClient_session_rxMsgDispatchFuncInfo references a
+* NULL <b>callback_p</b> and a NULL <b>user_p</b> makes this function act the same as 
+* ::solClient_session_topicSubscribeExt(). In other words, this is an alternate way to add a subscription for messages
+* delivered on the session callback.  When used in this manner, an application can set the correlationTag, which appears
+* in asynchronouus confirmations (::SOLCLIENT_SESSION_EVENT_SUBSCRIPTION_OK). Setting correlationTag is not available when using 
 * ::solClient_session_topicSubscribeExt().
 * 
 * Usually this API is used to provide a separate callback and user pointer for messages received on the given topic.
 * The Session property ::SOLCLIENT_SESSION_PROP_TOPIC_DISPATCH must be enabled for a non-NULL callback to be
-* specified. When funcInfo_p is non-NULL and a dispatchCallback_p is specified, the callback pointer and dispatchUser_p are stored
+* specified. When <i>funcInfo_p</i> is non-NULL and a <b>callback_p</b> is specified, the callback pointer and <b>user_p</b> are stored
 * in an internal callback table. funcInfo_p is <b>not</b> saved by the API.
 *
 * @see @ref subscription-syntax
@@ -4477,16 +4494,21 @@ solClient_session_isCapable(
                                         const char *topicSubscription_p);
 
 /**
-* Removes a Topic subscription from a Session like ::solClient_session_topicUnsubscribeExt(), 
-* but this function also allows a message receive callback and dispatchUser_p to be specified.
-* Specifying a NULL funcInfo_p or if funcInfo_p references a NULL  dispatchCallback_p and a NULL dispatchUser_p makes this function
-* act the same as ::solClient_session_topicUnsubscribeExt(). Used in this manner, an application can set the correlationTag which appears in asynchronouus confirmations (::SOLCLIENT_SESSION_EVENT_TE_UNSUBSCRIBE_OK). Setting correlationTag is not available when using 
+* Removes a Topic subscription from a Session similar to ::solClient_session_topicUnsubscribeExt(), 
+* but this function also allows the application to specifiy a different message receive callback and different user_p.
+*
+* The argument list includes a pointer to a struct solClient_session_rxMsgDispatchFuncInfo.
+* Specifying a NULL pointer to this structure, or if struct solClient_session_rxMsgDispatchFuncInfo references a
+* NULL <b>callback_p</b> and a NULL <b>user_p</b> makes this function act the same as 
+* ::solClient_session_topicUnsubscribeExt(). In other words, this is an alternate way to remove a subscription for messages
+* delivered on the session callback.  When used in this manner, an application can set the correlationTag, which appears
+* in asynchronouus confirmations (::SOLCLIENT_SESSION_EVENT_SUBSCRIPTION_OK). Setting correlationTag is not available when using 
 * ::solClient_session_topicUnsubscribeExt().
 * 
 * Usually this API is used to provide a separate callback and user pointer for messages received on the given topic.
 * The Session property ::SOLCLIENT_SESSION_PROP_TOPIC_DISPATCH must be enabled for a non-NULL callback to be
-* specified. When funcInfo_p is non-NULL and a dispatchCallback_p is specified, the callback pointer and dispatchUser_p are removed
-* from an internal callback table. funcInfo_p does not have to match the funcInfo_p used in ::solClient_session_topicSubscribeWithDispatch(). However,
+* specified. When <i>funcInfo_p</i> is non-NULL and a <b>callback_p</b> is specified, the callback pointer and <b>user_p</b> are removed
+* from an internal callback table.  funcInfo_p does not have to match the funcInfo_p used in ::solClient_session_topicSubscribeWithDispatch(). However,
 * the contents referenced in funcInfo_p must match an entry found in the callback table.
 *
 * @see @ref subscription-syntax
@@ -5364,13 +5386,13 @@ solClient_session_sendReply (solClient_opaqueSession_pt opaqueSession_p,
 
 
 /**
-* Allows topics to be dispatched to different message receive callbacks and with different
-* dispatchUser_p for received messages on an endpoint Flow. If the endpoint supports adding topics
+* Allows messages received on an endpoint Flow  to be dispatched to different message receive callbacks and with different
+* <b>user_p</b> based on topic in the mesage. If the endpoint supports adding topics
 * (Queue endpoints), then this function will also add the Topic subscription to the endpoint unless 
 * SOLCLIENT_SUBSCRIBE_FLAGS_LOCAL_DISPATCH_ONLY is set. SOLCLIENT_SUBSCRIBE_FLAGS_LOCAL_DISPATCH_ONLY is
 * implied for all other endpoints.
 *
-* If the dispatch function info (funcinfo_p) is NULL, the Topic subscription is only added to the endpoint and
+* If the pointer to the dispatch function info (funcinfo_p) is NULL, the Topic subscription is only added to the endpoint and
 * no local dispatch entry is created. This operation is then identical to solClient_session_endpointTopicSubscribe().
 
 * SOLCLIENT_SUBSCRIBE_FLAGS_LOCAL_DISPATCH_ONLY can only be set when funcinfo_p 
@@ -5379,8 +5401,10 @@ solClient_session_sendReply (solClient_opaqueSession_pt opaqueSession_p,
 * The Session property ::SOLCLIENT_SESSION_PROP_TOPIC_DISPATCH must be enabled for a non-NULL funcinfo_p
 * to be specified.
 *
-* When funcinfo_p is not NULL, the received messages on the Topic Endpoint Flow are further demultiplexed based on the received
-* topic.
+* When funcinfo_p is not NULL, the received messages on the Topic Endpoint Flow are further dispatched, received messages
+* are dispatched to the associated <b>callback_p</b> when the received message topic matches the topic subscription.
+*
+* Received messages may be dispatched multiple times if multiple dispatch entries match.
 * 
 * @see @ref subscription-syntax
 * @see @ref topic-dispatch

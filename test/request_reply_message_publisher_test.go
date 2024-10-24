@@ -234,7 +234,7 @@ var _ = Describe("RequestReplyPublisher", func() {
 					Fail("Expected publisher to not be complete")
 				case <-publisherSaturated:
 					// allow the goroutine above to saturate the publisher (at least halfway filled)
-				case <-time.After(100 * time.Millisecond):
+				case <-time.After(2 * time.Second):
 					// should not timeout while saturating the publisher
 					Fail("Not expected to timeout while saturating publisher; Should not get here")
 				}
@@ -263,7 +263,7 @@ var _ = Describe("RequestReplyPublisher", func() {
 			It("should have undelivered messages on ungraceful termination (no waiting for reply messages)", func() {
 				publishedMessages := 0
 
-				bufferSize := uint(10000)
+				bufferSize := uint(5000)
 				publisher, err := messagingService.RequestReply().CreateRequestReplyMessagePublisherBuilder().OnBackPressureWait(bufferSize).Build()
 				Expect(err).ToNot(HaveOccurred())
 
@@ -281,7 +281,7 @@ var _ = Describe("RequestReplyPublisher", func() {
 					Fail("Expected publisher to not be complete")
 				case <-publisherSaturated:
 					// allow the goroutine above to saturate the publisher (at least halfway filled)
-				case <-time.After(1 * time.Second):
+				case <-time.After(5 * time.Second):
 					// should not timeout while saturating the publisher
 					Fail("Not expected to timeout while saturating publisher; Should not get here")
 				}

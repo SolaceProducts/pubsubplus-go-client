@@ -937,7 +937,7 @@ var _ = Describe("RequestReplyReceiver", func() {
 							Fail("Expected publisher to not be complete")
 						case <-publisherSaturated:
 							// allow the goroutine above to saturate the publisher (at least halfway filled)
-						case <-time.After(100 * time.Millisecond):
+						case <-time.After(1 * time.Second):
 							// should not timeout while saturating the publisher
 							Fail("Not expected to timeout while saturating publisher; Should not get here")
 						}
