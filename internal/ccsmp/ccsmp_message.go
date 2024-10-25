@@ -89,9 +89,12 @@ func SolClientMessageGetBinaryAttachmentAsBytes(messageP SolClientMessagePt) ([]
 	})
 	if errorInfo != nil {
 		if errorInfo.ReturnCode == SolClientReturnCodeFail {
-			logging.Default.Warning(fmt.Sprintf("Encountered error fetching payload as bytes: %s, subcode: %d", errorInfo.GetMessageAsString(), errorInfo.SubCode))
+			logging.Default.Warning(fmt.Sprintf("Encountered error fetching payload as bytes: %s, subcode: %d", errorInfo.GetMessageAsString(), errorInfo.SubCode()))
+			return nil, false
+		} else if errorInfo.ReturnCode != SolClientReturnCodeOk {
+			logging.Default.Debug(fmt.Sprintf("Did not find payload as bytes: %s, subcode: %d", errorInfo.GetMessageAsString(), errorInfo.SubCode()))
+			return nil, false
 		}
-		return nil, false
 	}
 	return C.GoBytes(dataPtr, C.int(size)), true
 }
@@ -105,9 +108,12 @@ func SolClientMessageGetXMLAttachmentAsBytes(messageP SolClientMessagePt) ([]byt
 	})
 	if errorInfo != nil {
 		if errorInfo.ReturnCode == SolClientReturnCodeFail {
-			logging.Default.Warning(fmt.Sprintf("Encountered error fetching XML payload as bytes: %s, subcode: %d", errorInfo.GetMessageAsString(), errorInfo.SubCode))
+			logging.Default.Warning(fmt.Sprintf("Encountered error fetching XML payload as bytes: %s, subcode: %d", errorInfo.GetMessageAsString(), errorInfo.SubCode()))
+			return nil, false
+		} else if errorInfo.ReturnCode != SolClientReturnCodeOk {
+			logging.Default.Debug(fmt.Sprintf("Did not find XML payload as bytes: %s, subcode: %d", errorInfo.GetMessageAsString(), errorInfo.SubCode()))
+			return nil, false
 		}
-		return nil, false
 	}
 	return C.GoBytes(dataPtr, C.int(size)), true
 }
@@ -132,7 +138,7 @@ func SolClientMessageGetBinaryAttachmentAsString(messageP SolClientMessagePt) (s
 	})
 	if errorInfo != nil {
 		if errorInfo.ReturnCode == SolClientReturnCodeFail {
-			logging.Default.Warning(fmt.Sprintf("Encountered error fetching payload as string: %s, subcode: %d", errorInfo.GetMessageAsString(), errorInfo.SubCode))
+			logging.Default.Warning(fmt.Sprintf("Encountered error fetching payload as string: %s, subcode: %d", errorInfo.GetMessageAsString(), errorInfo.SubCode()))
 		}
 		return "", false
 	}
@@ -156,7 +162,7 @@ func SolClientMessageGetBinaryAttachmentAsStream(messageP SolClientMessagePt) (*
 	})
 	if errorInfo != nil {
 		if errorInfo.ReturnCode == SolClientReturnCodeFail {
-			logging.Default.Warning(fmt.Sprintf("Encountered error fetching payload as stream: %s, subcode: %d", errorInfo.GetMessageAsString(), errorInfo.SubCode))
+			logging.Default.Warning(fmt.Sprintf("Encountered error fetching payload as stream: %s, subcode: %d", errorInfo.GetMessageAsString(), errorInfo.SubCode()))
 		}
 		return nil, false
 	}
@@ -174,7 +180,7 @@ func SolClientMessageGetBinaryAttachmentAsMap(messageP SolClientMessagePt) (*Sol
 	})
 	if errorInfo != nil {
 		if errorInfo.ReturnCode == SolClientReturnCodeFail {
-			logging.Default.Warning(fmt.Sprintf("Encountered error fetching payload as stream: %s, subcode: %d", errorInfo.GetMessageAsString(), errorInfo.SubCode))
+			logging.Default.Warning(fmt.Sprintf("Encountered error fetching payload as stream: %s, subcode: %d", errorInfo.GetMessageAsString(), errorInfo.SubCode()))
 		}
 		return nil, false
 	}

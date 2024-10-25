@@ -63,3 +63,8 @@ var DefaultDirectReceiverProperties = config.ReceiverPropertyMap{
 
 // DefaultPersistentReceiverProperties contains the default properties for a PersistentReceiver
 var DefaultPersistentReceiverProperties = config.ReceiverPropertyMap{}
+
+// DefaultEndpointProperties contains the default properties to provision an Endpoint
+var DefaultEndpointProperties = config.EndpointPropertyMap{
+	config.EndpointPropertyDurable: true, // defaults to true
+}

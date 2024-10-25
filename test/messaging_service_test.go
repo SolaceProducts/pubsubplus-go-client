@@ -228,6 +228,15 @@ var _ = Describe("MessagingService Lifecycle", func() {
 		helpers.TestConnectDisconnectMessagingService(builder)
 	})
 
+	It("should be able to connect with provision timeout from properties", func() {
+		builder.FromConfigurationProvider(config.ServicePropertyMap{config.ServicePropertyProvisionTimeoutMs: 5000})
+		helpers.TestConnectDisconnectMessagingService(builder)
+	})
+	It("should be able to connect with provision timeout from properties with duration", func() {
+		builder.FromConfigurationProvider(config.ServicePropertyMap{config.ServicePropertyProvisionTimeoutMs: 5 * time.Second})
+		helpers.TestConnectDisconnectMessagingService(builder)
+	})
+
 	It("should be disconnected when force disconnected by the broker", func() {
 		messagingService := helpers.BuildMessagingService(builder.WithReconnectionRetryStrategy(config.RetryStrategyNeverRetry()))
 		defer func() {
@@ -1500,6 +1509,7 @@ var _ = Describe("MessagingServiceBuilder Validation", func() {
 		config.TransportLayerPropertySocketOutputBufferSize,
 		config.TransportLayerPropertySocketInputBufferSize,
 		config.TransportLayerPropertyCompressionLevel,
+		config.ServicePropertyProvisionTimeoutMs,
 	}
 	for _, property := range integerProperties {
 		It("should fail to build with "+string(property)+" set to invalid int", func() {
