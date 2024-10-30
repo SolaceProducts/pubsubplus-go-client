@@ -1430,6 +1430,49 @@ var _ = Describe("PersistentReceiver", func() {
 
 			// Config time fail cases
 
+			// I don't think the setter should accept garbage.
+			It("Garbage to setter", func() {
+				receiverBuilder := messagingService.CreatePersistentMessageReceiverBuilder()
+				receiverBuilder.WithRequiredMessageOutcomeSupport(config.PersistentReceiverFailedOutcome, "garbage")
+				receiver, err := receiverBuilder.Build(resource.QueueDurableExclusive(queueName))
+				helpers.ValidateError(err, &solace.IllegalArgumentError{})
+				Expect(receiver).To(BeNil())
+			})
+			It("Legit outcome mixed with garbage to setter", func() {
+				receiverBuilder := messagingService.CreatePersistentMessageReceiverBuilder()
+				receiverBuilder.WithRequiredMessageOutcomeSupport(config.PersistentReceiverFailedOutcome, config.PersistentReceiverAcceptedOutcome, "garbage")
+				receiver, err := receiverBuilder.Build(resource.QueueDurableExclusive(queueName))
+				helpers.ValidateError(err, &solace.IllegalArgumentError{})
+				Expect(receiver).To(BeNil())
+			})
+			FIt("Garbage as property", func() {
+				receiverBuilder := messagingService.CreatePersistentMessageReceiverBuilder()
+				receiverBuilder.FromConfigurationProvider(config.ReceiverPropertyMap{
+					config.ReceiverPropertyPersistentMessageRequiredOutcomeSupport: "garbage",
+				})
+				receiver, err := receiverBuilder.Build(resource.QueueDurableExclusive(queueName))
+				helpers.ValidateError(err, &solace.IllegalArgumentError{})
+				Expect(receiver).To(BeNil())
+			})
+			FIt("Garbage mixed in as property", func() {
+				receiverBuilder := messagingService.CreatePersistentMessageReceiverBuilder()
+				receiverBuilder.FromConfigurationProvider(config.ReceiverPropertyMap{
+					config.ReceiverPropertyPersistentMessageRequiredOutcomeSupport: fmt.Sprintf("%s,garbage",config.PersistentReceiverRejectedOutcome),
+				})
+				receiver, err := receiverBuilder.Build(resource.QueueDurableExclusive(queueName))
+				helpers.ValidateError(err, &solace.IllegalArgumentError{})
+				Expect(receiver).To(BeNil())
+			})
+			FIt("Poor punctuation in property", func() {
+				receiverBuilder := messagingService.CreatePersistentMessageReceiverBuilder()
+				receiverBuilder.FromConfigurationProvider(config.ReceiverPropertyMap{
+					config.ReceiverPropertyPersistentMessageRequiredOutcomeSupport: fmt.Sprintf("%s %s",config.PersistentReceiverRejectedOutcome, config.PersistentReceiverAcceptedOutcome),
+				})
+				receiver, err := receiverBuilder.Build(resource.QueueDurableExclusive(queueName))
+				helpers.ValidateError(err, &solace.IllegalArgumentError{})
+				Expect(receiver).To(BeNil())
+			})
+
 			// Settle() time fail cases
 
 			DescribeTable("Message Settlement Outcome with Client Ack Configured",
