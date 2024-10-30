@@ -16,7 +16,10 @@
 
 package core
 
-import "testing"
+import (
+	"sync/atomic"
+	"testing"
+)
 
 func TestSolClientMetrics(t *testing.T) {
 	metrics := []NextGenMetric{
@@ -24,6 +27,7 @@ func TestSolClientMetrics(t *testing.T) {
 		MetricPublishMessagesTerminationDiscarded,
 		MetricReceivedMessagesBackpressureDiscarded,
 		MetricReceivedMessagesTerminationDiscarded,
+		MetricInternalDiscardNotifications,
 	}
 	for _, metric := range metrics {
 		metricsImpl := newCcsmpMetrics(nil)
@@ -34,5 +38,31 @@ func TestSolClientMetrics(t *testing.T) {
 		if metricsImpl.getNextGenStat(metric) != 10 {
 			t.Error("Expected incremented metric to be 10")
 		}
+	}
+}
+
+func TestIncrementDuplicateAckCount(t *testing.T) {
+	metricsImpl := newCcsmpMetrics(nil)
+	duplicateAck := atomic.LoadUint64(&metricsImpl.duplicateAcks)
+	if duplicateAck != 0 {
+		t.Error("Expected zero state of duplicate Acks counter to be 0")
+	}
+	metricsImpl.incrementDuplicateAckCount()
+	duplicateAck = atomic.LoadUint64(&metricsImpl.duplicateAcks)
+	if duplicateAck != 1 {
+		t.Error("Expected duplicate Acks to be 1")
+	}
+	for i := 0; i < 10; i++ {
+		// call 10 times
+		metricsImpl.incrementDuplicateAckCount()
+	}
+	duplicateAck = atomic.LoadUint64(&metricsImpl.duplicateAcks)
+	if duplicateAck != 11 {
+		t.Error("Expected duplicate Acks to be 11")
+	}
+	metricsImpl.ResetStats() // reset all stats
+	duplicateAck = atomic.LoadUint64(&metricsImpl.duplicateAcks)
+	if duplicateAck != 0 {
+		t.Error("Expected state of duplicate Acks counter to be 0 after calling Reset()")
 	}
 }
