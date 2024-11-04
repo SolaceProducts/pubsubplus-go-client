@@ -301,7 +301,7 @@ var _ = Describe("PersistentReceiver", func() {
 						err := receiver.Ack(nil)
 						helpers.ValidateError(err, &solace.IllegalStateError{})
 					})
-					DescribeTable("should fail to settle a message as ",
+					DescribeTable("should fail to settle a nil message as ",
 						func(outcome config.MessageSettlementOutcome) {
 							err := receiver.Settle(nil, outcome)
 							helpers.ValidateError(err, &solace.IllegalStateError{})
@@ -309,9 +309,8 @@ var _ = Describe("PersistentReceiver", func() {
 						Entry("accepted", config.PersistentReceiverAcceptedOutcome),
 						Entry("rejected", config.PersistentReceiverRejectedOutcome),
 						Entry("failed", config.PersistentReceiverFailedOutcome),
-						//Entry("garbage", "garbage"),
 					)
-					It("should fail to settle a message with garbage", func() {
+					It("should fail to settle a nil message with garbage", func() {
 						err := receiver.Settle(nil, "garbage")
 						helpers.ValidateError(err, &solace.IllegalStateError{})
 					})
@@ -344,11 +343,11 @@ var _ = Describe("PersistentReceiver", func() {
 						err := receiver.Pause()
 						helpers.ValidateError(err, &solace.IllegalStateError{})
 					})
-					It("should fail to acknowledge a message", func() {
+					It("should fail to acknowledge a nil message", func() {
 						err := receiver.Ack(nil)
 						helpers.ValidateError(err, &solace.IllegalStateError{})
 					})
-					DescribeTable("should fail to settle a message as ",
+					DescribeTable("should fail to settle a nil message as ",
 						func(outcome config.MessageSettlementOutcome) {
 							err := receiver.Settle(nil, outcome)
 							helpers.ValidateError(err, &solace.IllegalStateError{})
@@ -356,9 +355,8 @@ var _ = Describe("PersistentReceiver", func() {
 						Entry("accepted", config.PersistentReceiverAcceptedOutcome),
 						Entry("rejected", config.PersistentReceiverRejectedOutcome),
 						Entry("failed", config.PersistentReceiverFailedOutcome),
-						//Entry("garbage", "garbage"),
 					)
-					It("should fail to settle a message with garbage", func() {
+					It("should fail to settle a nil message with garbage", func() {
 						err := receiver.Settle(nil, "garbage")
 						helpers.ValidateError(err, &solace.IllegalStateError{})
 					})
@@ -848,7 +846,6 @@ var _ = Describe("PersistentReceiver", func() {
 				Entry("accepted", config.PersistentReceiverAcceptedOutcome),
 				Entry("rejected", config.PersistentReceiverRejectedOutcome),
 				Entry("failed", config.PersistentReceiverFailedOutcome),
-				//Entry("garbage", "garbage"),
 				)
 				It("fails to settle a direct message as garbage", func() {
 					const topic = "direct-message-ack"
@@ -1433,19 +1430,26 @@ var _ = Describe("PersistentReceiver", func() {
 			// I don't think the setter should accept garbage.
 			It("Garbage to setter", func() {
 				receiverBuilder := messagingService.CreatePersistentMessageReceiverBuilder()
-				receiverBuilder.WithRequiredMessageOutcomeSupport(config.PersistentReceiverFailedOutcome, "garbage")
+				receiverBuilder.WithRequiredMessageOutcomeSupport("garbage")
 				receiver, err := receiverBuilder.Build(resource.QueueDurableExclusive(queueName))
 				helpers.ValidateError(err, &solace.IllegalArgumentError{})
 				Expect(receiver).To(BeNil())
 			})
 			It("Legit outcome mixed with garbage to setter", func() {
 				receiverBuilder := messagingService.CreatePersistentMessageReceiverBuilder()
-				receiverBuilder.WithRequiredMessageOutcomeSupport(config.PersistentReceiverFailedOutcome, config.PersistentReceiverAcceptedOutcome, "garbage")
+				receiverBuilder.WithRequiredMessageOutcomeSupport(config.PersistentReceiverFailedOutcome, "garbage")
 				receiver, err := receiverBuilder.Build(resource.QueueDurableExclusive(queueName))
 				helpers.ValidateError(err, &solace.IllegalArgumentError{})
 				Expect(receiver).To(BeNil())
 			})
-			FIt("Garbage as property", func() {
+			It("Legit outcome mixed with garbage to setter backwards", func() {
+				receiverBuilder := messagingService.CreatePersistentMessageReceiverBuilder()
+				receiverBuilder.WithRequiredMessageOutcomeSupport("garbage", config.PersistentReceiverFailedOutcome)
+				receiver, err := receiverBuilder.Build(resource.QueueDurableExclusive(queueName))
+				helpers.ValidateError(err, &solace.IllegalArgumentError{})
+				Expect(receiver).To(BeNil())
+			})
+			It("Garbage as property", func() {
 				receiverBuilder := messagingService.CreatePersistentMessageReceiverBuilder()
 				receiverBuilder.FromConfigurationProvider(config.ReceiverPropertyMap{
 					config.ReceiverPropertyPersistentMessageRequiredOutcomeSupport: "garbage",
@@ -1454,7 +1458,7 @@ var _ = Describe("PersistentReceiver", func() {
 				helpers.ValidateError(err, &solace.IllegalArgumentError{})
 				Expect(receiver).To(BeNil())
 			})
-			FIt("Garbage mixed in as property", func() {
+			It("Garbage mixed in as property", func() {
 				receiverBuilder := messagingService.CreatePersistentMessageReceiverBuilder()
 				receiverBuilder.FromConfigurationProvider(config.ReceiverPropertyMap{
 					config.ReceiverPropertyPersistentMessageRequiredOutcomeSupport: fmt.Sprintf("%s,garbage",config.PersistentReceiverRejectedOutcome),
@@ -1463,7 +1467,7 @@ var _ = Describe("PersistentReceiver", func() {
 				helpers.ValidateError(err, &solace.IllegalArgumentError{})
 				Expect(receiver).To(BeNil())
 			})
-			FIt("Poor punctuation in property", func() {
+			It("Poor punctuation in property", func() {
 				receiverBuilder := messagingService.CreatePersistentMessageReceiverBuilder()
 				receiverBuilder.FromConfigurationProvider(config.ReceiverPropertyMap{
 					config.ReceiverPropertyPersistentMessageRequiredOutcomeSupport: fmt.Sprintf("%s %s",config.PersistentReceiverRejectedOutcome, config.PersistentReceiverAcceptedOutcome),
