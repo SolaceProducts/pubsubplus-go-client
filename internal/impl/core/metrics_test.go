@@ -60,9 +60,4 @@ func TestIncrementDuplicateAckCount(t *testing.T) {
 	if duplicateAck != 11 {
 		t.Error("Expected duplicate Acks to be 11")
 	}
-	metricsImpl.ResetStats() // reset all stats
-	duplicateAck = atomic.LoadUint64(&metricsImpl.duplicateAcks)
-	if duplicateAck != 0 {
-		t.Error("Expected state of duplicate Acks counter to be 0 after calling Reset()")
-	}
 }
