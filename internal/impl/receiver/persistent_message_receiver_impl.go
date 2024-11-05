@@ -1494,13 +1494,18 @@ func (builder *persistentMessageReceiverBuilderImpl) WithRequiredMessageOutcomeS
 	settlementOutcomesStrArray := []string{}
 	addedOutcomes := make(map[config.MessageSettlementOutcome]bool)
 	for _, settlementOutcome := range messageSettlementOutcomes {
-		if _, added := addedOutcomes[settlementOutcome]; !added && isSupportedMessageSettlementOutcome(settlementOutcome) {
+		if !isSupportedMessageSettlementOutcome(settlementOutcome) {
+			logging.Default.Warning(
+				builder.String() + ": Unknown message settlement outcome(s) passed to WithRequiredMessageOutcomeSupport, " + string(settlementOutcome) +
+					"allowed values are: 'config.PersistentReceiverAcceptedOutcome', 'config.PersistentReceiverFailedOutcome' and 'config.PersistentReceiverRejectedOutcome'")
+			// We'll still add it so we can return an error on Build(). The setter can't return the error even if it knows about it.
+		}
+		if _, added := addedOutcomes[settlementOutcome]; !added {
 			addedOutcomes[settlementOutcome] = true // mark it as added
 			settlementOutcomesStrArray = append(settlementOutcomesStrArray, string(settlementOutcome))
 		} else {
 			logging.Default.Warning(
-				builder.String() + ": Unknown message settlement outcome(s) passed to WithRequiredMessageOutcomeSupport, " +
-					"allowed values are: 'config.PersistentReceiverAcceptedOutcome', 'config.PersistentReceiverFailedOutcome' and 'config.PersistentReceiverRejectedOutcome'")
+				builder.String() + ": Repeat message settlement outcome(s) passed to WithRequiredMessageOutcomeSupport: " + string(settlementOutcome))
 		}
 	}
 	builder.properties[config.ReceiverPropertyPersistentMessageRequiredOutcomeSupport] = strings.Join(settlementOutcomesStrArray, ",")
