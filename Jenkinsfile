@@ -20,7 +20,8 @@ properties([
 ])
 currentBuild.rawBuild.getParent().setQuietPeriod(0)
 
-library 'jenkins-pipeline-library@main'
+/* TODO: Change this branch back to main after merging the jenkins repo branch, but before merging this branch. */
+library 'jenkins-pipeline-library@EBP-19'
 
 /*
   Go Version examples:
