@@ -22,45 +22,46 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
+
 func CheckCache() {
-    if !testcontext.CacheEnabled() {
-        Skip("The infrastructure required for running cache tests is not available, skipping this test since it requires a cache.")
-    }
+	if !testcontext.CacheEnabled() {
+		Skip("The infrastructure required for running cache tests is not available, skipping this test since it requires a cache.")
+	}
 }
 
 func CheckCacheProxy() {
-    if !testcontext.CacheProxyEnabled() {
-        Skip("The infrastructure required for running cache proxy tests is not available, skipping this test since it requires a cache proxy.")
-    }
+	if !testcontext.CacheProxyEnabled() {
+		Skip("The infrastructure required for running cache proxy tests is not available, skipping this test since it requires a cache proxy.")
+	}
 }
 
 var _ = Describe("Cache Strategy", func() {
-        /* The following tests are just demos of how to check for infrastructure.
-        They should be removed once proper integration tests are added. */
-    Describe("Demo isolated Cache functionality", func() {
-        BeforeEach(func () {
-            CheckCache() // skips test with message if cache image is not available
-        })
-        It("should run this test", func() {
-                Expect(1 == 1).To(BeTrue())
-        })
-    })
+	/* The following tests are just demos of how to check for infrastructure.
+	   They should be removed once proper integration tests are added. */
+	Describe("Demo isolated Cache functionality", func() {
+		BeforeEach(func() {
+			CheckCache() // skips test with message if cache image is not available
+		})
+		It("should run this test", func() {
+			Expect(1 == 1).To(BeTrue())
+		})
+	})
 
-    Describe("Demo isolated Cache Proxy functionality", func() {
-        BeforeEach(func () {
-                CheckCacheProxy() // skips test with message if cache proxy image is not available
-        })
-        It("should run this test", func() {
-                Expect(1 == 1).To(BeTrue())
-        })
-    })
-    Describe("Demo Cache & Cache Proxy functionality", func() {
-        BeforeEach(func () {
-                CheckCache()
-                CheckCacheProxy()
-        })
-        It("should run this test", func() {
-                Expect(1 == 1).To(BeTrue())
-        })
-    })
+	Describe("Demo isolated Cache Proxy functionality", func() {
+		BeforeEach(func() {
+			CheckCacheProxy() // skips test with message if cache proxy image is not available
+		})
+		It("should run this test", func() {
+			Expect(1 == 1).To(BeTrue())
+		})
+	})
+	Describe("Demo Cache & Cache Proxy functionality", func() {
+		BeforeEach(func() {
+			CheckCache()
+			CheckCacheProxy()
+		})
+		It("should run this test", func() {
+			Expect(1 == 1).To(BeTrue())
+		})
+	})
 })
