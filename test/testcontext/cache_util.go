@@ -274,6 +274,6 @@ func (ctx *testContextCommon) setupCache() error {
         if err != nil {
             return err
         }
-        err = ctx.waitForOperationalCache(time.Duration(30 * time.Second), CacheOperationalStateUp)
+        err = ctx.waitForOperationalCache(30 * time.Second, CacheOperationalStateUp)
         return err
 }
