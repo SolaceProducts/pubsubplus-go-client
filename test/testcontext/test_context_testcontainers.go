@@ -36,6 +36,14 @@ const testContainersConfig = "./data/config/config_testcontainers.json"
 const defaultComposeFilePath = "data/compose/docker-compose.yml"
 const kerberosComposeFilePath = "data/compose/docker-compose.krb.yml"
 const oauthComposeFilePath = "data/compose/docker-compose.oauth.yml"
+const cacheComposeFilePath = "data/compose/docker-compose.cache.yml"
+const cacheProxyComposeFilePath = "data/compose/docker-compose.cacheproxy.yml"
+const testFolderVarName = "TEST_FOLDER"
+const testFolderVarDefaultValue = ".."
+const solCacheHostNameVarName = "PUBSUB_CACHE_HOSTNAME"
+const solCacheHostNameDefaultValue = "solcache"
+const solCacheSuspectHostNameVarName = "PUBSUB_CACHE_SUSPECT_HOSTNAME"
+const solCacheSuspectHostNameDefaultValue = "solcache_suspect"
 
 type testContainersTestContext struct {
 	testContextCommon
@@ -52,6 +60,16 @@ func (context *testContainersTestContext) Setup() error {
 	fmt.Println()
 	fmt.Println("-- TESTCONTAINERS SETUP --")
 
+    /*
+    This is necessary so that fixture directories can be resolved from both inside and outside of a docker container.
+    Refer to the docker-compose files to see where this is used. This needs to be done before containers are spun up.
+    The following defaults TEST_FOLDER to '..', which was the old value for running outside of a docker container.
+    */
+    testFolderVar := os.Getenv(testFolderVarName)
+    if testFolderVar == "" {
+        os.Setenv(testFolderVarName, testFolderVarDefaultValue)
+    }
+
 	context.setupCommon(testContainersConfig)
 
 	composeFilePaths := []string{defaultComposeFilePath}
@@ -64,6 +82,22 @@ func (context *testContainersTestContext) Setup() error {
 	} else {
 		context.config.OAuth.Hostname = ""
 	}
+    if context.config.Cache.Image != "" {
+        solCacheHostNameVar := os.Getenv(solCacheHostNameVarName)
+        if solCacheHostNameVar == "" {
+                os.Setenv(solCacheHostNameVarName, solCacheHostNameDefaultValue)
+        }
+        solCacheSuspectHostNameVar := os.Getenv(solCacheSuspectHostNameVarName)
+        if solCacheSuspectHostNameVar == "" {
+                os.Setenv(solCacheSuspectHostNameVarName, solCacheSuspectHostNameDefaultValue)
+        }
+        context.cacheEnabled = true
+        composeFilePaths = append(composeFilePaths, cacheComposeFilePath)
+    }
+    if context.config.CacheProxy.Image != "" {
+        context.cacheProxyEnabled = true
+        composeFilePaths = append(composeFilePaths, cacheProxyComposeFilePath)
+    }
 	identifier := strings.ToLower(uuid.New().String())
 	compose := testcontainers.NewLocalDockerCompose(composeFilePaths, identifier)
 
@@ -128,6 +162,18 @@ func (context *testContainersTestContext) Setup() error {
 	if err != nil {
 		return err
 	}
+
+    if context.cacheEnabled {
+        fmt.Println("Waiting for Cache setup")
+        err = context.setupCache()
+        if err != nil {
+            context.cacheEnabled = false
+            return err
+        }
+    }
+    if context.cacheProxyEnabled {
+        fmt.Println("Cache Proxy has been enabled, but currently no verification of cache proxy is available.")
+    }
 
 	fmt.Println("-- TESTCONTAINERS SETUP COMPLETE --")
 	fmt.Println()

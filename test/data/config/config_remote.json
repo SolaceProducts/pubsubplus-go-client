@@ -4,5 +4,120 @@
     },
     "semp": {
         "host": "localhost"
-    }
+    },
+    "cache": {
+        "vpn": "SolCacheUT",
+        "distributed_caches": [
+            {
+                "name": "UnitTest",
+                "properties": {},
+                "cache_clusters": [
+                    {
+                        "name": "MaxMsgs3",
+                        "topics": [
+                            "*/MaxMsgs3/data1",
+                            "*/MaxMsgs3/data2",
+                            "*/MaxMsgs3/nodata",
+                            "MaxMsgs3/*/data1",
+                            "MaxMsgs3/*/data2",
+                            "MaxMsgs3/*/nodata",
+                            "MaxMsgs3/data1",
+                            "MaxMsgs3/data2",
+                            "MaxMsgs3/nodata"
+                        ],
+                        "properties": {
+                            "maxMsgsPerTopic": 3
+                        },
+                        "cache_instances": [
+                            {
+                                "name": "MaxMsgs3-instance1",
+                                "autostart": true,
+                                "operational_state": "up",
+                                "properties": {}
+                            }
+                        ]
+                    },
+                    {
+                        "name": "MaxMsgs1",
+                        "topics": [
+                            "*/MaxMsgs1/data1",
+                            "*/MaxMsgs1/data2",
+                            "*/MaxMsgs1/nodata",
+                            "MaxMsgs1/*/data1",
+                            "MaxMsgs1/*/data2",
+                            "MaxMsgs1/*/nodata",
+                            "MaxMsgs1/data1",
+                            "MaxMsgs1/data2",
+                            "MaxMsgs1/nodata"
+                        ],
+                        "properties": {
+                            "maxMsgsPerTopic": 1
+                        },
+                        "cache_instances": [
+                            {
+                                "name": "MaxMsgs1-instance1",
+                                "autostart": true,
+                                "operational_state": "up",
+                                "properties": {}
+                            }
+                        ]
+                    },
+                    {
+                        "name": "MaxMsgs10",
+                        "topics": [
+                            "*/MaxMsgs10/data1",
+                            "*/MaxMsgs10/data2",
+                            "*/MaxMsgs10/nodata",
+                            "MaxMsgs10/*/data1",
+                            "MaxMsgs10/*/data2",
+                            "MaxMsgs10/*/nodata",
+                            "MaxMsgs10/data1",
+                            "MaxMsgs10/data2",
+                            "MaxMsgs10/nodata"
+                        ],
+                        "properties": {
+                            "maxMsgsPerTopic": 10
+                        },
+                        "cache_instances": [
+                            {
+                                "name": "MaxMsgs10-instance1",
+                                "autostart": true,
+                                "operational_state": "up",
+                                "properties": {}
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "name": "UnitTestSuspect",
+                "properties": {},
+                "cache_clusters": [
+                    {
+                        "name": "Suspect",
+                        "topics": [
+                            "Suspect/data1",
+                            "Suspect/data2",
+                            "Suspect/nodata"
+                        ],
+                        "properties": {
+                            "maxTopicCount": 1,
+                            "maxMemory": 1024
+                        },
+                        "cache_instances": [
+                            {
+                                "name": "Suspect-instance1",
+                                "autostart": true,
+                                "operational_state": "up",
+                                "properties": {
+                                    "stopOnLostMsgEnabled": false
+                                }
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    "cache_proxy": {}
 }

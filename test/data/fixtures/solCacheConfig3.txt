@@ -1,0 +1,114 @@
+##############################################################################
+# Section: Connecting to the message bus
+# These values are used by the SDK to connect to the message bus.
+
+# The client username and password. The password is optional if client 
+# authentication is disabled.
+SESSION_USERNAME cache
+SESSION_PASSWORD cache
+
+
+# The Solace 32XX router IP address to which to cache must connect.
+# For failover support when running off router a comma separated list of
+# IP addresses can be provided. 
+# When running the cache on a router, this parameter MUST be commented out
+# or configured to the value "127.55.55.55".
+SESSION_HOST solbroker
+#SESSION_HOST XXX.XXX.XXX.XXX,YYY.YYY.YYY.YYY
+
+
+# The VPN to which the cache must connect.
+SESSION_VPN_NAME SolCacheUT 
+
+
+# Session Client Name that is used to create a unique session.
+# If undefined or empty string ,a unique client name to be generated 
+# automatically.
+# This name will be visible on the router via the "show client " CLI command.
+SESSION_CLIENT_NAME MaxMsgs3Client 
+
+
+# A one line description of the cache. The discription is shown
+# on the CLI. This parameter is optional.
+SESSION_APPLICATION_DESCRIPTION This client is a solCache instance.
+
+
+# These priorities define the deliver-to-one priorities for this cache instance
+# default is 1, valid range is 1..4
+#SESSION_SUBSCRIBER_LOCAL_PRIORITY 1
+#SESSION_SUBSCRIBER_NETWORK_PRIORITY 1
+
+
+# This parameter defines the buffer size for rx & tx. The value must be greater 
+# than the max message size.  Valid range is > 0. The default is 64 MB.
+#SESSION_BUFFER_SIZE 67108864
+
+# We can't always depend on a clean TCP close, so we poll the TCP connection 
+# to the message bus with an inband KEEPALIVE message.  Assume the TCP 
+# connection has failed if this poll fails after sending 
+# SESSION_KEEP_ALIVE_LIMIT polls, with a period of 
+# SESSION_KEEP_ALIVE_INTERVAL_MS milliseconds 
+SESSION_KEEP_ALIVE_INTERVAL_MS 3000
+SESSION_KEEP_ALIVE_LIMIT 3
+#############################################################################
+# Section: communicating with the Designated Router
+# The name of this cache instance, as known by the Designated Router. This
+# name must match that entered at the CLI with the "create cache-instance"
+# command.
+CACHE_INSTANCE_NAME MaxMsgs3-instance1 
+
+
+##############################################################################
+# Section: Environment
+#
+# CACHE_CPU_AFFINITY - hex mask to indicate which CPU we're allowed to run on
+# for example a value of 0x01 indicates run on CPU 0
+#                        0x02 indicates run of CPU 1
+#                        0x04 indicates run on CPU 2
+#                        0x03 indicates run on either CPU0 or CPU1
+# This configurable CPU affinity is bounded by the 
+# SOLACE_SOLCACHEINSTANCE_CPU_MASK environment variable.
+# i.e.  export SOLACE_SOLCACHEINSTANCE_CPU_MASK="0x07" will limit solcache
+# instance to running on CPUS 0,1,2.  Hence the actual processor run on will
+# be CACHE_CPU_AFFINITY & SOLACE_SOLCACHEINSTANCE_CPU_MASK
+# if this results in an empty set, the process fails to start. 
+# (Non re-loadable parm, only read on startup) 
+# helpful hint: "ps -eo pid,psr,comm" will show which processor we're actually
+# running on
+CACHE_CPU_AFFINITY 0x06
+
+
+# SDK log level, mask out all logs that are of a lower level than this.
+# Valid values are: ERROR, WARN, NOTICE, INFO, DEBUG. This parameter is
+# optional. The default log level is NOTICE.
+#CACHE_SDK_LOG_LEVEL NOTICE
+
+
+# Cache log level, mask out cache logs that are of a lower level than this.
+# Valid values are: ERROR, WARN, NOTICE, INFO, DEBUG. This parameter is
+# optional. The default log level is NOTICE.
+#CACHE_LOG_LEVEL NOTICE
+
+# Send logs to sysout rather than syslog.
+CACHE_DISABLE_SYSLOG 1
+
+# SolCache instance logs utilize syslogd.
+# see the syslog.conf man page for possible values
+#CACHE_SYSLOG_LOG_FACILITY local0
+
+
+# A user definable tag for all the logs generate by the cache.
+#CACHE_SYSLOG_TAG tag
+
+
+# SolCache instance events utilize syslogd
+# see the syslog.conf man page for possible values
+#CACHE_SYSLOG_EVENT_FACILITY local3
+
+
+# Enable (1) or disable (0) filtering of messages whos topic starts
+# with "#P2P". Topics starting with "#P2P" are reserved for use by the
+# router and cache. When filtering is enabled, the message whos topic starts 
+# with "#P2P" are not cached but silently discarded and a stat is incremented. 
+# This parameter is optional. The default is that "#P2P" filtering is enabled.
+#CACHE_P2P_FILTER 1

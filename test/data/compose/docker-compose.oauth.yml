@@ -2,11 +2,11 @@ version: "3.5"
 
 secrets:
   keystore.ks: 
-    file: ../fixtures/keystore.ks
+    file: ${TEST_FOLDER}/fixtures/keystore.ks
   jwks_endpoint.json:
-    file: ../fixtures/jwks_key_endpoint.json
+    file: ${TEST_FOLDER}/fixtures/jwks_key_endpoint.json
   userinfo_endpoint.json:
-    file: ../fixtures/userinfo.json
+    file: ${TEST_FOLDER}/fixtures/userinfo.json
     
 services:
   oauth_endpoints:
