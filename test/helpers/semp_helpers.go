@@ -23,6 +23,7 @@ import (
 	"solace.dev/go/messaging/test/testcontext"
 )
 
+// Our generated SEMPv2 client has **bool as the datatype for booleans to be able to differentiate between "missing" and "false"
 var True = testcontext.True
 var False = testcontext.False
 var boolPointer = testcontext.BoolPointer

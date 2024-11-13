@@ -24,7 +24,7 @@ import (
 	"solace.dev/go/messaging/test/sempclient/config"
 )
 
-func ConfigureDistributedCache(semp SEMPv2, msgVpnName string, distributedCache DistributedCacheConfig) error {
+func ConfigureDistributedCacheIfNotPresent(semp SEMPv2, msgVpnName string, distributedCache DistributedCacheConfig) error {
         _, httpResponse, err := semp.Monitor().DistributedCacheApi.GetMsgVpnDistributedCache(semp.MonitorCtx(), msgVpnName, distributedCache.Name, nil)
                 if err != nil {
                         if httpResponse.StatusCode == 400 {
@@ -47,7 +47,7 @@ func ConfigureDistributedCache(semp SEMPv2, msgVpnName string, distributedCache 
         return err
 }
 
-func ConfigureCacheCluster(semp SEMPv2, msgVpnName string, distributedCache DistributedCacheConfig, cacheCluster CacheClusterConfig) error {
+func ConfigureCacheClusterIfNotPresent(semp SEMPv2, msgVpnName string, distributedCache DistributedCacheConfig, cacheCluster CacheClusterConfig) error {
         _, httpResponse, err := semp.Monitor().DistributedCacheApi.GetMsgVpnDistributedCacheCluster(semp.MonitorCtx(), msgVpnName, distributedCache.Name, cacheCluster.Name, nil)
                         if err != nil {
                                 if httpResponse.StatusCode == 400 {
@@ -74,7 +74,7 @@ func ConfigureCacheCluster(semp SEMPv2, msgVpnName string, distributedCache Dist
         return err
 }
 
-func ConfigureCacheInstance(semp SEMPv2, msgVpnName string, distributedCache DistributedCacheConfig, cacheCluster CacheClusterConfig, cacheInstance CacheInstanceConfig) error {
+func ConfigureCacheInstanceIfNotPresent(semp SEMPv2, msgVpnName string, distributedCache DistributedCacheConfig, cacheCluster CacheClusterConfig, cacheInstance CacheInstanceConfig) error {
         _, httpResponse, err := semp.Monitor().DistributedCacheApi.GetMsgVpnDistributedCacheClusterInstance(semp.MonitorCtx(), msgVpnName, distributedCache.Name, cacheCluster.Name, cacheInstance.Name, nil)
                                 if err != nil {
                                         if httpResponse.StatusCode == 400 {
@@ -102,7 +102,7 @@ func ConfigureCacheInstance(semp SEMPv2, msgVpnName string, distributedCache Dis
         return err
 }
 
-func ConfigureCacheTopic(semp SEMPv2, msgVpnName string, distributedCache DistributedCacheConfig, cacheCluster CacheClusterConfig, cacheTopic string) error {
+func ConfigureCacheTopicIfNotPresent(semp SEMPv2, msgVpnName string, distributedCache DistributedCacheConfig, cacheCluster CacheClusterConfig, cacheTopic string) error {
         cacheTopic = url.QueryEscape(cacheTopic)
         inst, httpResponse, err := semp.Monitor().DistributedCacheApi.GetMsgVpnDistributedCacheClusterTopics(semp.MonitorCtx(), msgVpnName, distributedCache.Name, cacheCluster.Name, nil)
         for _, topic_group := range inst.Data {
@@ -132,7 +132,7 @@ func ConfigureCacheTopic(semp SEMPv2, msgVpnName string, distributedCache Distri
 }
 
 // WaitForCacheState polls the given cache instance operational state until it matches the expected state or until the timer expires.
-func WaitForCacheState(semp SEMPv2, msgVpnName string, distributedCacheName string, cacheClusterName string, cacheClusterInstanceName string, targetState string, timeout time.Duration) error {
+func waitForCacheState(semp SEMPv2, msgVpnName string, distributedCacheName string, cacheClusterName string, cacheClusterInstanceName string, targetState string, timeout time.Duration) error {
     found := false
 
 	pollInterval := 500 * time.Millisecond
@@ -217,23 +217,23 @@ func (ctx *testContextCommon) initCache() error {
         }
 
         for _, distributedCache := range ctx.Cache().DistributedCaches {
-                err = ConfigureDistributedCache(ctx.SEMPv2(), msgVpnName, distributedCache)
+                err = ConfigureDistributedCacheIfNotPresent(ctx.SEMPv2(), msgVpnName, distributedCache)
                 if err != nil {
                         return err
                 }
                 for _, cacheCluster := range distributedCache.CacheClusters {
-                        err = ConfigureCacheCluster(ctx.SEMPv2(), msgVpnName, distributedCache, cacheCluster)
+                        err = ConfigureCacheClusterIfNotPresent(ctx.SEMPv2(), msgVpnName, distributedCache, cacheCluster)
                         if err != nil {
                                 return err
                         }
                         for _, cacheTopic := range cacheCluster.Topics {
-                                err = ConfigureCacheTopic(ctx.SEMPv2(), msgVpnName, distributedCache, cacheCluster, cacheTopic)
+                                err = ConfigureCacheTopicIfNotPresent(ctx.SEMPv2(), msgVpnName, distributedCache, cacheCluster, cacheTopic)
                                 if err != nil {
                                         return err
                                 }
                         }
                         for _, cacheInstance := range cacheCluster.CacheInstances {
-                                err = ConfigureCacheInstance(ctx.SEMPv2(), msgVpnName, distributedCache, cacheCluster, cacheInstance)
+                                err = ConfigureCacheInstanceIfNotPresent(ctx.SEMPv2(), msgVpnName, distributedCache, cacheCluster, cacheInstance)
                                 if err != nil {
                                         return err
                                 }
@@ -248,18 +248,18 @@ func (ctx *testContextCommon) initCache() error {
 // tested when checking for an operational state of CacheOperationalStateUp, where it is necessary that if all cache
 // instances are up, then all distributed caches and cache clusters are also up. This relationship may not hold for
 // other operational states. The usage of this method for checking other operational states may require refactoring.
-func (ctx *testContextCommon) waitForOperationalCache(timeout float64, state CacheOperationalState) error {
+func (ctx *testContextCommon) waitForOperationalCache(timeout time.Duration, state CacheOperationalState) error {
         for _, distributedCache := range ctx.Cache().DistributedCaches {
                 for _, cacheCluster := range distributedCache.CacheClusters {
                         for _, cacheInstance := range cacheCluster.CacheInstances {
-                                err := WaitForCacheState(
+                                err := waitForCacheState(
                                         ctx.SEMPv2(),
                                         ctx.Cache().Vpn,
                                         distributedCache.Name,
                                         cacheCluster.Name,
                                         cacheInstance.Name,
                                         string(state),
-                                        time.Duration(timeout * float64(time.Second)))
+                                        timeout)
                                 if err != nil {
                                         return err
                                 }
@@ -274,6 +274,6 @@ func (ctx *testContextCommon) setupCache() error {
         if err != nil {
             return err
         }
-        err = ctx.waitForOperationalCache(30.0, CacheOperationalStateUp)
+        err = ctx.waitForOperationalCache(time.Duration(30.0 * float64(time.Second)), CacheOperationalStateUp)
         return err
 }

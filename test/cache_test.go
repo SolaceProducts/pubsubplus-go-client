@@ -17,8 +17,6 @@
 package test
 
 import (
-    "fmt"
-
 	"solace.dev/go/messaging/test/testcontext"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -44,7 +42,6 @@ var _ = Describe("Cache Strategy", func() {
             CheckCache() // skips test with message if cache image is not available
         })
         It("should run this test", func() {
-                fmt.Println("Running cache test")
                 Expect(1 == 1).To(BeTrue())
         })
     })
@@ -53,8 +50,7 @@ var _ = Describe("Cache Strategy", func() {
         BeforeEach(func () {
                 CheckCacheProxy() // skips test with message if cache proxy image is not available
         })
-        It("should not run this test", func() {
-                fmt.Println("Running cache proxy test")
+        It("should run this test", func() {
                 Expect(1 == 1).To(BeTrue())
         })
     })
@@ -64,7 +60,6 @@ var _ = Describe("Cache Strategy", func() {
                 CheckCacheProxy()
         })
         It("should run this test", func() {
-                fmt.Println("Running cache & cache proxy test")
                 Expect(1 == 1).To(BeTrue())
         })
     })

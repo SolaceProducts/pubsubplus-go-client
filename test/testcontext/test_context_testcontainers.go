@@ -40,6 +40,10 @@ const cacheComposeFilePath = "data/compose/docker-compose.cache.yml"
 const cacheProxyComposeFilePath = "data/compose/docker-compose.cacheproxy.yml"
 const testFolderVarName = "TEST_FOLDER"
 const testFolderVarDefaultValue = ".."
+const solCacheHostNameVarName = "PUBSUB_CACHE_HOSTNAME"
+const solCacheHostNameDefaultValue = "solcache"
+const solCacheSuspectHostNameVarName = "PUBSUB_CACHE_SUSPECT_HOSTNAME"
+const solCacheSuspectHostNameDefaultValue = "solcache_suspect"
 
 type testContainersTestContext struct {
 	testContextCommon
@@ -56,6 +60,11 @@ func (context *testContainersTestContext) Setup() error {
 	fmt.Println()
 	fmt.Println("-- TESTCONTAINERS SETUP --")
 
+    /*
+    This is necessary so that fixture directories can be resolved from both inside and outside of a docker container.
+    Refer to the docker-compose files to see where this is used. This needs to be done before containers are spun up.
+    The following defaults TEST_FOLDER to '..', which was the old value for running outside of a docker container.
+    */
     testFolderVar := os.Getenv(testFolderVarName)
     if testFolderVar == "" {
         os.Setenv(testFolderVarName, testFolderVarDefaultValue)
@@ -74,6 +83,14 @@ func (context *testContainersTestContext) Setup() error {
 		context.config.OAuth.Hostname = ""
 	}
     if context.config.Cache.Image != "" {
+        solCacheHostNameVar := os.Getenv(solCacheHostNameVarName)
+        if solCacheHostNameVar == "" {
+                os.Setenv(solCacheHostNameVarName, solCacheHostNameDefaultValue)
+        }
+        solCacheSuspectHostNameVar := os.Getenv(solCacheSuspectHostNameVarName)
+        if solCacheSuspectHostNameVar == "" {
+                os.Setenv(solCacheSuspectHostNameVarName, solCacheSuspectHostNameDefaultValue)
+        }
         context.cacheEnabled = true
         composeFilePaths = append(composeFilePaths, cacheComposeFilePath)
     }
