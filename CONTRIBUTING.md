@@ -66,6 +66,14 @@ go generate .
 ```
 This will generate subcode_generated.go from the given solClient.h
 
+And to generate ccsmp_cache_session_prop_generated.go and the other ccsmp props/enums from the given solClient.h and solCache.h, run this:
+```
+export SOLCACHE_H=/path/to/repo/lib/linux/include/solclient/solCache.h
+export SOLCLIENT_H=/path/to/repo/lib/linux/include/solclient/solClient.h
+cd internal/ccsmp
+go generate .
+```
+
 The following are directories that contain code that can be generated when CCSMP updates similar to the above snippet:
 - `pkg/solace/subcode`
 - `internal/ccsmp`
