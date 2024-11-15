@@ -27,6 +27,7 @@ package ccsmp
 //go:generate go run ./generator/ccsmp_flow_event_generator.go $SOLCLIENT_H
 //go:generate go run ./generator/ccsmp_endpoint_prop_generator.go $SOLCLIENT_H
 //go:generate go run ./generator/ccsmp_global_prop_generator.go $SOLCLIENT_H
+//go:generate go run ./generator/ccsmp_cache_session_prop_generator.go $SOLCACHE_H
 
 // Type definitions for generated code
 
