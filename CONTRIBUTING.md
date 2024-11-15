@@ -60,7 +60,7 @@ The integration tests are run on every new commit via Github Actions. These test
 Certain sections of code in this project are generated from the C API's header files. For example, given the solClient.h file,
 the following can be run:
 ```
-export SOLCLIENT_H=/path/to/repo/lib/linux/include/solclient/solClient.h
+export SOLCLIENT_H=/path/to/repo/lib/include/solclient/solClient.h
 cd pkg/solace/subcode
 go generate .
 ```
@@ -68,8 +68,8 @@ This will generate subcode_generated.go from the given solClient.h
 
 And to generate ccsmp_cache_session_prop_generated.go and the other ccsmp props/enums from the given solClient.h and solCache.h, run this:
 ```
-export SOLCACHE_H=/path/to/repo/lib/linux/include/solclient/solCache.h
-export SOLCLIENT_H=/path/to/repo/lib/linux/include/solclient/solClient.h
+export SOLCACHE_H=/path/to/repo/lib/include/solclient/solCache.h
+export SOLCLIENT_H=/path/to/repo/lib/include/solclient/solClient.h
 cd internal/ccsmp
 go generate .
 ```
