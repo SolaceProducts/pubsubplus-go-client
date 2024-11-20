@@ -22,6 +22,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"solace.dev/go/messaging/internal/impl/cache"
 	"solace.dev/go/messaging/internal/impl/executor"
 	"solace.dev/go/messaging/internal/impl/future"
 	"solace.dev/go/messaging/internal/impl/receiver"
@@ -325,7 +326,9 @@ func (service *messagingServiceImpl) MessageBuilder() solace.OutboundMessageBuil
 
 // EndpointProvisioner aids the type-safe collection of queue properties,
 // and can provision multiple queues with different names (but identical properties) on the broker.
-// Warning: This is a mutable object. The fluent builder style setters modify and return the original object. Make copies explicitly.
+// Warning: This is a mutable object.
+// The fluent builder style setters modify and return the original object.
+// Make copies explicitly.
 func (service *messagingServiceImpl) EndpointProvisioner() solace.EndpointProvisioner {
 	return provisioner.NewEndpointProvisionerImpl(service.transport.EndpointProvisioner())
 }
@@ -499,6 +502,12 @@ func (service *messagingServiceImpl) RequestReply() solace.RequestReplyMessaging
 	return &requestReplyServiceImpl{
 		messagingService: service,
 	}
+}
+
+// ReceiverCacheRequest is used to create and manage cache requests and inherits
+// the configuration of this MessagingService instance.
+func (service *messagingServiceImpl) ReceiverCacheRequest() solace.ReceiverCacheRequest {
+	return cache.NewReceiverCacheRequestImpl()
 }
 
 func (service *messagingServiceImpl) String() string {
