@@ -14,12 +14,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package resource contains types and factory functions for various
-// broker resources such as topics and queues.
+// Package cache contains the types and factory functions required by the cache feature.
 package cache
 
 import (
-	"fmt"
 	"math"
 
 	"solace.dev/go/messaging/internal/impl/logging"
@@ -33,7 +31,7 @@ import (
 type cachedMessageSubscriptionRequest struct {
 	cacheName          string
 	name               string
-	subscription       resource.TopicSubscription
+	subscription       *resource.TopicSubscription
 	cacheAccessTimeout int32
 	maxCachedMessages  int32
 	cachedMessageAge   int32
@@ -81,32 +79,41 @@ func NewReceiverCacheRequestImpl() solace.ReceiverCacheRequest {
 // to be retrieved.
 func (receiverCacheRequest *receiverCacheRequestImpl) NewCachedMessageSubscriptionRequest(cachedMessageSubscriptionStrategy cache.CachedMessageSubscriptionStrategy,
 	cacheName string,
-	subscription resource.TopicSubscription,
+	subscription *resource.TopicSubscription,
 	cacheAccessTimeout int32,
 	maxCachedMessages int32,
 	cachedMessageAge int32) (cache.CachedMessageSubscriptionRequest, error) {
 	// Todo: Implementation here
 	// do some validations here
-	// validate for the cacheName Timeout range
-	_, _, err := validation.StringPropertyValidation("cacheName", cacheAccessTimeout)
-	if err != nil {
-		return nil, err
+	// validate the cachedMessageSubscriptionStrategy
+	switch cachedMessageSubscriptionStrategy {
+	case cache.AsAvailable:
+	case cache.CachedFirst:
+	case cache.CachedOnly:
+	case cache.LiveCancelsCached:
+		// these are valid
+	default:
+		return nil, solace.NewError(&solace.InvalidConfigurationError{}, "expected 'cachedMessageSubscriptionStrategy' to be a valid strategy value", nil)
 	}
-	if (subscription == resource.TopicSubscription{}) {
-		return nil, solace.NewError(&solace.InvalidConfigurationError{}, fmt.Sprintf("expected required property 'subscription' to be set"), nil)
+	// validate for the cacheName Timeout range
+	if cacheName == "" {
+		return nil, solace.NewError(&solace.InvalidConfigurationError{}, "expected required property 'cacheName' to not be empty", nil)
+	}
+	if subscription == nil {
+		return nil, solace.NewError(&solace.InvalidConfigurationError{}, "expected required property 'subscription' to be set", nil)
 	}
 	// validate for the cacheAccess Timeout range
-	_, _, err = validation.IntegerPropertyValidationWithRange("cacheAccessTimeout", cacheAccessTimeout, 3000, math.MaxInt32)
+	_, _, err := validation.IntegerPropertyValidationWithRange("cacheAccessTimeout", int(cacheAccessTimeout), 3000, math.MaxInt32)
 	if err != nil {
 		return nil, err
 	}
 	// validate for the cache messages range
-	_, _, err = validation.IntegerPropertyValidationWithRange("maxCachedMessages", cacheAccessTimeout, 0, math.MaxInt32)
+	_, _, err = validation.IntegerPropertyValidationWithRange("maxCachedMessages", int(maxCachedMessages), 0, math.MaxInt32)
 	if err != nil {
 		return nil, err
 	}
 	// validate for the cache message TTL range
-	_, _, err = validation.IntegerPropertyValidationWithRange("cachedMessageAge", cachedMessageAge, 0, math.MaxInt32)
+	_, _, err = validation.IntegerPropertyValidationWithRange("cachedMessageAge", int(cachedMessageAge), 0, math.MaxInt32)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +133,7 @@ func (receiverCacheRequest *receiverCacheRequestImpl) NewCachedMessageSubscripti
 // defers processing of the resulting cache response to the application through
 // the returned channel.
 func (receiverCacheRequest *receiverCacheRequestImpl) RequestCachedAsync(cachedMessageSubscriptionRequest cache.CachedMessageSubscriptionRequest,
-	cacheRequestId message.CacheRequestID) <-chan cache.CacheResponse {
+	cacheRequestID message.CacheRequestID) <-chan cache.CacheResponse {
 	// TODO: Implementation here
 	return nil
 }
@@ -134,6 +141,6 @@ func (receiverCacheRequest *receiverCacheRequestImpl) RequestCachedAsync(cachedM
 // RequestCachedAsyncWithCallback asynchronously requests cached data from a cache,
 // and processes the resulting cache response through the provided function callback.
 func (receiverCacheRequest *receiverCacheRequestImpl) RequestCachedAsyncWithCallback(cachedMessageSubscriptionRequest cache.CachedMessageSubscriptionRequest,
-	cacheRequestId message.CacheRequestID, callback func(cache.CacheResponse)) {
+	cacheRequestID message.CacheRequestID, callback func(cache.CacheResponse)) {
 	// TODO: Implementation here
 }

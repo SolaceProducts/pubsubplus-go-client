@@ -39,12 +39,13 @@ type cacheResponse struct {
 	err                 error
 }
 
-// Refer to the [CacheRequestOutcome] for details on what this field indicates.
+// GetCacheRequestOutcome describes at a high level the result of the cache request.
 func (c *cacheResponse) GetCacheRequestOutcome() CacheRequestOutcome {
 	return c.cacheRequestOutcome
 }
 
-// GetCacheRequestId refer to [CacheRequestID] for details on what this field indicates
+// GetCacheRequestID provides a unique integer that can be used
+// to correlate cache responses and the received, previously cached data messages.
 func (c *cacheResponse) GetCacheRequestID() message.CacheRequestID {
 	return c.cacheRequestID
 }

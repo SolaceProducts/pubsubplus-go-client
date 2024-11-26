@@ -33,17 +33,17 @@ type ReceiverCacheRequest interface {
 	// of this parameter is between 0 and signed int 32 max, with 0 indicating that there should be no restrictions on the age of messages
 	// to be retrieved.
 	NewCachedMessageSubscriptionRequest(cachedMessageSubscriptionStrategy cache.CachedMessageSubscriptionStrategy,
-		cacheName string, subscription resource.TopicSubscription, cacheAccessTimeout int32, maxCachedMessages int32,
+		cacheName string, subscription *resource.TopicSubscription, cacheAccessTimeout int32, maxCachedMessages int32,
 		cachedMessageAge int32) (cache.CachedMessageSubscriptionRequest, error)
 
 	// RequestCachedAsync asynchronously requests cached data from a cache, and
 	// defers processing of the resulting cache response to the application through
 	// the returned channel.
 	RequestCachedAsync(cachedMessageSubscriptionRequest cache.CachedMessageSubscriptionRequest,
-		cacheRequestId message.CacheRequestID) <-chan cache.CacheResponse
+		cacheRequestID message.CacheRequestID) <-chan cache.CacheResponse
 
 	// RequestCachedAsyncWithCallback asynchronously requests cached data from a cache,
 	// and processes the resulting cache response through the provided function callback.
 	RequestCachedAsyncWithCallback(cachedMessageSubscriptionRequest cache.CachedMessageSubscriptionRequest,
-		cacheRequestId message.CacheRequestID, callback func(cache.CacheResponse))
+		cacheRequestID message.CacheRequestID, callback func(cache.CacheResponse))
 }
