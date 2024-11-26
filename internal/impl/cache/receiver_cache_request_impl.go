@@ -47,6 +47,30 @@ func (request *cachedMessageSubscriptionRequest) GetName() string {
 	return request.name
 }
 
+// cacheResponse provides information about the response received from the cache.
+type cacheResponse struct {
+	cacheRequestOutcome cache.CacheRequestOutcome
+	cacheRequestID      message.CacheRequestID
+	err                 error
+}
+
+// GetCacheRequestOutcome describes at a high level the result of the cache request.
+func (response *cacheResponse) GetCacheRequestOutcome() cache.CacheRequestOutcome {
+	return response.cacheRequestOutcome
+}
+
+// GetCacheRequestID provides a unique integer that can be used
+// to correlate cache responses and the received, previously cached data messages.
+func (response *cacheResponse) GetCacheRequestID() message.CacheRequestID {
+	return response.cacheRequestID
+}
+
+// GetError the error field will be nil if the cache request was successful,
+// and will be not nil if a problem was encountered.
+func (response *cacheResponse) GetError() error {
+	return response.err
+}
+
 // receiverCacheRequestImpl structure
 type receiverCacheRequestImpl struct {
 	logger logging.LogLevelLogger
@@ -83,8 +107,6 @@ func (receiverCacheRequest *receiverCacheRequestImpl) NewCachedMessageSubscripti
 	cacheAccessTimeout int32,
 	maxCachedMessages int32,
 	cachedMessageAge int32) (cache.CachedMessageSubscriptionRequest, error) {
-	// Todo: Implementation here
-	// do some validations here
 	// validate the cachedMessageSubscriptionStrategy
 	switch cachedMessageSubscriptionStrategy {
 	case cache.AsAvailable:

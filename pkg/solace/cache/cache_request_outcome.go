@@ -32,30 +32,6 @@ type CacheResponse interface {
 	GetError() error
 }
 
-// cacheResponse provides information about the response received from the cache.
-type cacheResponse struct {
-	cacheRequestOutcome CacheRequestOutcome
-	cacheRequestID      message.CacheRequestID
-	err                 error
-}
-
-// GetCacheRequestOutcome describes at a high level the result of the cache request.
-func (c *cacheResponse) GetCacheRequestOutcome() CacheRequestOutcome {
-	return c.cacheRequestOutcome
-}
-
-// GetCacheRequestID provides a unique integer that can be used
-// to correlate cache responses and the received, previously cached data messages.
-func (c *cacheResponse) GetCacheRequestID() message.CacheRequestID {
-	return c.cacheRequestID
-}
-
-// GetError the error field will be nil if the cache request was successful,
-// and will be not nil if a problem was encountered.
-func (c *cacheResponse) GetError() error {
-	return c.err
-}
-
 // CacheRequestOutcome represents the outcome of a cache response.
 // Refer to the doc string of each variant for more details.
 type CacheRequestOutcome int

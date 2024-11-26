@@ -6,7 +6,7 @@ import (
 	"solace.dev/go/messaging/pkg/solace/resource"
 )
 
-// ReceiverCacheRequets Provides an interface through which the application can request cached messages from a cache.
+// ReceiverCacheRequest Provides an interface through which the application can request cached messages from a cache.
 // The cachedMessageSubscriptionRequest provides configuration for the impending cache request. Refer to [CachedMessageSubscriptionRequest] for more details.
 // The cacheRequestId provides an identifier that can be used to correlated received cached messages with a cache request and cache response. This cache request ID
 // MUST be unique for the duration of application execution, and it is the responsibility of the application to ensure this.
