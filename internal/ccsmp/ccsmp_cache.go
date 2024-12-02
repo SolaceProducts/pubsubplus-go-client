@@ -27,12 +27,14 @@ package ccsmp
 #include "solclient/solCache.h"
 */
 import "C"
-import "solace.dev/go/messaging/pkg/solace/cache"
+import (
+	"solace.dev/go/messaging/pkg/solace/resource"
+)
 
 // Mapping for Cached message Subscription Request Strategies to respectiveCCSMP flags
-var cachedMessageSubscriptionRequestStrategyMappingToCCSMP = map[cache.CachedMessageSubscriptionStrategy]C.solClient_cacheRequestFlags_t{
-	cache.AsAvailable:       C.SOLCLIENT_CACHEREQUEST_FLAGS_LIVEDATA_FLOWTHRU | C.SOLCLIENT_CACHEREQUEST_FLAGS_NOWAIT_REPLY,
-	cache.LiveCancelsCached: C.SOLCLIENT_CACHEREQUEST_FLAGS_LIVEDATA_FULFILL | C.SOLCLIENT_CACHEREQUEST_FLAGS_NOWAIT_REPLY,
-	cache.CachedFirst:       C.SOLCLIENT_CACHEREQUEST_FLAGS_LIVEDATA_QUEUE | C.SOLCLIENT_CACHEREQUEST_FLAGS_NOWAIT_REPLY,
-	cache.CachedOnly:        C.SOLCLIENT_CACHEREQUEST_FLAGS_LIVEDATA_FLOWTHRU | C.SOLCLIENT_CACHEREQUEST_FLAGS_NOWAIT_REPLY,
+var cachedMessageSubscriptionRequestStrategyMappingToCCSMP = map[resource.CachedMessageSubscriptionStrategy]C.solClient_cacheRequestFlags_t{
+	resource.AsAvailable:       C.SOLCLIENT_CACHEREQUEST_FLAGS_LIVEDATA_FLOWTHRU | C.SOLCLIENT_CACHEREQUEST_FLAGS_NOWAIT_REPLY,
+	resource.LiveCancelsCached: C.SOLCLIENT_CACHEREQUEST_FLAGS_LIVEDATA_FULFILL | C.SOLCLIENT_CACHEREQUEST_FLAGS_NOWAIT_REPLY,
+	resource.CachedFirst:       C.SOLCLIENT_CACHEREQUEST_FLAGS_LIVEDATA_QUEUE | C.SOLCLIENT_CACHEREQUEST_FLAGS_NOWAIT_REPLY,
+	resource.CachedOnly:        C.SOLCLIENT_CACHEREQUEST_FLAGS_LIVEDATA_FLOWTHRU | C.SOLCLIENT_CACHEREQUEST_FLAGS_NOWAIT_REPLY,
 }

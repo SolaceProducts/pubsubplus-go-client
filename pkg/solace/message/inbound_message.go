@@ -22,10 +22,6 @@ import (
 	"solace.dev/go/messaging/pkg/solace/message/rgmid"
 )
 
-// CacheRequestID - a type to be used for correlating received,
-// previously cached messages with their associated cache response.
-type CacheRequestID uint64
-
 // InboundMessage represents a message received by a consumer.
 type InboundMessage interface {
 	// Extend the Message interface.

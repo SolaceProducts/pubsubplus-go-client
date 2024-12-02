@@ -72,10 +72,6 @@ type MessagingService interface {
 	// the configuration of this MessagingService instance.
 	RequestReply() RequestReplyMessagingService
 
-	// ReceiverCacheRequest is used to create and manage cache requests and inherits
-	// the configuration of this MessagingService instance.
-	ReceiverCacheRequest() ReceiverCacheRequest
-
 	// Disconnect disconnects the messaging service.
 	// The messaging service must be connected to disconnect.
 	// This function blocks until the disconnection attempt is completed.

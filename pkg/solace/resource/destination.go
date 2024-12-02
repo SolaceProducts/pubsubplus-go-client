@@ -171,3 +171,134 @@ func QueueNonDurableExclusiveAnonymous() *Queue {
 		durable:               false,
 	}
 }
+
+// CachedMessageSubscriptionStrategy indicates how the API should pass received cached and live messages to the application. Refer to each
+// variant for details on what behaviour they configure.
+type CachedMessageSubscriptionStrategy int
+
+const (
+	// AsAvailable provides a configuration for receiving a concurrent mix of both live and cached messages on the given TopicSubscription.
+	AsAvailable CachedMessageSubscriptionStrategy = iota
+
+	// LiveCancelsCached provides a configuration for initially passing received cached messages to the application and as soon as live
+	// messages are received, passing those instead and passing no more cached messages.
+	LiveCancelsCached
+
+	// CachedFirst provides a configuration for passing only cached messages to the application, before passing the received live messages.
+	// The live messages passed to the application thereof this configuration can be received as early as when the cache request is sent
+	// by the API, and are enqueued until the cache response is received and its associated cached messages, if available, are passed to
+	// the application.
+	CachedFirst
+
+	// CachedOnly provides a configuration for passing only cached messages and no live messages to the application.
+	CachedOnly
+)
+
+// CachedMessageSubscriptionRequest provides an interface through which cache request configurations can be constructed. These
+// configurations can then be passed to a call to a [RequestCached] interface method to request cached data. Refer to each of the below
+// factory methods for details on what configuration they provide.
+type CachedMessageSubscriptionRequest interface {
+	// GetCacheName retrieves the name of the cache.
+	GetCacheName() string
+
+	// GetName retrieves the name of the topic subscription.
+	GetName() string
+
+	GetSubscription() *TopicSubscription
+
+	GetCacheAccessTimeout() int32
+
+	GetMaxCachedMessages() int32
+
+	GetCachedMessageAge() int32
+
+	GetCachedMessageSubscriptionRequestStrategy() *CachedMessageSubscriptionStrategy
+}
+
+type cachedMessageSubscriptionRequest struct {
+	name                              string
+	cacheName                         string
+	subscription                      *TopicSubscription
+	cacheAccessTimeout                int32
+	maxCachedMessages                 int32
+	cachedMessageAge                  int32
+	cachedMessageSubscriptionStrategy *CachedMessageSubscriptionStrategy
+}
+
+// GetName retrieves the name of the topic subscription.
+func (request *cachedMessageSubscriptionRequest) GetName() string {
+	return request.name
+}
+
+// GetCacheName retrieves the name of the cache.
+func (request *cachedMessageSubscriptionRequest) GetCacheName() string {
+	return request.cacheName
+}
+
+func (request *cachedMessageSubscriptionRequest) GetSubscription() *TopicSubscription {
+	return request.subscription
+}
+func (request *cachedMessageSubscriptionRequest) GetCacheAccessTimeout() int32 {
+	return request.cacheAccessTimeout
+}
+
+func (request *cachedMessageSubscriptionRequest) GetMaxCachedMessages() int32 {
+	return request.maxCachedMessages
+}
+
+func (request *cachedMessageSubscriptionRequest) GetCachedMessageAge() int32 {
+	return request.cachedMessageAge
+}
+
+func (request *cachedMessageSubscriptionRequest) GetCachedMessageSubscriptionRequestStrategy() *CachedMessageSubscriptionStrategy {
+	return request.cachedMessageSubscriptionStrategy
+}
+
+// NewCachedMessageSubscriptionRequest returns a CachedMessageSubscriptionRequest that can be used to configure a cache request
+// and an error indicating whether or not the operation was successful. If the operation was successful the error is nil. Otherwise,
+// the error will be non-nil and will indicate the reason the operation failed.
+// The cachedMessageSubscriptionStrategy indicates how the API should pass received cached/live messages to the API after a cache
+// request has been sent. Refer to [CachedMessageSubscriptionStrategy] for details on what behaviour each strategy configures.
+// The cache_name parameter indicates the name of the cache to retrieve messages from.
+// The subscription parameter indicates what topic the cache request should match against
+// The cacheAccessTimeout parameter indicates how long in milliseconds a cache request is permitted to take before it is internally
+// cancelled. The valid range for this timeout is between 3000 and signed int 32 max. This value specifies a timer for the internal
+// requests that occur between this API and a PubSub+ cache. A single call to a [ReceiverCacheRequests] interface method
+// can lead to one or more of these internal requests. As long as each of these internal requests
+// complete before the specified time-out, the timeout value is satisfied.
+// The maxCachedMessages parameter indicates the max number of messages expected to be returned as a part of a cache response. The range
+// of this paramater is between 0 and signed int32 max, with 0 indicating that there should be no restrictions on the number of messages
+// received as a part of a cache request.
+// The cachedMessageAge parameter indicates the max age in seconds of the messages to be retrieved from a cache. The range
+// of this parameter is between 0 and signed int 32 max, with 0 indicating that there should be no restrictions on the age of messages
+// to be retrieved.
+func NewCachedMessageSubscriptionRequest(cachedMessageSubscriptionStrategy CachedMessageSubscriptionStrategy,
+	cacheName string,
+	subscription *TopicSubscription,
+	cacheAccessTimeout int32,
+	maxCachedMessages int32,
+	cachedMessageAge int32) CachedMessageSubscriptionRequest {
+	// map the cachedMessageSubscriptionStrategy
+	var cachedMsgSubStrategy *CachedMessageSubscriptionStrategy = nil
+	switch cachedMessageSubscriptionStrategy {
+	case AsAvailable:
+	case CachedFirst:
+	case CachedOnly:
+	case LiveCancelsCached:
+		// these are valid
+		cachedMsgSubStrategy = &cachedMessageSubscriptionStrategy
+	default:
+		cachedMsgSubStrategy = nil
+	}
+
+	// return back a valid cache message subscription request if everything checks out
+	return &cachedMessageSubscriptionRequest{
+		name:                              cacheName,
+		cacheName:                         cacheName,
+		subscription:                      subscription,
+		cacheAccessTimeout:                cacheAccessTimeout,
+		maxCachedMessages:                 maxCachedMessages,
+		cachedMessageAge:                  cachedMessageAge,
+		cachedMessageSubscriptionStrategy: cachedMsgSubStrategy,
+	}
+}
