@@ -65,23 +65,23 @@ func TestNewCachedMessageSubscriptionRequest(t *testing.T) {
 	cachedMessageSubscriptionRequest := resource.NewCachedMessageSubscriptionRequest(resource.LiveCancelsCached,
 		cacheName, subscription, cacheAccessTimeout, maxCachedMessages, cachedMessageAge)
 
-	if cachedMessageSubscriptionRequest.GetCachedMessageSubscriptionRequestStrategy() == nil {
-		t.Error("Did not expect nil cachedMessageSubscriptionStrategy when NewCachedMessageSubscriptionRequest() called with valid cachedMessageSubscriptionStrategy.")
+	if *(cachedMessageSubscriptionRequest.GetCachedMessageSubscriptionRequestStrategy()) != resource.LiveCancelsCached {
+		t.Error("Expected GetCachedMessageSubscriptionRequestStrategy() to match passed in cachedMessageSubscriptionStrategy when NewCachedMessageSubscriptionRequest() called with valid cachedMessageSubscriptionStrategy.")
 	}
-	if cachedMessageSubscriptionRequest.GetCacheName() == "" {
-		t.Error("Did not expect CacheName to be empty when NewCachedMessageSubscriptionRequest() called with valid cacheName.")
+	if cachedMessageSubscriptionRequest.GetCacheName() != cacheName {
+		t.Error("Expected GetCacheName() to match CacheName when NewCachedMessageSubscriptionRequest() called with valid cacheName.")
 	}
-	if cachedMessageSubscriptionRequest.GetSubscription() == nil {
-		t.Error("Did not expect topic subscription to be nil when NewCachedMessageSubscriptionRequest() called with valid subscription.")
+	if cachedMessageSubscriptionRequest.GetName() != subscriptionString {
+		t.Error("Expected GetName() to match passed in topic subscription name when NewCachedMessageSubscriptionRequest() called with valid subscription.")
 	}
-	if cachedMessageSubscriptionRequest.GetCacheAccessTimeout() == 0 {
-		t.Error("Did not expect cacheAccessTimeout to be 0 when NewCachedMessageSubscriptionRequest() called with valid cacheAccessTimeout.")
+	if cachedMessageSubscriptionRequest.GetCacheAccessTimeout() != cacheAccessTimeout {
+		t.Error("Expected GetCacheAccessTimeout() to match passed in cacheAccessTimeout when NewCachedMessageSubscriptionRequest() called with valid cacheAccessTimeout.")
 	}
-	if cachedMessageSubscriptionRequest.GetMaxCachedMessages() == 0 {
-		t.Error("Did not expect maxCachedMessages to be 0 when NewCachedMessageSubscriptionRequest() called with valid maxCachedMessages.")
+	if cachedMessageSubscriptionRequest.GetMaxCachedMessages() != maxCachedMessages {
+		t.Error("Expected GetMaxCachedMessages() to match passed in maxCachedMessages when NewCachedMessageSubscriptionRequest() called with valid maxCachedMessages.")
 	}
-	if cachedMessageSubscriptionRequest.GetCachedMessageAge() == 0 {
-		t.Error("Did not expect cachedMessageAge to be 0 when NewCachedMessageSubscriptionRequest() called with valid cachedMessageAge.")
+	if cachedMessageSubscriptionRequest.GetCachedMessageAge() != cachedMessageAge {
+		t.Error("Expected GetCachedMessageAge() to match passed in cachedMessageAge when NewCachedMessageSubscriptionRequest() called with valid cachedMessageAge.")
 	}
 }
 
@@ -124,7 +124,7 @@ func TestNewCachedMessageSubscriptionRequestWithNilSubscription(t *testing.T) {
 	cachedMessageSubscriptionRequest := resource.NewCachedMessageSubscriptionRequest(resource.AsAvailable,
 		cacheName, nil, cacheAccessTimeout, maxCachedMessages, cachedMessageAge)
 
-	if cachedMessageSubscriptionRequest.GetSubscription() != nil {
+	if cachedMessageSubscriptionRequest.GetName() != "" {
 		t.Error("Expected topic subscription to be nil when NewCachedMessageSubscriptionRequest() called with nil topic subscription")
 	}
 }

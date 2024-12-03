@@ -198,25 +198,27 @@ const (
 // configurations can then be passed to a call to a [RequestCached] interface method to request cached data. Refer to each of the below
 // factory methods for details on what configuration they provide.
 type CachedMessageSubscriptionRequest interface {
-	// GetCacheName retrieves the name of the cache.
-	GetCacheName() string
 
 	// GetName retrieves the name of the topic subscription.
 	GetName() string
 
-	GetSubscription() *TopicSubscription
+	// GetCacheName retrieves the name of the cache.
+	GetCacheName() string
 
+	// GetCacheAccessTimeout retrieves the timeout for the cache request.
 	GetCacheAccessTimeout() int32
 
+	// GetMaxCachedMessages retrieves the max number of cached messages to be retrived in a request.
 	GetMaxCachedMessages() int32
 
+	// GetCachedMessageAge retrieves the max age of cached messages to be retrieved in a request.
 	GetCachedMessageAge() int32
 
+	// GetCachedMessageSubscriptionRequestStrategy retrieves the configured type of subscription strategy.
 	GetCachedMessageSubscriptionRequestStrategy() *CachedMessageSubscriptionStrategy
 }
 
 type cachedMessageSubscriptionRequest struct {
-	name                              string
 	cacheName                         string
 	subscription                      *TopicSubscription
 	cacheAccessTimeout                int32
@@ -227,7 +229,10 @@ type cachedMessageSubscriptionRequest struct {
 
 // GetName retrieves the name of the topic subscription.
 func (request *cachedMessageSubscriptionRequest) GetName() string {
-	return request.name
+	if request.subscription == nil {
+		return "" // if topic subscription is nil, return an empty string
+	}
+	return request.subscription.GetName()
 }
 
 // GetCacheName retrieves the name of the cache.
@@ -235,35 +240,34 @@ func (request *cachedMessageSubscriptionRequest) GetCacheName() string {
 	return request.cacheName
 }
 
-func (request *cachedMessageSubscriptionRequest) GetSubscription() *TopicSubscription {
-	return request.subscription
-}
+// GetCacheAccessTimeout retrieves the timeout for the cache request.
 func (request *cachedMessageSubscriptionRequest) GetCacheAccessTimeout() int32 {
 	return request.cacheAccessTimeout
 }
 
+// GetMaxCachedMessages retrieves the max number of cached messages to be retrived in a request.
 func (request *cachedMessageSubscriptionRequest) GetMaxCachedMessages() int32 {
 	return request.maxCachedMessages
 }
 
+// GetCachedMessageAge retrieves the max age of cached messages to be retrieved in a request.
 func (request *cachedMessageSubscriptionRequest) GetCachedMessageAge() int32 {
 	return request.cachedMessageAge
 }
 
+// GetCachedMessageSubscriptionRequestStrategy retrieves the configured type of subscription strategy.
 func (request *cachedMessageSubscriptionRequest) GetCachedMessageSubscriptionRequestStrategy() *CachedMessageSubscriptionStrategy {
 	return request.cachedMessageSubscriptionStrategy
 }
 
-// NewCachedMessageSubscriptionRequest returns a CachedMessageSubscriptionRequest that can be used to configure a cache request
-// and an error indicating whether or not the operation was successful. If the operation was successful the error is nil. Otherwise,
-// the error will be non-nil and will indicate the reason the operation failed.
+// NewCachedMessageSubscriptionRequest returns a CachedMessageSubscriptionRequest that can be used to configure a cache request.
 // The cachedMessageSubscriptionStrategy indicates how the API should pass received cached/live messages to the API after a cache
 // request has been sent. Refer to [CachedMessageSubscriptionStrategy] for details on what behaviour each strategy configures.
-// The cache_name parameter indicates the name of the cache to retrieve messages from.
+// The cacheName parameter indicates the name of the cache to retrieve messages from.
 // The subscription parameter indicates what topic the cache request should match against
 // The cacheAccessTimeout parameter indicates how long in milliseconds a cache request is permitted to take before it is internally
 // cancelled. The valid range for this timeout is between 3000 and signed int 32 max. This value specifies a timer for the internal
-// requests that occur between this API and a PubSub+ cache. A single call to a [ReceiverCacheRequests] interface method
+// requests that occur between this API and a PubSub+ cache. A single call to a [ReceiverCacheRequest] interface method
 // can lead to one or more of these internal requests. As long as each of these internal requests
 // complete before the specified time-out, the timeout value is satisfied.
 // The maxCachedMessages parameter indicates the max number of messages expected to be returned as a part of a cache response. The range
@@ -272,6 +276,8 @@ func (request *cachedMessageSubscriptionRequest) GetCachedMessageSubscriptionReq
 // The cachedMessageAge parameter indicates the max age in seconds of the messages to be retrieved from a cache. The range
 // of this parameter is between 0 and signed int 32 max, with 0 indicating that there should be no restrictions on the age of messages
 // to be retrieved.
+// The construction of NewCachedMessageSubscriptionRequest does not validate these parameter values. Instead, they are validated
+// when the cache request is sent after a call to a [ReceiverCacheRequest] interface method.
 func NewCachedMessageSubscriptionRequest(cachedMessageSubscriptionStrategy CachedMessageSubscriptionStrategy,
 	cacheName string,
 	subscription *TopicSubscription,
@@ -293,7 +299,6 @@ func NewCachedMessageSubscriptionRequest(cachedMessageSubscriptionStrategy Cache
 
 	// return back a valid cache message subscription request if everything checks out
 	return &cachedMessageSubscriptionRequest{
-		name:                              cacheName,
 		cacheName:                         cacheName,
 		subscription:                      subscription,
 		cacheAccessTimeout:                cacheAccessTimeout,
