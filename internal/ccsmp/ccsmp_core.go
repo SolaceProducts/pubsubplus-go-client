@@ -329,7 +329,7 @@ func (context *SolClientContext) SolClientSessionCreate(properties []string) (se
 	sessionFuncInfo.eventInfo.user_p = nil
 
 	solClientErrorInfo := handleCcsmpError(func() SolClientReturnCode {
-		return C.solClient_session_create(sessionPropsP, context.pointer, &sessionP, &sessionFuncInfo, (C.size_t)(unsafe.Sizeof(sessionFuncInfo)))
+		return C.solClient_session_create(sessionPropsP, context.pointer, &sessionP, unsafe.Pointer(&sessionFuncInfo), (C.size_t)(unsafe.Sizeof(sessionFuncInfo)))
 	})
 	if solClientErrorInfo != nil {
 		return nil, solClientErrorInfo
