@@ -69,6 +69,11 @@ type Receiver interface {
 	IncrementMetric(metric NextGenMetric, amount uint64)
 	// Creates a new persistent receiver with the given callback
 	NewPersistentReceiver(properties []string, callback RxCallback, eventCallback PersistentEventCallback) (PersistentReceiver, ErrorInfo)
+    /* TODO: The `GetSessionPointer` method seems a litte out of place here. For now it works, but it might be an,
+     * anti-pattern so we should look into clarifying this and maybe doing this differently in a future iteration.*/
+
+    // Retrieves the sesion pointer
+    GetSessionPointer() ccsmp.SolClientSessionPt
 }
 
 // PersistentReceiver interface
@@ -359,6 +364,10 @@ func (receiver *ccsmpBackedReceiver) NewPersistentReceiver(properties []string, 
 		flow:   flow,
 		parent: receiver,
 	}, nil
+}
+
+func (receiver *ccsmpBackedReceiver) GetSessionPointer() ccsmp.SolClientSessionPt {
+        return receiver.session.pointer
 }
 
 // Destroy destroys the flow

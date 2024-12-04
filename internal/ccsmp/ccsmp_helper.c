@@ -17,6 +17,7 @@
 #include "./ccsmp_helper.h"
 #include "solclient/solClient.h"
 #include "solclient/solClientMsg.h"
+#include "solclient/solCache.h"
 
 //
 // external callbacks defined in ccsmp_callbacks.c
@@ -31,6 +32,8 @@ solClient_rxMsgCallback_returnCode_t
 flowMessageReceiveCallback(solClient_opaqueFlow_pt opaqueFlow_p, solClient_opaqueMsg_pt msg_p, void *user_p);
 
 void flowEventCallback(solClient_opaqueFlow_pt opaqueFlow_p, solClient_flow_eventCallbackInfo_pt eventInfo_p, void *user_p);
+
+void cacheEventCallback(solClient_opaqueSession_pt opaqueSession_p, solCache_eventCallbackInfo_pt eventInfo_p, void *user_p)
 
 solClient_returnCode_t
 solClientgo_msg_isRequestReponseMsg(solClient_opaqueMsg_pt msg_p, char **correlationId_p) {
@@ -238,4 +241,58 @@ SessionEndpointDeprovisionWithFlags(  solClient_opaqueSession_pt opaqueSession_p
                                                         opaqueSession_p,
                                                         flags,
                                                         (void *)correlationTag);
+}
+
+solClient_returnCode_t
+SessionCreateCacheSession(
+        solClient_propertyArray_pt cacheSessionProps_p,
+        solClient_opaqueSession_pt opaqueSession_p,
+        solClient_opaqueCacheSession_pt opaqueCacheSession_p)
+{
+        return solClient_session_createCacheSession(cacheSessionProps_p, opaqueSession_p, opaqueSession_p);
+}
+
+solClient_returnCode_t
+CacheSessionSendCacheRequest(
+        solClient_opaqueCacheSession_pt opaqueCacheSession_p,
+        const char * topic_p,
+        solClient_uint64_t cacheRequestId,
+        solClient_cacheRequestFlags_t cacheFlags,
+        solClient_subscribeFlags_t subscribeFlags)
+{
+        solClient_session_rxMsgDispatchFuncInfo_t dispatchInfo;      /* msg dispatch callback to set */
+        dispatchInfo.dispatchType = SOLCLIENT_DISPATCH_TYPE_CALLBACK;
+        dispatchInfo.callback_p = messageReceiveCallback;
+        dispatchInfo.user_p = (void *)user_p;
+        dispatchInfo.rfu_p = NULL;
+
+        return solClient_cacheSession_sendCacheRequestWithDispatch(
+                opaqueCacheSession_p,
+                topic_p,
+                cacheRequestId,
+                (solCache_eventCallbackFunc_t)cacheEventCallback,
+                /* CCSMP does not copy the contents of user_p, only the pointer. This means we cannot have
+                 * Go-allocated memory as the object being pointed to, since that object might be garbage
+                 * collected before the cache response is received and the user_p is used for some purpose
+                 * by either the CCSMP or PSPGo APIs. We also cannot allocate a struct for user_p in C since
+                 * it will go out of scope by the end of this function and we won't be able to clean it up
+                 * properly. This means that our only option, AFAIK, is to just pass the cache session
+                 * pointer as a void pointer, since its lifecycle is managed outside of this function in a
+                 * safe way, and must survive at least until CCSMP receives a cache response or the request
+                 * is cancelled.
+                 * */
+                (void *)opaqueCacheSession_p, // This is user_p
+                cacheFlags,
+                solClient_subscribeFlags_t)subscribeFlags,
+                &dispatchInfo);
+}
+
+solClient_returnCode_t
+CacheSessionDestroy(solClient_opaqueCacheSession_pt opaqueCacheSession_p) {
+        return C.solClient_cacheSession_destroy(opaqueCacheSession_p);
+}
+
+solClient_returnCode_t
+CacheSessionCancelRequests(solClient_opaqueCacheSession_pt opaqueCacheSession_p) {
+        return C.solClient_cacheSession_cancelCacheRequests(cache_session_p);
 }

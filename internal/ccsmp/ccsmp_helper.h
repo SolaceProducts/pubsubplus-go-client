@@ -113,6 +113,27 @@ solClient_returnCode_t  SessionEndpointDeprovisionWithFlags(
                         solClient_uint32_t  flags,
                         solClient_uint64_t          correlationTag);
 
+solClient_returnCode_t  SessionCreateCacheSession(
+                        solClient_propertyArray_pt cacheSessionProps_p,
+                        solClient_opaqueSession_pt opaqueSession_p,
+                        solClient_opaqueCacheSession_pt opaqueCacheSession_p);
+
+
+solClient_returnCode_t  CacheSessionSendCacheRequest(
+                        solClient_opaqueCacheSession_pt opaqueCacheSession_p,
+                        const char * topic_p,
+                        solClient_uint64_t cacheRequestId,
+                        solClient_cacheRequestFlags_t cacheFlags,
+                        solClient_subscribeFlags_t subscribeFlags);
+
+
+solClient_returnCode_t
+CacheSessionDestroy(solClient_opaqueCacheSession_pt opaqueCacheSession_p);
+
+
+solClient_returnCode_t
+CacheSessionCancelRequests(solClient_opaqueCacheSession_pt opaqueCacheSession_p);
+
 /**
  * Definition of solclientgo correlation prefix
  */

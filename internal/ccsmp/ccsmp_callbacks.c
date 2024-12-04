@@ -75,3 +75,9 @@ void flowEventCallback(solClient_opaqueFlow_pt opaqueFlow_p, solClient_flow_even
     void goFlowEventCallback(solClient_opaqueFlow_pt, solClient_flow_eventCallbackInfo_pt, void *);
     goFlowEventCallback(opaqueFlow_p, eventInfo_p, user_p);
 }
+
+void cacheEventCallback(solClient_opaqueSession_pt opaqueSession_p, solCache_eventCallbackInfo_pt eventInfo_p, void *user_p)
+{
+    void goCacheEventCallback(solClient_opaqueSession_pt, solCache_eventCallbackInfo_pt, void *);
+    goCacheEventCallback(opaqueSession_p, eventInfo_p, user_p);
+}
