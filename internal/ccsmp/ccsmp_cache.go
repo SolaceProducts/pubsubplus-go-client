@@ -24,6 +24,7 @@ package ccsmp
 
 #include "solclient/solClient.h"
 #include "solclient/solClientMsg.h"
+#include "solclient/solCache.h"
 #include "./ccsmp_helper.h"
 
 solClient_rxMsgCallback_returnCode_t messageReceiveCallback ( solClient_opaqueSession_pt opaqueSession_p, solClient_opaqueMsg_pt msg_p, void *user_p );
@@ -47,6 +48,15 @@ import (
         "solace.dev/go/messaging/pkg/solace/message"
         "solace.dev/go/messaging/internal/impl/logging"
 )
+
+// Mapping for Cached message Subscription Request Strategies to respectiveCCSMP flags
+var cachedMessageSubscriptionRequestStrategyMappingToCCSMP = map[resource.CachedMessageSubscriptionStrategy]C.solClient_cacheRequestFlags_t{
+	resource.AsAvailable:       C.SOLCLIENT_CACHEREQUEST_FLAGS_LIVEDATA_FLOWTHRU | C.SOLCLIENT_CACHEREQUEST_FLAGS_NOWAIT_REPLY,
+	resource.LiveCancelsCached: C.SOLCLIENT_CACHEREQUEST_FLAGS_LIVEDATA_FULFILL | C.SOLCLIENT_CACHEREQUEST_FLAGS_NOWAIT_REPLY,
+	resource.CachedFirst:       C.SOLCLIENT_CACHEREQUEST_FLAGS_LIVEDATA_QUEUE | C.SOLCLIENT_CACHEREQUEST_FLAGS_NOWAIT_REPLY,
+	resource.CachedOnly:        C.SOLCLIENT_CACHEREQUEST_FLAGS_LIVEDATA_FLOWTHRU | C.SOLCLIENT_CACHEREQUEST_FLAGS_NOWAIT_REPLY,
+}
+
 
 // SolClientCacheSessionPt is assigned a value
 type SolClientCacheSessionPt = *C.solClient_opaqueCacheSession_pt

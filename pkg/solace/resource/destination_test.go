@@ -54,3 +54,77 @@ func TestValidQueue(t *testing.T) {
 		t.Errorf("Expected queue name to equal %s, got %s", queueName, queue.GetName())
 	}
 }
+
+func TestNewCachedMessageSubscriptionRequest(t *testing.T) {
+	const cacheName = "test-cache"
+	const subscriptionString = "some-subscription"
+	subscription := resource.TopicSubscriptionOf(subscriptionString)
+	const cacheAccessTimeout = 3001 // in valid range - (valid range from 3000 to signed MaxInt32)
+	const maxCachedMessages = 5     // in valid range (valid range from 0 to signed MaxInt32)
+	const cachedMessageAge = 15     // in valid range (valid range from 0 to signed MaxInt32)
+	cachedMessageSubscriptionRequest := resource.NewCachedMessageSubscriptionRequest(resource.LiveCancelsCached,
+		cacheName, subscription, cacheAccessTimeout, maxCachedMessages, cachedMessageAge)
+
+	if *(cachedMessageSubscriptionRequest.GetCachedMessageSubscriptionRequestStrategy()) != resource.LiveCancelsCached {
+		t.Error("Expected GetCachedMessageSubscriptionRequestStrategy() to match passed in cachedMessageSubscriptionStrategy when NewCachedMessageSubscriptionRequest() called with valid cachedMessageSubscriptionStrategy.")
+	}
+	if cachedMessageSubscriptionRequest.GetCacheName() != cacheName {
+		t.Error("Expected GetCacheName() to match CacheName when NewCachedMessageSubscriptionRequest() called with valid cacheName.")
+	}
+	if cachedMessageSubscriptionRequest.GetName() != subscriptionString {
+		t.Error("Expected GetName() to match passed in topic subscription name when NewCachedMessageSubscriptionRequest() called with valid subscription.")
+	}
+	if cachedMessageSubscriptionRequest.GetCacheAccessTimeout() != cacheAccessTimeout {
+		t.Error("Expected GetCacheAccessTimeout() to match passed in cacheAccessTimeout when NewCachedMessageSubscriptionRequest() called with valid cacheAccessTimeout.")
+	}
+	if cachedMessageSubscriptionRequest.GetMaxCachedMessages() != maxCachedMessages {
+		t.Error("Expected GetMaxCachedMessages() to match passed in maxCachedMessages when NewCachedMessageSubscriptionRequest() called with valid maxCachedMessages.")
+	}
+	if cachedMessageSubscriptionRequest.GetCachedMessageAge() != cachedMessageAge {
+		t.Error("Expected GetCachedMessageAge() to match passed in cachedMessageAge when NewCachedMessageSubscriptionRequest() called with valid cachedMessageAge.")
+	}
+}
+
+func TestNewCachedMessageSubscriptionRequestWithInvalidCachedMessageSubscriptionStrategy(t *testing.T) {
+	const cacheName = "test-cache"
+	const subscriptionString = "some-subscription"
+	subscription := resource.TopicSubscriptionOf(subscriptionString)
+	const invalidCachedMessageSubscriptionStrategy = -1 // invalid subscription strategy
+	const cacheAccessTimeout = 3001                     // in valid range - (valid range from 3000 to signed MaxInt32)
+	const maxCachedMessages = 5                         // in valid range (valid range from 0 to signed MaxInt32)
+	const cachedMessageAge = 15                         // in valid range (valid range from 0 to signed MaxInt32)
+	cachedMessageSubscriptionRequest := resource.NewCachedMessageSubscriptionRequest(invalidCachedMessageSubscriptionStrategy,
+		cacheName, subscription, cacheAccessTimeout, maxCachedMessages, cachedMessageAge)
+
+	if cachedMessageSubscriptionRequest.GetCachedMessageSubscriptionRequestStrategy() != nil {
+		t.Error("Expected nil cachedMessageSubscriptionStrategy in returned struct with invalid cachedMessageSubscriptionStrategy (-1)")
+	}
+}
+
+func TestNewCachedMessageSubscriptionRequestWithEmptyCacheName(t *testing.T) {
+	const cacheName = "" // empty cache name
+	const subscriptionString = "some-subscription"
+	subscription := resource.TopicSubscriptionOf(subscriptionString)
+	const cacheAccessTimeout = 5000 // (in milliseconds) - (valid range from 3000 to signed MaxInt32)
+	const maxCachedMessages = 5     // in valid range (valid range from 0 to signed MaxInt32)
+	const cachedMessageAge = 15     // in valid range (valid range from 0 to signed MaxInt32)
+	cachedMessageSubscriptionRequest := resource.NewCachedMessageSubscriptionRequest(resource.AsAvailable,
+		cacheName, subscription, cacheAccessTimeout, maxCachedMessages, cachedMessageAge)
+
+	if cachedMessageSubscriptionRequest.GetCacheName() != "" {
+		t.Error("Expected CacheName to be empty when NewCachedMessageSubscriptionRequest() called with empty cacheName")
+	}
+}
+
+func TestNewCachedMessageSubscriptionRequestWithNilSubscription(t *testing.T) {
+	const cacheName = "test-cache"
+	const cacheAccessTimeout = 5000 // (in milliseconds) - (valid range from 3000 to signed MaxInt32)
+	const maxCachedMessages = 5     // in valid range (valid range from 0 to signed MaxInt32)
+	const cachedMessageAge = 15     // in valid range (valid range from 0 to signed MaxInt32)
+	cachedMessageSubscriptionRequest := resource.NewCachedMessageSubscriptionRequest(resource.AsAvailable,
+		cacheName, nil, cacheAccessTimeout, maxCachedMessages, cachedMessageAge)
+
+	if cachedMessageSubscriptionRequest.GetName() != "" {
+		t.Error("Expected topic subscription to be nil when NewCachedMessageSubscriptionRequest() called with nil topic subscription")
+	}
+}
