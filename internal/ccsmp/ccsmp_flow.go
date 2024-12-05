@@ -45,6 +45,18 @@ type SolClientFlowEventInfoPt = C.solClient_flow_eventCallbackInfo_pt
 // SolClientFlowRxMsgDispatchFuncInfo is assigned a value
 type SolClientFlowRxMsgDispatchFuncInfo = C.solClient_flow_rxMsgDispatchFuncInfo_t
 
+// SolClientMessageSettlementOutcome is assigned a value
+type SolClientMessageSettlementOutcome = C.solClient_msgOutcome_t
+
+// SolClientSettlementOutcomeAccepted - the message was successfully processed.
+const SolClientSettlementOutcomeAccepted = C.SOLCLIENT_OUTCOME_ACCEPTED
+
+// SolClientSettlementOutcomeFailed - message processing failed temporarily, attempt redelivery if configured.
+const SolClientSettlementOutcomeFailed = C.SOLCLIENT_OUTCOME_FAILED
+
+// SolClientSettlementOutcomeRejected - message was processed and rejected, removed from the queue.
+const SolClientSettlementOutcomeRejected = C.SOLCLIENT_OUTCOME_REJECTED
+
 // Callbacks
 
 // SolClientFlowMessageCallback is assigned a function
@@ -171,6 +183,13 @@ func (flow *SolClientFlow) SolClientFlowUnsubscribe(topic string, correlationID 
 func (flow *SolClientFlow) SolClientFlowAck(msgID SolClientMessageID) *SolClientErrorInfoWrapper {
 	return handleCcsmpError(func() SolClientReturnCode {
 		return C.solClient_flow_sendAck(flow.pointer, msgID)
+	})
+}
+
+// SolClientFlowSettleMessage function
+func (flow *SolClientFlow) SolClientFlowSettleMessage(msgID SolClientMessageID, settlementOutcome SolClientMessageSettlementOutcome) *SolClientErrorInfoWrapper {
+	return handleCcsmpError(func() SolClientReturnCode {
+		return C.solClient_flow_settleMsg(flow.pointer, msgID, settlementOutcome)
 	})
 }
 
