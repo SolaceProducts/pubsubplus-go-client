@@ -43,6 +43,7 @@ var rxMetrics = map[metrics.Metric]ccsmp.SolClientStatsRX{
 	metrics.TotalBytesReceived:                        ccsmp.SolClientStatsRXTotalDataBytes,
 	metrics.TotalMessagesReceived:                     ccsmp.SolClientStatsRXTotalDataMsgs,
 	metrics.CompressedBytesReceived:                   ccsmp.SolClientStatsRXCompressedBytes,
+	metrics.CacheRequestsFailed:                       ccsmp.SolClientStatsRXCacherequestErrorResponse,
 }
 
 var txMetrics = map[metrics.Metric]ccsmp.SolClientStatsTX{
@@ -63,6 +64,7 @@ var txMetrics = map[metrics.Metric]ccsmp.SolClientStatsTX{
 	metrics.PublishedMessagesAcknowledged:    ccsmp.SolClientStatsTXGuaranteedMsgsSentConfirmed,
 	metrics.PublishMessagesDiscarded:         ccsmp.SolClientStatsTXDiscardChannelError,
 	metrics.PublisherWouldBlock:              ccsmp.SolClientStatsTXWouldBlock,
+	metrics.CacheRequestsSent:                ccsmp.SolClientStatsTXCacherequestSent,
 }
 
 var clientMetrics = map[metrics.Metric]NextGenMetric{
@@ -71,6 +73,11 @@ var clientMetrics = map[metrics.Metric]NextGenMetric{
 	metrics.PublishMessagesTerminationDiscarded:   MetricPublishMessagesTerminationDiscarded,
 	metrics.PublishMessagesBackpressureDiscarded:  MetricPublishMessagesBackpressureDiscarded,
 	metrics.InternalDiscardNotifications:          MetricInternalDiscardNotifications,
+}
+
+// this contains all the aggregated metrics
+var aggregatedMetrics = map[metrics.Metric]([]interface{}){
+	metrics.CacheRequestsSucceeded: []interface{}{ccsmp.SolClientStatsRXCacherequestOkResponse, ccsmp.SolClientStatsRXCacherequestFulfillData},
 }
 
 // NextGenMetric structure
@@ -94,6 +101,14 @@ const (
 
 	// metricCount initialized
 	metricCount int = iota
+)
+
+// AggregatedMetric structure
+type AggregatedMetric int
+
+const (
+	// CacheRequestsSucceeded initialized
+	CacheRequestsSucceeded AggregatedMetric = iota
 )
 
 // Metrics interface
@@ -169,6 +184,26 @@ func (metrics *ccsmpBackedMetrics) getNextGenStat(metric NextGenMetric) uint64 {
 	return atomic.LoadUint64(&metrics.metrics[metric])
 }
 
+func (metrics *ccsmpBackedMetrics) getAggregateStat(stats []interface{}) uint64 {
+	// accumulate multiple ccsmp metrics to generate an aggregated metric
+	aggregatedMetricsCount := uint64(0)
+	for _, stat := range stats {
+		// switch through and sum up the metrics
+		switch casted := stat.(type) {
+		case ccsmp.SolClientStatsRX:
+			// this is a RX stat
+			aggregatedMetricsCount += metrics.getRXStat(casted)
+		case ccsmp.SolClientStatsTX:
+			// this is a TX stat
+			aggregatedMetricsCount += metrics.getTXStat(casted)
+		default:
+			// don't recognize the metric stat, continue
+			logging.Default.Warning("Could not find mapping for aggregated metric with ID " + fmt.Sprint(stat))
+		}
+	}
+	return aggregatedMetricsCount
+}
+
 func (metrics *ccsmpBackedMetrics) GetStat(metric metrics.Metric) uint64 {
 	if rxMetric, ok := rxMetrics[metric]; ok {
 		return metrics.getRXStat(rxMetric)
@@ -176,10 +211,11 @@ func (metrics *ccsmpBackedMetrics) GetStat(metric metrics.Metric) uint64 {
 		return metrics.getTXStat(txMetric)
 	} else if clientMetric, ok := clientMetrics[metric]; ok {
 		return metrics.getNextGenStat(clientMetric)
+	} else if aggregatedMetricArray, ok := aggregatedMetrics[metric]; ok {
+		return metrics.getAggregateStat(aggregatedMetricArray)
 	}
 	logging.Default.Warning("Could not find mapping for metric with ID " + fmt.Sprint(metric))
 	return 0
-
 }
 
 func (metrics *ccsmpBackedMetrics) ResetStats() {
