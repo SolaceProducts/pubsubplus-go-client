@@ -300,9 +300,10 @@ func SolClientInitialize(props []string) *SolClientErrorInfoWrapper {
 func SolClientContextCreate() (context *SolClientContext, err *SolClientErrorInfoWrapper) {
 	var contextP SolClientContextPt
 	solClientErrorInfo := handleCcsmpError(func() SolClientReturnCode {
-		var contextFuncInfo C.solClient_context_createFuncInfo_t
-		return C.solClient_context_create(C.SOLCLIENT_CONTEXT_PROPS_DEFAULT_WITH_CREATE_THREAD, &contextP, &contextFuncInfo, 24)
+		// creates context with default properties
+		return C.SessionContextCreate(C.SOLCLIENT_CONTEXT_PROPS_DEFAULT_WITH_CREATE_THREAD, &contextP)
 	})
+
 	if solClientErrorInfo != nil {
 		return nil, solClientErrorInfo
 	}
@@ -322,15 +323,13 @@ func (context *SolClientContext) SolClientSessionCreate(properties []string) (se
 	sessionPropsP, sessionPropertiesFreeFunction := ToCArray(properties, true)
 	defer sessionPropertiesFreeFunction()
 
-	var sessionFuncInfo C.solClient_session_createFuncInfo_t
-	sessionFuncInfo.rxMsgInfo.callback_p = (C.solClient_session_rxMsgCallbackFunc_t)(unsafe.Pointer(C.defaultMessageReceiveCallback))
-	sessionFuncInfo.rxMsgInfo.user_p = nil
-	sessionFuncInfo.eventInfo.callback_p = (C.solClient_session_eventCallbackFunc_t)(unsafe.Pointer(C.eventCallback))
-	sessionFuncInfo.eventInfo.user_p = nil
-
 	solClientErrorInfo := handleCcsmpError(func() SolClientReturnCode {
-		return C.solClient_session_create(sessionPropsP, context.pointer, &sessionP, &sessionFuncInfo, (C.size_t)(unsafe.Sizeof(sessionFuncInfo)))
+		// this will create a session and put the session pointer in sessionP
+		return C.SessionCreate(sessionPropsP,
+			context.pointer,
+			&sessionP)
 	})
+
 	if solClientErrorInfo != nil {
 		return nil, solClientErrorInfo
 	}
