@@ -69,9 +69,9 @@ SessionCreate( solClient_propertyArray_pt  sessionPropsP,
 	sessionCreateFuncInfo.rxMsgInfo.user_p = NULL;
 	sessionCreateFuncInfo.eventInfo.callback_p = (solClient_session_eventCallbackFunc_t)eventCallback;
 	sessionCreateFuncInfo.eventInfo.user_p = NULL;
-
-	sessionCreateFuncInfo.rxMsgInfo.callback_p = flowMessageReceiveCallback;
-	sessionCreateFuncInfo.eventInfo.callback_p = (solClient_flow_eventCallbackFunc_t)flowEventCallback;
+    // allocate these struct fields to NULL too
+	sessionCreateFuncInfo.rxInfo.user_p = NULL;
+	sessionCreateFuncInfo.rxInfo.callback_p = NULL;
 
     return solClient_session_create(sessionPropsP, contextP, opaqueSession_p, &sessionCreateFuncInfo, sizeof(sessionCreateFuncInfo));
 }
@@ -82,11 +82,11 @@ SessionContextCreate( solClient_propertyArray_pt  contextPropsP,
 {
     /* allocate the session context create struct to NULL */
     solClient_context_createFuncInfo_t contextCreateFuncInfo;
+    contextCreateFuncInfo.regFdInfo.user_p = NULL;
     contextCreateFuncInfo.regFdInfo.regFdFunc_p = NULL;
     contextCreateFuncInfo.regFdInfo.unregFdFunc_p = NULL;
-	contextCreateFuncInfo.regFdInfo.user_p = NULL;
 
-    return solClient_context_create(contextPropsP, &contextP, &contextCreateFuncInfo, sizeof(contextCreateFuncInfo));
+    return solClient_context_create(contextPropsP, contextP, &contextCreateFuncInfo, sizeof(contextCreateFuncInfo));
 }
 
 solClient_returnCode_t  
