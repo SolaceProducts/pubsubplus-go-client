@@ -18,6 +18,7 @@
 #include "solclient/solClient.h"
 #include "solclient/solClientMsg.h"
 #include "solclient/solCache.h"
+#include <stdio.h> // remove later, only needed for debugging
 
 //
 // external callbacks defined in ccsmp_callbacks.c
@@ -33,7 +34,7 @@ flowMessageReceiveCallback(solClient_opaqueFlow_pt opaqueFlow_p, solClient_opaqu
 
 void flowEventCallback(solClient_opaqueFlow_pt opaqueFlow_p, solClient_flow_eventCallbackInfo_pt eventInfo_p, void *user_p);
 
-void cacheEventCallback(solClient_opaqueSession_pt opaqueSession_p, solCache_eventCallbackInfo_pt eventInfo_p, void *user_p)
+void cacheEventCallback(solClient_opaqueSession_pt opaqueSession_p, solCache_eventCallbackInfo_pt eventInfo_p, void *user_p);
 
 solClient_returnCode_t
 solClientgo_msg_isRequestReponseMsg(solClient_opaqueMsg_pt msg_p, char **correlationId_p) {
@@ -247,9 +248,9 @@ solClient_returnCode_t
 SessionCreateCacheSession(
         solClient_propertyArray_pt cacheSessionProps_p,
         solClient_opaqueSession_pt opaqueSession_p,
-        solClient_opaqueCacheSession_pt opaqueCacheSession_p)
+        solClient_opaqueCacheSession_pt * opaqueCacheSession_p)
 {
-        return solClient_session_createCacheSession(cacheSessionProps_p, opaqueSession_p, opaqueSession_p);
+        return solClient_session_createCacheSession((const char * const *)cacheSessionProps_p, opaqueSession_p, opaqueCacheSession_p);
 }
 
 solClient_returnCode_t
@@ -260,10 +261,18 @@ CacheSessionSendCacheRequest(
         solClient_cacheRequestFlags_t cacheFlags,
         solClient_subscribeFlags_t subscribeFlags)
 {
+        /* We can use the cache session pointer as the unique identifier for the cache request since by design
+         * are having only one cache request/response per cache session, and the pointer to the cache session
+         * object is necessarily unique. It is easiest to use the cache session pointer since it is a unique
+         * value that will persist until the end of the cache request lifetime, at which point the user_p is
+         * removed from any subscription tables anyways. */
+        printf("CacheSessionSendCacheRequest::opaqueCacheSession_p is %p", opaqueCacheSession_p);
+        void * user_p = (void *)opaqueCacheSession_p;
+        printf("CacheSessionSendCacheRequest::user_p is %p", user_p);
         solClient_session_rxMsgDispatchFuncInfo_t dispatchInfo;      /* msg dispatch callback to set */
         dispatchInfo.dispatchType = SOLCLIENT_DISPATCH_TYPE_CALLBACK;
         dispatchInfo.callback_p = messageReceiveCallback;
-        dispatchInfo.user_p = (void *)user_p;
+        dispatchInfo.user_p = user_p;
         dispatchInfo.rfu_p = NULL;
 
         return solClient_cacheSession_sendCacheRequestWithDispatch(
@@ -281,18 +290,18 @@ CacheSessionSendCacheRequest(
                  * safe way, and must survive at least until CCSMP receives a cache response or the request
                  * is cancelled.
                  * */
-                (void *)opaqueCacheSession_p, // This is user_p
+                user_p,
                 cacheFlags,
-                solClient_subscribeFlags_t)subscribeFlags,
+                subscribeFlags,
                 &dispatchInfo);
 }
 
 solClient_returnCode_t
-CacheSessionDestroy(solClient_opaqueCacheSession_pt opaqueCacheSession_p) {
-        return C.solClient_cacheSession_destroy(opaqueCacheSession_p);
+CacheSessionDestroy(solClient_opaqueCacheSession_pt * opaqueCacheSession_p) {
+        return solClient_cacheSession_destroy(opaqueCacheSession_p);
 }
 
 solClient_returnCode_t
 CacheSessionCancelRequests(solClient_opaqueCacheSession_pt opaqueCacheSession_p) {
-        return C.solClient_cacheSession_cancelCacheRequests(cache_session_p);
+        return solClient_cacheSession_cancelCacheRequests(opaqueCacheSession_p);
 }

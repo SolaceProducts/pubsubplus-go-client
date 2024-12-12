@@ -22,6 +22,7 @@
 
 #include "solclient/solClient.h"
 #include "solclient/solClientMsg.h"
+#include "solclient/solCache.h"
 #include "./ccsmp_helper.h"
 
 solClient_rxMsgCallback_returnCode_t

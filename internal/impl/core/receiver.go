@@ -366,8 +366,9 @@ func (receiver *ccsmpBackedReceiver) NewPersistentReceiver(properties []string, 
 	}, nil
 }
 
+/* FFC: It might be better if this were in ccsmp_core.go? */
 func (receiver *ccsmpBackedReceiver) GetSessionPointer() ccsmp.SolClientSessionPt {
-        return receiver.session.pointer
+        return receiver.session.GetPointer()
 }
 
 // Destroy destroys the flow

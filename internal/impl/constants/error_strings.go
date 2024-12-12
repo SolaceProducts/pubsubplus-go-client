@@ -195,3 +195,33 @@ const UnableToDeprovisionParentServiceNotStarted = "cannot deprovision endpoint 
 
 // CouldNotConfirmProvisionDeprovisionServiceUnavailable error string
 const CouldNotConfirmProvisionDeprovisionServiceUnavailable = "could not confirm provision/deprovision, the messaging service was terminated"
+
+// FailedToCreateCacheSession error string
+const FailedToCreateCacheSession = "Failed to create cache session"
+
+// WithCacheRequestID error string
+const WithCacheRequestID = "with cache request ID:"
+
+// FailedToSendCacheRequest error string
+const FailedToSendCacheRequest = "Failed to send cache request"
+
+// FailedToRetrieveChannel error string
+const FailedToRetrieveChannel = "Failed to retrieve channel"
+
+// FailedToRetrieveCallback error string
+const FailedToRetrieveCallback = "Failed to retrieve callback"
+
+// FailedToCancelCacheRequest error String
+const FailedToCancelCacheRequest = "Failed to cancel cache request"
+
+// WithCacheSessionPointer error string
+const WithCacheSessionPointer = "with cache session pointer:"
+
+// AttemptingCancellationNoticeGeneration error string
+const AttemptingCancellationNoticeGeneration = "Attempting to generate a cache request cancellation event now."
+
+// FailedToDestroyCacheSession error string
+const FailedToDestroyCacheSession = "Failed to destroy cache session"
+
+// InvalidCachedMessageSubscriptionRequestStrategy error string
+const InvalidCachedMessageSubscriptionStrategyPassed = "an invalid CachedMessageSubscriptionStrategy was passed"

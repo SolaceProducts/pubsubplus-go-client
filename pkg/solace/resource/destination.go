@@ -288,15 +288,17 @@ func NewCachedMessageSubscriptionRequest(cachedMessageSubscriptionStrategy Cache
 	var cachedMsgSubStrategy *CachedMessageSubscriptionStrategy = nil
 	switch cachedMessageSubscriptionStrategy {
 	case AsAvailable:
+            fallthrough
 	case CachedFirst:
+            fallthrough
 	case CachedOnly:
+            fallthrough
 	case LiveCancelsCached:
 		// these are valid
 		cachedMsgSubStrategy = &cachedMessageSubscriptionStrategy
 	default:
 		cachedMsgSubStrategy = nil
 	}
-
 	// return back a valid cache message subscription request if everything checks out
 	return &cachedMessageSubscriptionRequest{
 		cacheName:                         cacheName,

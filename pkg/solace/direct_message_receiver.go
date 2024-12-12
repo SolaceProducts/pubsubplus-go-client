@@ -27,6 +27,7 @@ import (
 // The DirectMessageReceiver is used to receive direct messages.
 type DirectMessageReceiver interface {
 	MessageReceiver // Include all functionality of MessageReceiver.
+    ReceiverCacheRequests
 
 	// StartAsyncCallback starts the DirectMessageReceiver asynchronously.
 	// Calls the callback when started with an error if one occurred, otherwise nil

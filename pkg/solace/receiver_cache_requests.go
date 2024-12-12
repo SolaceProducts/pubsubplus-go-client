@@ -24,7 +24,7 @@ import (
 // ReceiverCacheRequests Provides an interface through which the application can request cached messages from a cache.
 // The cachedMessageSubscriptionRequest provides configuration for the impedning cache request. Refer to
 // [CachedMessageSubscriptionRequest] for more details.
-// The cacheRequestId provides an identifier the can be used to correlate received cached messages with a cache
+// The cacheRequestID provides an identifier the can be used to correlate received cached messages with a cache
 // request and response. This cache request ID MUST be unique for the duration of application execution, and it is the
 // responsibility of the application to ensure this.
 // This ID will be returned in either the function callback or channel, depending on the chosen method.
@@ -38,7 +38,7 @@ type ReceiverCacheRequests interface {
         // cache response to the application throufh the returned channel.
         // Returns PubSubPlusClientError if the operation could not be performed.
         // Returns IllegalStateError if the service is not connected or the receiver is not running.
-        RequestCachedAsync(cachedMessageSubscriptionRequest resource.CachedMessageSubscriptionRequest, cacheRequestId message.CacheRequestId) (<- chan CacheResponse, error)
+        RequestCachedAsync(cachedMessageSubscriptionRequest resource.CachedMessageSubscriptionRequest, cacheRequestID message.CacheRequestID) (<- chan CacheResponse, error)
 
         /* TODO: Check the error types in this doc string are correct. */
 
@@ -46,5 +46,5 @@ type ReceiverCacheRequests interface {
         // cache response through the provided function callback.
         // Returns PubSubPlusClientError if the operation could not be performed.
         // Returns IllegalStateError if the service is not connected or the receiver is not running.
-        RequestCachedAsyncWithCallback(cachedMessageSubscriptionRequest resource.CachedMessageSubscriptionRequest, cacheRequestId message.CacheRequestId, callback func(CacheResponse)) error
+        RequestCachedAsyncWithCallback(cachedMessageSubscriptionRequest resource.CachedMessageSubscriptionRequest, cacheRequestID message.CacheRequestID, callback func(CacheResponse)) error
 }
