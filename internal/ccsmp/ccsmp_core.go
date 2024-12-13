@@ -54,6 +54,7 @@ import (
 // Reexport of various CCSMP types
 
 type SolClientOpaquePointerType = C.uintptr_t
+
 const SolClientOpaquePointerInvalidValue = SolClientOpaquePointerType(0)
 
 // SolClientContextPt is assigned a value
@@ -304,7 +305,7 @@ func SolClientInitialize(props []string) *SolClientErrorInfoWrapper {
 func SolClientContextCreate() (context *SolClientContext, err *SolClientErrorInfoWrapper) {
 	var contextP SolClientContextPt
 	solClientErrorInfo := handleCcsmpError(func() SolClientReturnCode {
-            return C.SessionContextCreate(C.SOLCLIENT_CONTEXT_PROPS_DEFAULT_WITH_CREATE_THREAD, &contextP)
+		return C.SessionContextCreate(C.SOLCLIENT_CONTEXT_PROPS_DEFAULT_WITH_CREATE_THREAD, &contextP)
 	})
 	if solClientErrorInfo != nil {
 		return nil, solClientErrorInfo
@@ -326,9 +327,9 @@ func (context *SolClientContext) SolClientSessionCreate(properties []string) (se
 	defer sessionPropertiesFreeFunction()
 
 	solClientErrorInfo := handleCcsmpError(func() SolClientReturnCode {
-            return C.SessionCreate(sessionPropsP,
-                context.pointer,
-                &sessionP)
+		return C.SessionCreate(sessionPropsP,
+			context.pointer,
+			&sessionP)
 	})
 	if solClientErrorInfo != nil {
 		return nil, solClientErrorInfo
