@@ -19,6 +19,7 @@
 package ccsmp
 
 /*
+#cgo CFLAGS: -DSOLCLIENT_PSPLUS_GO
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -51,6 +52,9 @@ import (
 )
 
 // Reexport of various CCSMP types
+
+type SolClientOpaquePointerType = C.uintptr_t
+const SolClientOpaquePointerInvalidValue = SolClientOpaquePointerType(0)
 
 // SolClientContextPt is assigned a value
 type SolClientContextPt = C.solClient_opaqueContext_pt
@@ -250,7 +254,7 @@ type SolClientSession struct {
 
 // SetMessageCallback sets the message callback to use
 func (session *SolClientSession) SetMessageCallback(callback SolClientMessageCallback) error {
-	if session == nil || session.pointer == nil {
+	if session == nil || session.pointer == SolClientOpaquePointerInvalidValue {
 		return fmt.Errorf("could not set message receive callback for nil session")
 	}
 	if callback == nil {
@@ -263,7 +267,7 @@ func (session *SolClientSession) SetMessageCallback(callback SolClientMessageCal
 
 // SetReplyMessageCallback sets the message callback to use
 func (session *SolClientSession) SetReplyMessageCallback(callback SolClientReplyMessageCallback) error {
-	if session == nil || session.pointer == nil {
+	if session == nil || session.pointer == SolClientOpaquePointerInvalidValue {
 		return fmt.Errorf("could not set message receive callback for nil session")
 	}
 	if callback == nil {
@@ -276,7 +280,7 @@ func (session *SolClientSession) SetReplyMessageCallback(callback SolClientReply
 
 // SetEventCallback sets the event callback to use
 func (session *SolClientSession) SetEventCallback(callback SolClientSessionEventCallback) error {
-	if session == nil || session.pointer == nil {
+	if session == nil || session.pointer == SolClientOpaquePointerInvalidValue {
 		return fmt.Errorf("could not set event callback for nil session")
 	}
 	if callback == nil {
@@ -300,8 +304,7 @@ func SolClientInitialize(props []string) *SolClientErrorInfoWrapper {
 func SolClientContextCreate() (context *SolClientContext, err *SolClientErrorInfoWrapper) {
 	var contextP SolClientContextPt
 	solClientErrorInfo := handleCcsmpError(func() SolClientReturnCode {
-		var contextFuncInfo C.solClient_context_createFuncInfo_t
-		return C.solClient_context_create(C.SOLCLIENT_CONTEXT_PROPS_DEFAULT_WITH_CREATE_THREAD, &contextP, &contextFuncInfo, 24)
+            return C.SessionContextCreate(C.SOLCLIENT_CONTEXT_PROPS_DEFAULT_WITH_CREATE_THREAD, &contextP)
 	})
 	if solClientErrorInfo != nil {
 		return nil, solClientErrorInfo
@@ -322,14 +325,10 @@ func (context *SolClientContext) SolClientSessionCreate(properties []string) (se
 	sessionPropsP, sessionPropertiesFreeFunction := ToCArray(properties, true)
 	defer sessionPropertiesFreeFunction()
 
-	var sessionFuncInfo C.solClient_session_createFuncInfo_t
-	sessionFuncInfo.rxMsgInfo.callback_p = (C.solClient_session_rxMsgCallbackFunc_t)(unsafe.Pointer(C.defaultMessageReceiveCallback))
-	sessionFuncInfo.rxMsgInfo.user_p = nil
-	sessionFuncInfo.eventInfo.callback_p = (C.solClient_session_eventCallbackFunc_t)(unsafe.Pointer(C.eventCallback))
-	sessionFuncInfo.eventInfo.user_p = nil
-
 	solClientErrorInfo := handleCcsmpError(func() SolClientReturnCode {
-		return C.solClient_session_create(sessionPropsP, context.pointer, &sessionP, &sessionFuncInfo, (C.size_t)(unsafe.Sizeof(sessionFuncInfo)))
+            return C.SessionCreate(sessionPropsP,
+                context.pointer,
+                &sessionP)
 	})
 	if solClientErrorInfo != nil {
 		return nil, solClientErrorInfo

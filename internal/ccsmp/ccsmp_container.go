@@ -24,6 +24,7 @@ import (
 )
 
 /*
+#cgo CFLAGS: -DSOLCLIENT_PSPLUS_GO
 #include <stdlib.h>
 
 #include "solclient/solClient.h"
