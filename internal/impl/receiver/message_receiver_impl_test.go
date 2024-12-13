@@ -283,15 +283,16 @@ type result struct {
 }
 
 type mockInternalReceiver struct {
-	events                func() core.Events
-	replier               func() core.Replier
-	isRunning             func() bool
-	registerRxCallback    func(callback core.RxCallback) uintptr
-	unregisterRxCallback  func(ptr uintptr)
-	subscribe             func(topic string, ptr uintptr) (core.SubscriptionCorrelationID, <-chan core.SubscriptionEvent, core.ErrorInfo)
-	unsubscribe           func(topic string, ptr uintptr) (core.SubscriptionCorrelationID, <-chan core.SubscriptionEvent, core.ErrorInfo)
-	incrementMetric       func(metric core.NextGenMetric, amount uint64)
-	newPersistentReceiver func(props []string, callback core.RxCallback, eventCallback core.PersistentEventCallback) (core.PersistentReceiver, *ccsmp.SolClientErrorInfoWrapper)
+	events                     func() core.Events
+	replier                    func() core.Replier
+	isRunning                  func() bool
+	registerRxCallback         func(callback core.RxCallback) uintptr
+	unregisterRxCallback       func(ptr uintptr)
+	subscribe                  func(topic string, ptr uintptr) (core.SubscriptionCorrelationID, <-chan core.SubscriptionEvent, core.ErrorInfo)
+	unsubscribe                func(topic string, ptr uintptr) (core.SubscriptionCorrelationID, <-chan core.SubscriptionEvent, core.ErrorInfo)
+	incrementMetric            func(metric core.NextGenMetric, amount uint64)
+	incrementDuplicateAckCount func()
+	newPersistentReceiver      func(props []string, callback core.RxCallback, eventCallback core.PersistentEventCallback) (core.PersistentReceiver, *ccsmp.SolClientErrorInfoWrapper)
 }
 
 func (mock *mockInternalReceiver) Events() core.Events {
@@ -364,6 +365,12 @@ func (mock *mockInternalReceiver) IncrementMetric(metric core.NextGenMetric, amo
 	}
 }
 
+func (mock *mockInternalReceiver) IncrementDuplicateAckCount() {
+	if mock.incrementDuplicateAckCount != nil {
+		mock.incrementDuplicateAckCount()
+	}
+}
+
 func (mock *mockInternalReceiver) NewPersistentReceiver(props []string, callback core.RxCallback, eventCallback core.PersistentEventCallback) (core.PersistentReceiver, *ccsmp.SolClientErrorInfoWrapper) {
 	if mock.newPersistentReceiver != nil {
 		return mock.newPersistentReceiver(props, callback, eventCallback)
@@ -378,6 +385,7 @@ type mockPersistentReceiver struct {
 	subscribe   func(topic string) (core.SubscriptionCorrelationID, <-chan core.SubscriptionEvent, core.ErrorInfo)
 	unsubscribe func(topic string) (core.SubscriptionCorrelationID, <-chan core.SubscriptionEvent, core.ErrorInfo)
 	ack         func(msg core.MessageID) *ccsmp.SolClientErrorInfoWrapper
+	settle      func(msg core.MessageID, outcome core.MessageSettlementOutcome) *ccsmp.SolClientErrorInfoWrapper
 }
 
 // Destroy destroys the flow
@@ -425,6 +433,14 @@ func (mock *mockPersistentReceiver) Unsubscribe(topic string) (core.Subscription
 func (mock *mockPersistentReceiver) Ack(msgID core.MessageID) *ccsmp.SolClientErrorInfoWrapper {
 	if mock.ack != nil {
 		return mock.ack(msgID)
+	}
+	return nil
+}
+
+// Settle will settle the given message with the provided outcome
+func (mock *mockPersistentReceiver) Settle(msgID core.MessageID, outcome core.MessageSettlementOutcome) *ccsmp.SolClientErrorInfoWrapper {
+	if mock.settle != nil {
+		return mock.settle(msgID, outcome)
 	}
 	return nil
 }
