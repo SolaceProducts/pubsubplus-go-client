@@ -18,7 +18,6 @@
 #include <limits.h>
 #include <stdio.h>
 #include <wchar.h>
-#include <stdint.h>
 #endif
 
 #if defined(__cplusplus)
@@ -570,6 +569,7 @@ typedef char ** solClient_propertyArray_pt;        /**< pointer to an array of s
 * APIs that operate on a Context.
  */
 #if defined(SOLCLIENT_PSPLUS_GO)
+#include <stdint.h>
 typedef uintptr_t                    solClient_opaqueContext_pt;   /**< An opaque pointer to a processing Context. */
 typedef uintptr_t                    solClient_opaqueSession_pt;   /**< An opaque pointer to a Session. */
 typedef uintptr_t                    solClient_opaqueFlow_pt;      /**< An opaque pointer to a Flow. */
