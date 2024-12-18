@@ -146,6 +146,7 @@ var _ = Describe("EndpointProvisioner", func() {
 
 			It("fails to provision when given valid queue properties with "+testCase, func() {
 				disconnectFunction(messagingService)
+				Eventually(messagingService.IsConnected(), 10*time.Second).Should(BeFalse())
 
 				outcome := provisioner.FromConfigurationProvider(config.EndpointPropertyMap{
 					config.EndpointPropertyDurable:   true,
@@ -158,6 +159,7 @@ var _ = Describe("EndpointProvisioner", func() {
 
 			It("fails to deprovision with "+testCase, func() {
 				disconnectFunction(messagingService)
+				Eventually(messagingService.IsConnected(), 10*time.Second).Should(BeFalse())
 
 				err := provisioner.Deprovision(provisionQueueName, true)
 				Expect(err).To(HaveOccurred())
