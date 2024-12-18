@@ -190,6 +190,16 @@ func ForceDisconnectViaSEMPv2(messagingService solace.MessagingService) {
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 }
 
+func CheckMessagingServiceDisconnectedViaSEMPv2(messagingService solace.MessagingService) {
+	resp, _, err := testcontext.SEMP().Monitor().MsgVpnApi.
+		GetMsgVpnClient(testcontext.SEMP().MonitorCtx(), testcontext.Messaging().VPN, "notexist", nil)
+	ExpectWithOffset(1, err).To(HaveOccurred(), "Expected SEMP to reject call checking for connected client after disconnecting client")
+	decodeMonitorSwaggerError(err, &resp, 2)
+	ExpectWithOffset(1, resp.Meta).ToNot(BeNil(), "Expected response from SEMP to contain meta")
+	ExpectWithOffset(1, resp.Meta.Error_).ToNot(BeNil(), "Expected response from SEMP to contain an error")
+	ExpectWithOffset(1, resp.Meta.Error_.Status).To(Equal("NOT_FOUND"), "Expected response from SEMP to have error status NOT_FOUND")
+}
+
 // ValidateMetric function
 func ValidateMetric(messagingService solace.MessagingService, metric metrics.Metric, expectedValue uint64) {
 	EventuallyWithOffset(1, func() uint64 {

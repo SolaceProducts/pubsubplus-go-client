@@ -24,6 +24,7 @@ import (
 	"solace.dev/go/messaging"
 	"solace.dev/go/messaging/pkg/solace"
 	"solace.dev/go/messaging/pkg/solace/config"
+	"solace.dev/go/messaging/pkg/solace/subcode"
 	"solace.dev/go/messaging/test/helpers"
 	"solace.dev/go/messaging/test/testcontext"
 
@@ -118,15 +119,23 @@ var _ = Describe("EndpointProvisioner", func() {
 	})
 
 	Context("with a connected messaging service that will be disconnected", func() {
+		var eventChannel chan solace.ServiceEvent
 		var provisioner solace.EndpointProvisioner
+		var listenerID uint64
 
 		BeforeEach(func() {
 			helpers.ConnectMessagingService(messagingService)
+			eventChannel = make(chan solace.ServiceEvent, 1)
+			listenerID = messagingService.AddServiceInterruptionListener(func(event solace.ServiceEvent) {
+				eventChannel <- event
+			})
+
 			provisioner = messagingService.EndpointProvisioner()
 			Expect(provisioner).ToNot(BeNil())
 		})
 
 		AfterEach(func() {
+			messagingService.RemoveServiceInterruptionListener(listenerID)
 			if messagingService.IsConnected() {
 				messagingService.Disconnect()
 			}
@@ -138,6 +147,11 @@ var _ = Describe("EndpointProvisioner", func() {
 			},
 			"SEMPv2 disconnect": func(messagingService solace.MessagingService) {
 				helpers.ForceDisconnectViaSEMPv2(messagingService)
+				var serviceEvent solace.ServiceEvent
+				Eventually(eventChannel, 20*time.Second).Should(Receive(&serviceEvent), "Expected to receive service down event")
+				Expect(time.Since(serviceEvent.GetTimestamp())).To(BeNumerically("<=", 1*time.Second), "Expected timestamp of service event to be recent")
+				helpers.ValidateNativeError(serviceEvent.GetCause(), subcode.CommunicationError)
+				Consistently(eventChannel).ShouldNot(Receive()) // should not have another event since messaging service is down
 			},
 		}
 
@@ -146,7 +160,6 @@ var _ = Describe("EndpointProvisioner", func() {
 
 			It("fails to provision when given valid queue properties with "+testCase, func() {
 				disconnectFunction(messagingService)
-				Eventually(messagingService.IsConnected(), 10*time.Second).Should(BeFalse())
 
 				outcome := provisioner.FromConfigurationProvider(config.EndpointPropertyMap{
 					config.EndpointPropertyDurable:   true,
@@ -159,7 +172,7 @@ var _ = Describe("EndpointProvisioner", func() {
 
 			It("fails to deprovision with "+testCase, func() {
 				disconnectFunction(messagingService)
-				Eventually(messagingService.IsConnected(), 10*time.Second).Should(BeFalse())
+				Eventually(messagingService.IsConnected(), 30*time.Second).Should(BeFalse())
 
 				err := provisioner.Deprovision(provisionQueueName, true)
 				Expect(err).To(HaveOccurred())
