@@ -195,6 +195,7 @@ func (receiver *ccsmpBackedReceiver) Events() Events {
 }
 
 func (receiver *ccsmpBackedReceiver) rxCallback(msg Receivable, userP unsafe.Pointer) bool {
+        fmt.Printf("Got to rxCallback with user_p %p\n", userP)
 	receiver.rxLock.RLock()
 	defer receiver.rxLock.RUnlock()
 	callback, ok := receiver.rxMap[uintptr(userP)]

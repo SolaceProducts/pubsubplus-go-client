@@ -106,12 +106,17 @@ var sessionToEventCallbackMap sync.Map
 
 //export goMessageReceiveCallback
 func goMessageReceiveCallback(sessionP SolClientSessionPt, msgP SolClientMessagePt, userP unsafe.Pointer) C.solClient_rxMsgCallback_returnCode_t {
+        fmt.Printf("Got to goMessageReceiveCallback\n")
 	if callback, ok := sessionToRXCallbackMap.Load(sessionP); ok {
+            fmt.Printf("goMessageReceiveCallback::callback found\n")
 		if callback.(SolClientMessageCallback)(msgP, userP) {
+                fmt.Printf("goMessageReceiveCallback::callback returned true\n")
 			return C.SOLCLIENT_CALLBACK_TAKE_MSG
 		}
+        fmt.Printf("goMessageReceiveCallback::callback returned false\n")
 		return C.SOLCLIENT_CALLBACK_OK
 	}
+    fmt.Printf("goMessageReceiveCallback::callback not found\n")
 	logging.Default.Error("Received message from core API without an associated session callback")
 	return C.SOLCLIENT_CALLBACK_OK
 }
@@ -140,7 +145,7 @@ func goEventCallback(sessionP SolClientSessionPt, eventInfoP SolClientSessionEve
 	if callback, ok := sessionToEventCallbackMap.Load(sessionP); ok {
 		callback.(SolClientSessionEventCallback)(SolClientSessionEvent(eventInfoP.sessionEvent), eventInfoP.responseCode, C.GoString(eventInfoP.info_p), eventInfoP.correlation_p, userP)
 	} else {
-		logging.Default.Debug("Received event callback from core API without an associated session callback")
+            logging.Default.Debug(fmt.Sprintf("Received event callback from core API without an associated session callback:\n%s\n", C.GoString(eventInfoP.info_p)))
 	}
 }
 

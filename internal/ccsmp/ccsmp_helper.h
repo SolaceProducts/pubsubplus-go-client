@@ -121,6 +121,7 @@ solClient_returnCode_t  SessionCreateCacheSession(
 
 
 solClient_returnCode_t  CacheSessionSendCacheRequest(
+                        solClient_uint64_t dispatchId,
                         solClient_opaqueCacheSession_pt opaqueCacheSession_p,
                         const char * topic_p,
                         solClient_uint64_t cacheRequestId,

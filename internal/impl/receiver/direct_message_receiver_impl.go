@@ -1094,7 +1094,8 @@ func (receiver *directMessageReceiverImpl) requestCached(cachedMessageSubscripti
         }
         /* FFC: Do we need to release the mutex during calls to SendCacheRequest? */
         fmt.Printf("Sending cache request")
-        errInfo = ccsmp.SendCacheRequest(cacheSessionP,
+        errInfo = ccsmp.SendCacheRequest(receiver.dispatch,
+                cacheSessionP,
         cachedMessageSubscriptionRequest.GetName(), 
         cacheRequestID, 
         ccsmp.CachedMessageSubscriptionRequestStrategyMappingToCCSMPCacheRequestFlags[*cacheStrategy], 
@@ -1115,10 +1116,13 @@ func (receiver *directMessageReceiverImpl) requestCached(cachedMessageSubscripti
 func (receiver *directMessageReceiverImpl) RequestCachedAsync(cachedMessageSubscriptionRequest resource.CachedMessageSubscriptionRequest, cacheRequestID apimessage.CacheRequestID) (<- chan solace.CacheResponse, error) {
         receiver.cacheLock.Lock()
         defer receiver.cacheLock.Unlock()
+        fmt.Printf("Acquired lock in RequestCachedAsync\n")
         chHolder := NewCacheResponseChannelHolder(make(chan solace.CacheResponse, 1), NewCacheRequestInfo(cacheRequestID, cachedMessageSubscriptionRequest.GetName()))
+        fmt.Printf("Created channel holder in RequestCachedAsync\n")
         /* We don't need to check the channel that is returned here since this functionality is tested through unit
          * testing and because we just instantiated the channel ourselves. */
         if channel, ok := chHolder.GetChannel(); ok {
+                fmt.Printf("Got channel in RequestAsync, calling requestCached() now\n")
                 return channel, receiver.requestCached(cachedMessageSubscriptionRequest, cacheRequestID, chHolder)
         }
         /* NOTE: We should never get to this point since we know we just set the holder, but we need to include error

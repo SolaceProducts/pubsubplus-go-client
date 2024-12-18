@@ -107,6 +107,7 @@ func CreateCacheSession(cacheSessionProperties []string, sessionP SolClientSessi
 }
 
 func SendCacheRequest (
+        dispatchID uintptr,
         cacheSessionP SolClientCacheSessionPt,
         topic string,
         cacheRequestID message.CacheRequestID,
@@ -121,6 +122,7 @@ func SendCacheRequest (
         topicP := C.CString(topic)
         errorInfo := handleCcsmpError(func() SolClientReturnCode {
                 return C.CacheSessionSendCacheRequest(
+                        C.solClient_uint64_t(dispatchID),
                         // TODO: rework this, we should probably just have a pointer and not a whole object.
                         cacheSessionP,
                         topicP,

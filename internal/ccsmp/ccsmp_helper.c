@@ -255,6 +255,7 @@ SessionCreateCacheSession(
 
 solClient_returnCode_t
 CacheSessionSendCacheRequest(
+        solClient_uint64_t dispatchId,
         solClient_opaqueCacheSession_pt opaqueCacheSession_p,
         const char * topic_p,
         solClient_uint64_t cacheRequestId,
@@ -272,7 +273,7 @@ CacheSessionSendCacheRequest(
         solClient_session_rxMsgDispatchFuncInfo_t dispatchInfo;      /* msg dispatch callback to set */
         dispatchInfo.dispatchType = SOLCLIENT_DISPATCH_TYPE_CALLBACK;
         dispatchInfo.callback_p = messageReceiveCallback;
-        dispatchInfo.user_p = user_p;
+        dispatchInfo.user_p = (void *)dispatchId;
         dispatchInfo.rfu_p = NULL;
 
         return solClient_cacheSession_sendCacheRequestWithDispatch(

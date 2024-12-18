@@ -231,3 +231,12 @@ const (
         ProcessCacheResponseThroughChannel CacheResponseProcessStrategy = iota
         ProcessCacheResponseThroughCallback CacheResponseProcessStrategy = iota
 )
+
+func CacheToxicConfiguration() config.ServicePropertyMap {
+        if toxiConfig := ToxicConfiguration(); toxiConfig == nil {
+                return nil
+        } else {
+                toxiConfig[config.ServicePropertyVPNName] = testcontext.Cache().Vpn
+                return toxiConfig
+        }
+}
