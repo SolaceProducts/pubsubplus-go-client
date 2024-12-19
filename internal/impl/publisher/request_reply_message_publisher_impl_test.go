@@ -770,10 +770,10 @@ func TestRequestReplyStartFailedToGetReplyTo(t *testing.T) {
 	internalPublisher.requestor = func() core.Requestor {
 		mock := &mockRequestor{}
 		mock.addRequestorReplyHandler = func(handler core.RequestorReplyHandler) (string, func() (messageID uint64, correlationID string), core.ErrorInfo) {
-			return "", nil, &ccsmp.SolClientErrorInfoWrapper{
-				ReturnCode: ccsmp.SolClientReturnCodeFail,
-				SubCode:    ccsmp.SolClientSubCode(subCode),
-			}
+			return "", nil, ccsmp.NewInternalSolClientErrorInfoWrapper(ccsmp.SolClientReturnCodeFail,
+				ccsmp.SolClientSubCode(subCode),
+				ccsmp.SolClientResponseCode(0),
+				"This is a generated error info")
 		}
 		return mock
 	}
@@ -1424,10 +1424,10 @@ func TestRequestReplyMessagePublisherPublishFunctionalityDirect(t *testing.T) {
 
 	subCode := 21 // ClientDeleteInProgress , note this subcode does not matter just need a subcode that is not OK.
 	internalPublisher.publish = func(message ccsmp.SolClientMessagePt) core.ErrorInfo {
-		return &ccsmp.SolClientErrorInfoWrapper{
-			ReturnCode: ccsmp.SolClientReturnCodeFail,
-			SubCode:    ccsmp.SolClientSubCode(subCode),
-		}
+		return ccsmp.NewInternalSolClientErrorInfoWrapper(ccsmp.SolClientReturnCodeFail,
+			ccsmp.SolClientSubCode(subCode),
+			ccsmp.SolClientResponseCode(0),
+			"This is a generated error info")
 	}
 
 	err = publisher.Publish(testMessage, testReplyHandler, testTopic, testTimeout, nil /*properties*/, nil /*usercontext*/)
@@ -1633,10 +1633,10 @@ func TestRequestReplyMessagePublisherTaskFailureReplyOutcome(t *testing.T) {
 
 	subCode := 58 // MissingReplyTo, note this subcode does not matter and does not represent a real scenario
 	internalPublisher.publish = func(message ccsmp.SolClientMessagePt) core.ErrorInfo {
-		return &ccsmp.SolClientErrorInfoWrapper{
-			ReturnCode: ccsmp.SolClientReturnCodeFail,
-			SubCode:    ccsmp.SolClientSubCode(subCode),
-		}
+		return ccsmp.NewInternalSolClientErrorInfoWrapper(ccsmp.SolClientReturnCodeFail,
+			ccsmp.SolClientSubCode(subCode),
+			ccsmp.SolClientResponseCode(0),
+			"This is a generated error info")
 	}
 
 	testMessage, _ := message.NewOutboundMessage()

@@ -19,6 +19,7 @@
 package ccsmp
 
 /*
+#cgo CFLAGS: -DSOLCLIENT_PSPLUS_GO
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -51,6 +52,10 @@ import (
 )
 
 // Reexport of various CCSMP types
+
+type SolClientOpaquePointerType = C.uintptr_t
+
+const SolClientOpaquePointerInvalidValue = SolClientOpaquePointerType(0)
 
 // SolClientContextPt is assigned a value
 type SolClientContextPt = C.solClient_opaqueContext_pt
@@ -193,19 +198,46 @@ type SolClientResponseCode = C.solClient_session_responseCode_t
 // SolClientErrorInfoWrapper is assigned a value
 type SolClientErrorInfoWrapper C.solClient_errorInfo_wrapper_t
 
+// SolClientErrorInfoWrapperDetailed is assigned a value
+type SolClientErrorInfoWrapperDetailed C.solClient_errorInfo_t
+
 func (info *SolClientErrorInfoWrapper) String() string {
 	if info == nil {
 		return ""
 	}
-	return fmt.Sprintf("{ReturnCode: %d, SubCode: %d, ResponseCode: %d, ErrorStr: %s}", info.ReturnCode, info.SubCode, info.ResponseCode, info.GetMessageAsString())
+	if info.DetailedErrorInfo == nil {
+		return fmt.Sprintf("{ReturnCode: %d, SubCode: nil, ResponseCode: nil, ErrorStr: nil}", info.ReturnCode)
+	}
+	detailedErrorInfo := *(info.DetailedErrorInfo)
+	return fmt.Sprintf("{ReturnCode: %d, SubCode: %d, ResponseCode: %d, ErrorStr: %s}",
+		info.ReturnCode,
+		detailedErrorInfo.subCode,
+		detailedErrorInfo.responseCode,
+		info.GetMessageAsString())
 }
 
 // GetMessageAsString function outputs a string
 func (info *SolClientErrorInfoWrapper) GetMessageAsString() string {
-	if len(info.ErrorStr) == 0 {
+	if info.DetailedErrorInfo == nil || len(info.DetailedErrorInfo.errorStr) == 0 {
 		return ""
 	}
-	return C.GoString((*C.char)(&info.ErrorStr[0]))
+	return C.GoString((*C.char)(&info.DetailedErrorInfo.errorStr[0]))
+}
+
+// SubCode function returns subcode if available
+func (info *SolClientErrorInfoWrapper) SubCode() SolClientSubCode {
+	if info.DetailedErrorInfo != nil {
+		return (*(info.DetailedErrorInfo)).subCode
+	}
+	return SolClientSubCode(0)
+}
+
+// ResponseCode function returns response code if available
+func (info *SolClientErrorInfoWrapper) ResponseCode() SolClientResponseCode {
+	if info.DetailedErrorInfo != nil {
+		return (*(info.DetailedErrorInfo)).responseCode
+	}
+	return SolClientResponseCode(0)
 }
 
 // Definition of structs returned from this package to be used externally
@@ -223,7 +255,7 @@ type SolClientSession struct {
 
 // SetMessageCallback sets the message callback to use
 func (session *SolClientSession) SetMessageCallback(callback SolClientMessageCallback) error {
-	if session == nil || session.pointer == nil {
+	if session == nil || session.pointer == SolClientOpaquePointerInvalidValue {
 		return fmt.Errorf("could not set message receive callback for nil session")
 	}
 	if callback == nil {
@@ -236,7 +268,7 @@ func (session *SolClientSession) SetMessageCallback(callback SolClientMessageCal
 
 // SetReplyMessageCallback sets the message callback to use
 func (session *SolClientSession) SetReplyMessageCallback(callback SolClientReplyMessageCallback) error {
-	if session == nil || session.pointer == nil {
+	if session == nil || session.pointer == SolClientOpaquePointerInvalidValue {
 		return fmt.Errorf("could not set message receive callback for nil session")
 	}
 	if callback == nil {
@@ -249,7 +281,7 @@ func (session *SolClientSession) SetReplyMessageCallback(callback SolClientReply
 
 // SetEventCallback sets the event callback to use
 func (session *SolClientSession) SetEventCallback(callback SolClientSessionEventCallback) error {
-	if session == nil || session.pointer == nil {
+	if session == nil || session.pointer == SolClientOpaquePointerInvalidValue {
 		return fmt.Errorf("could not set event callback for nil session")
 	}
 	if callback == nil {
@@ -273,8 +305,7 @@ func SolClientInitialize(props []string) *SolClientErrorInfoWrapper {
 func SolClientContextCreate() (context *SolClientContext, err *SolClientErrorInfoWrapper) {
 	var contextP SolClientContextPt
 	solClientErrorInfo := handleCcsmpError(func() SolClientReturnCode {
-		var contextFuncInfo C.solClient_context_createFuncInfo_t
-		return C.solClient_context_create(C.SOLCLIENT_CONTEXT_PROPS_DEFAULT_WITH_CREATE_THREAD, &contextP, &contextFuncInfo, 24)
+		return C.SessionContextCreate(C.SOLCLIENT_CONTEXT_PROPS_DEFAULT_WITH_CREATE_THREAD, &contextP)
 	})
 	if solClientErrorInfo != nil {
 		return nil, solClientErrorInfo
@@ -295,14 +326,10 @@ func (context *SolClientContext) SolClientSessionCreate(properties []string) (se
 	sessionPropsP, sessionPropertiesFreeFunction := ToCArray(properties, true)
 	defer sessionPropertiesFreeFunction()
 
-	var sessionFuncInfo C.solClient_session_createFuncInfo_t
-	sessionFuncInfo.rxMsgInfo.callback_p = (C.solClient_session_rxMsgCallbackFunc_t)(unsafe.Pointer(C.defaultMessageReceiveCallback))
-	sessionFuncInfo.rxMsgInfo.user_p = nil
-	sessionFuncInfo.eventInfo.callback_p = (C.solClient_session_eventCallbackFunc_t)(unsafe.Pointer(C.eventCallback))
-	sessionFuncInfo.eventInfo.user_p = nil
-
 	solClientErrorInfo := handleCcsmpError(func() SolClientReturnCode {
-		return C.solClient_session_create(sessionPropsP, context.pointer, &sessionP, &sessionFuncInfo, (C.size_t)(unsafe.Sizeof(sessionFuncInfo)))
+		return C.SessionCreate(sessionPropsP,
+			context.pointer,
+			&sessionP)
 	})
 	if solClientErrorInfo != nil {
 		return nil, solClientErrorInfo
@@ -486,7 +513,7 @@ func (session *SolClientSession) SolClientSessionGetRXStat(stat SolClientStatsRX
 	})
 	// we should not in normal operation encounter an error fetching stats, but just in case...
 	if err != nil {
-		logging.Default.Warning("Encountered error loading core rx stat: " + err.GetMessageAsString() + ", subcode " + fmt.Sprint(err.SubCode))
+		logging.Default.Warning("Encountered error loading core rx stat: " + err.GetMessageAsString() + ", subcode " + fmt.Sprint(err.SubCode()))
 	}
 	return value
 }
@@ -497,7 +524,7 @@ func (session *SolClientSession) SolClientSessionGetTXStat(stat SolClientStatsTX
 		return C.solClient_session_getTxStat(session.pointer, C.solClient_stats_tx_t(stat), (C.solClient_stats_pt)(unsafe.Pointer(&value)))
 	})
 	if err != nil {
-		logging.Default.Warning("Encountered error loading core stat: " + err.GetMessageAsString() + ", subcode " + fmt.Sprint(err.SubCode))
+		logging.Default.Warning("Encountered error loading core stat: " + err.GetMessageAsString() + ", subcode " + fmt.Sprint(err.SubCode()))
 	}
 	return value
 }
@@ -621,17 +648,28 @@ func NewSessionReplyDispatch(id uint64) uintptr {
 	return uintptr(id)
 }
 
+// GetLastErrorInfoReturnCodeOnly returns a SolClientErrorInfoWrapper with only the ReturnCode field set.
+// This adds a function call on failure paths, but we'd be passing strings around in that case anyways and it should
+// happen rarely, so it's fine to slow it down a bit more if it means avoiding code duplication. See this function's
+// usage in GetLastErrorInfo() and handleCcsmpError to see where the duplicated code would otherwise have been.
+func GetLastErrorInfoReturnCodeOnly(returnCode SolClientReturnCode) *SolClientErrorInfoWrapper {
+	errorInfo := &SolClientErrorInfoWrapper{}
+	errorInfo.ReturnCode = returnCode
+	return errorInfo
+}
+
 // GetLastErrorInfo should NOT be called in most cases as it is dependent on the thread.
 // Unless you know that the goroutine running the code will not be interrupted, do NOT
 // call this function!
 func GetLastErrorInfo(returnCode SolClientReturnCode) *SolClientErrorInfoWrapper {
-	errorInfo := &SolClientErrorInfoWrapper{}
-	errorInfo.ReturnCode = returnCode
+	errorInfo := GetLastErrorInfoReturnCodeOnly(returnCode)
 	if returnCode != SolClientReturnCodeNotFound {
+		detailedErrorInfo := C.solClient_errorInfo_t{}
 		solClientErrorInfoPt := C.solClient_getLastErrorInfo()
-		errorInfo.SubCode = solClientErrorInfoPt.subCode
-		errorInfo.ResponseCode = solClientErrorInfoPt.responseCode
-		C.strcpy((*C.char)(&errorInfo.ErrorStr[0]), (*C.char)(&solClientErrorInfoPt.errorStr[0]))
+		detailedErrorInfo.subCode = solClientErrorInfoPt.subCode
+		detailedErrorInfo.responseCode = solClientErrorInfoPt.responseCode
+		C.strcpy((*C.char)(&detailedErrorInfo.errorStr[0]), (*C.char)(&solClientErrorInfoPt.errorStr[0]))
+		errorInfo.DetailedErrorInfo = &detailedErrorInfo
 	}
 	return errorInfo
 }
@@ -649,8 +687,12 @@ func handleCcsmpError(f func() SolClientReturnCode) *SolClientErrorInfoWrapper {
 	defer runtime.UnlockOSThread()
 
 	returnCode := f()
-	if returnCode != SolClientReturnCodeOk && returnCode != SolClientReturnCodeInProgress {
+	if returnCode == SolClientReturnCodeFail || returnCode == SolClientReturnCodeNotReady {
+		// Return full error struct if rc requires additional error info.
 		return GetLastErrorInfo(returnCode)
+	} else if returnCode != SolClientReturnCodeOk && returnCode != SolClientReturnCodeInProgress {
+		// Return partial error if not ok but not failure so that caller can parse on rc
+		return GetLastErrorInfoReturnCodeOnly(returnCode)
 	}
 	return nil
 }

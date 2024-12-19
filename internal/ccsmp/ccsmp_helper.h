@@ -26,9 +26,7 @@
 typedef struct solClient_errorInfo_wrapper
 {
     solClient_returnCode_t ReturnCode;
-    solClient_subCode_t SubCode;
-    solClient_session_responseCode_t ResponseCode;
-    char ErrorStr[SOLCLIENT_ERRORINFO_STR_SIZE];
+    solClient_errorInfo_t * DetailedErrorInfo;
 } solClient_errorInfo_wrapper_t;
 
 /**
@@ -46,6 +44,15 @@ typedef struct solClient_errorInfo_wrapper
  * operating systems are supported, this may need to change to a more complex
  * definition.
  */
+solClient_returnCode_t  SessionCreate(
+                        solClient_propertyArray_pt sessionPropsP,
+                        solClient_opaqueContext_pt contextP,
+                        solClient_opaqueSession_pt *opaqueSession_p);
+
+solClient_returnCode_t  SessionContextCreate(
+                        solClient_propertyArray_pt contextPropsP,
+                        solClient_opaqueContext_pt *contextP);
+
 solClient_returnCode_t  SessionFlowCreate(
                         solClient_opaqueSession_pt      opaqueSession_p,
                         solClient_propertyArray_pt      flowPropsP,

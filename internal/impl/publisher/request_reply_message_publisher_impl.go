@@ -877,12 +877,12 @@ func (publisher *requestReplyMessagePublisherImpl) handleReplyMessage(msgP core.
 	defer publisher.rxLock.Unlock()
 	corEntry, ok := publisher.requestCorrelationMap[correlationID]
 	if !ok {
-		publisher.logger.Debug(fmt.Sprintf("Received reply message[%p] with correlationID[%s] without correlation entry for publisher", msgP, correlationID))
+		publisher.logger.Debug(fmt.Sprintf("Received reply message[0x%x] with correlationID[%s] without correlation entry for publisher", msgP, correlationID))
 		return false
 	}
 	if corEntry.received {
 		// return false to return the message
-		publisher.logger.Debug(fmt.Sprintf("Received reply message[%p] with correlationID[%s] that already has response", msgP, correlationID))
+		publisher.logger.Debug(fmt.Sprintf("Received reply message[0x%x] with correlationID[%s] that already has response", msgP, correlationID))
 		return false
 	}
 	corEntry.received = true

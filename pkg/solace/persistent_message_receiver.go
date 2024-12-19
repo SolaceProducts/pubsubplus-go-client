@@ -29,7 +29,17 @@ type PersistentMessageReceiver interface {
 	MessageReceiver // Include all functionality of MessageReceiver.
 
 	// Ack acknowledges that a  message was received.
+	// This method is equivalent to calling the settle method with
+	// the ACCEPTED outcome like this: PersistentMessageReceiver.Settle(inboundMessage, config.PersistentReceiverAcceptedOutcome)
 	Ack(message message.InboundMessage) error
+
+	// Settle generates and sends a positive or negative acknowledgement for a message.InboundMessage as
+	// indicated by the MessageSettlementOutcome argument. To use the negative outcomes FAILED and REJECTED,
+	// the receiver has to have been preconfigured via its builder to support these settlement outcomes.
+	// Attempts to settle a message on an auto-acking receiver is ignored for ACCEPTED
+	// (albeit it counts as a manual ACCEPTED in the stats), raises error for FAILED and REJECTED.
+	// this returns an error object with the reason for the error if it was not possible to settle the message.
+	Settle(message message.InboundMessage, outcome config.MessageSettlementOutcome) error
 
 	// StartAsyncCallback starts the PersistentMessageReceiver asynchronously.
 	// Calls the callback when started with an error if one occurred, otherwise nil
@@ -112,6 +122,12 @@ type PersistentMessageReceiverBuilder interface {
 	// WithSubscriptions sets a list of TopicSubscriptions to subscribe
 	// to when starting the receiver. Accepts *resource.TopicSubscription subscriptions.
 	WithSubscriptions(topics ...resource.Subscription) PersistentMessageReceiverBuilder
+
+	// WithRequiredMessageOutcomeSupport configures the types of settlements the receiver can use.
+	// Any combination of PersistentReceiverAcceptedOutcome, PersistentReceiverFailedOutcome, and
+	// PersistentReceiverRejectedOutcome; the order is irrelevant.
+	// Attempting to Settle() a message later with an Outcome not listed here may result in an error.
+	WithRequiredMessageOutcomeSupport(messageSettlementOutcomes ...config.MessageSettlementOutcome) PersistentMessageReceiverBuilder
 
 	// FromConfigurationProvider configures the persistent receiver with the specified properties.
 	// The built-in ReceiverPropertiesConfigurationProvider implementations include:

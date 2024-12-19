@@ -24,6 +24,7 @@ import (
 )
 
 /*
+#cgo CFLAGS: -DSOLCLIENT_PSPLUS_GO
 #include <stdlib.h>
 
 #include "solclient/solClient.h"
@@ -147,7 +148,7 @@ func (opaqueContainer *SolClientOpaqueContainer) SolClientContainerGetNextField(
 	if errorInfo != nil {
 		// we expect and end of stream, but an error is logged if we fail
 		if errorInfo.ReturnCode == SolClientReturnCodeFail {
-			logging.Default.Debug(fmt.Sprintf("ccsmp.SolClientContainerGetNextField: Unable to retrieve next field: %s, subcode: %d", errorInfo.GetMessageAsString(), errorInfo.SubCode))
+			logging.Default.Debug(fmt.Sprintf("ccsmp.SolClientContainerGetNextField: Unable to retrieve next field: %s, subcode: %d", errorInfo.GetMessageAsString(), errorInfo.SubCode()))
 		}
 		return "", fieldT, false
 	}
@@ -172,7 +173,7 @@ func (opaqueContainer *SolClientOpaqueContainer) SolClientContainerGetField(key 
 	if errorInfo != nil {
 		// we expect and end of stream, but an error is logged if we fail
 		if errorInfo.ReturnCode == SolClientReturnCodeFail {
-			logging.Default.Debug(fmt.Sprintf("ccsmp.SolClientContainerGetField: unable to retrieve next field: %s, subcode: %d", errorInfo.GetMessageAsString(), errorInfo.SubCode))
+			logging.Default.Debug(fmt.Sprintf("ccsmp.SolClientContainerGetField: unable to retrieve next field: %s, subcode: %d", errorInfo.GetMessageAsString(), errorInfo.SubCode()))
 		}
 		return fieldT, false
 	}

@@ -110,6 +110,15 @@ const (
 	// persistent message receivers on the MessagingService.
 	PersistentOutOfOrderMessagesDiscarded
 
+	// Number of messages settled with "ACCEPTED" outcome.
+	PersistentMessagesAccepted
+
+	// Number of messages settled with "FAILED" outcome.
+	PersistentMessagesFailed
+
+	// Number of messages settled with "REJECTED" outcome.
+	PersistentMessagesRejected
+
 	// PublishMessagesDiscarded is the number of messages discarded due to
 	// channel failure.
 	PublishMessagesDiscarded

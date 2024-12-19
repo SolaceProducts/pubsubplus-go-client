@@ -17,8 +17,11 @@
 package ccsmp
 
 /*
+#cgo CFLAGS: -DSOLCLIENT_PSPLUS_GO
 #include <stdio.h>
 #include <stdlib.h>
+
+#include "./ccsmp_helper.h"
 */
 import "C"
 import "unsafe"
@@ -52,4 +55,21 @@ func ToCArray(arr []string, nullTerminated bool) (cArray **C.char, freeArray fun
 		}
 	}
 	return (**C.char)(unsafe.Pointer(&cArr[0])), freeFunction
+}
+
+// NewInternalSolClientErrorInfoWrapper manually creates a Go representation of the error struct usually passed to the
+// Go API by CCSMP. This function is intended to be used only when such an error struct is required but cannot be
+// provided by CCSMP.
+func NewInternalSolClientErrorInfoWrapper(returnCode SolClientReturnCode, subCode SolClientSubCode, responseCode SolClientResponseCode, errorInfo string) *SolClientErrorInfoWrapper {
+	errorInfoWrapper := SolClientErrorInfoWrapper{}
+	errorInfoWrapper.ReturnCode = returnCode
+	detailedErrorInfo := C.solClient_errorInfo_t{}
+	detailedErrorInfo.subCode = subCode
+	detailedErrorInfo.responseCode = responseCode
+	for i := 0; i < len(errorInfo) && i < len(detailedErrorInfo.errorStr)-1; i++ {
+		detailedErrorInfo.errorStr[i] = (C.char)(errorInfo[i])
+	}
+	detailedErrorInfo.errorStr[len(detailedErrorInfo.errorStr)-1] = '\x00'
+	errorInfoWrapper.DetailedErrorInfo = &detailedErrorInfo
+	return &errorInfoWrapper
 }

@@ -79,7 +79,7 @@ func (message *OutboundMessageImpl) Dispose() {
 func freeOutboundMessage(message *OutboundMessageImpl) {
 	err := ccsmp.SolClientMessageFree(&message.messagePointer)
 	if err != nil && logging.Default.IsErrorEnabled() {
-		logging.Default.Error("encountered unexpected error while freeing message pointer: " + err.GetMessageAsString() + " [sub code = " + strconv.Itoa(int(err.SubCode)) + "]")
+		logging.Default.Error("encountered unexpected error while freeing message pointer: " + err.GetMessageAsString() + " [sub code = " + strconv.Itoa(int(err.SubCode())) + "]")
 	}
 }
 
@@ -166,7 +166,7 @@ func SetAsReplyMessage(message *OutboundMessageImpl, replyToDestination string, 
 // GetOutboundMessagePointer function
 func GetOutboundMessagePointer(message *OutboundMessageImpl) ccsmp.SolClientMessagePt {
 	if message == nil {
-		return nil
+		return ccsmp.SolClientOpaquePointerInvalidValue
 	}
 	return message.messagePointer
 }
