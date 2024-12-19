@@ -568,6 +568,18 @@ typedef char ** solClient_propertyArray_pt;        /**< pointer to an array of s
 * is returned from solClient_context_create() when a Context is created, and it is passed into other
 * APIs that operate on a Context.
  */
+#if defined(SOLCLIENT_PSPLUS_GO)
+#include <stdint.h>
+typedef uintptr_t                    solClient_opaqueContext_pt;   /**< An opaque pointer to a processing Context. */
+typedef uintptr_t                    solClient_opaqueSession_pt;   /**< An opaque pointer to a Session. */
+typedef uintptr_t                    solClient_opaqueFlow_pt;      /**< An opaque pointer to a Flow. */
+typedef uintptr_t                    solClient_opaqueMsg_pt;       /**< An opaque pointer to a message. */
+typedef uintptr_t                    solClient_opaqueContainer_pt; /**< An opaque pointer to a container (such as a map or stream). */
+typedef uintptr_t                    solClient_opaqueDatablock_pt; /**< An opaque pointer to a data block. */
+typedef uintptr_t                    solClient_opaqueTransactedSession_pt;      /**< An opaque pointer to a Transacted Session. */
+/*@}*/
+typedef void   *                    *solClient_opaquePointer_pt;   /**< An opaque pointer to a pointer */
+#else
 typedef void                        *solClient_opaqueContext_pt;   /**< An opaque pointer to a processing Context. */
 typedef void                        *solClient_opaqueSession_pt;   /**< An opaque pointer to a Session. */
 typedef void                        *solClient_opaqueFlow_pt;      /**< An opaque pointer to a Flow. */
@@ -577,6 +589,7 @@ typedef void                        *solClient_opaqueDatablock_pt; /**< An opaqu
 typedef void                        *solClient_opaqueTransactedSession_pt;      /**< An opaque pointer to a Transacted Session. */
 /*@}*/
 typedef void   *                    *solClient_opaquePointer_pt;   /**< An opaque pointer to a pointer */
+#endif
 
 /**
  * @enum solClient_destinationType
@@ -2156,7 +2169,7 @@ The valid range is >=0. Default: ::SOLCLIENT_SESSION_PROP_DEFAULT_RECONNECT_RETR
 #define SOLCLIENT_SESSION_PROP_SSL_CLIENT_CERTIFICATE_FILE           "SESSION_SSL_CLIENT_CERTIFICATE_FILE"         /**< This property specifies the client certificate file name. */
 #define SOLCLIENT_SESSION_PROP_SSL_CLIENT_PRIVATE_KEY_FILE           "SESSION_SSL_CLIENT_PRIVATE_KEY_FILE"  /**< This property specifies the client private key file name. */
 #define SOLCLIENT_SESSION_PROP_SSL_CLIENT_PRIVATE_KEY_FILE_PASSWORD  "SESSION_SSL_CLIENT_PRIVATE_KEY_FILE_PASSWORD"     /**< This property specifies the password used to encrypt the client private key file. */
-#define SOLCLIENT_SESSION_PROP_SSL_CONNECTION_DOWNGRADE_TO       "SESSION_SSL_CONNECTION_DOWNGRADE_TO"  /**< This property specifies a transport protocol that SSL connection will be downgraded to after client authentication. Allowed transport protocol is "PLAIN_TEXT". May be combined with non-zero compression level to achieve compression without encryption. */
+#define SOLCLIENT_SESSION_PROP_SSL_CONNECTION_DOWNGRADE_TO       "SESSION_SSL_CONNECTION_DOWNGRADE_TO"  /**< This property specifies a transport protocol that TLS connection will be downgraded to after client authentication. Allowed transport protocol is "PLAIN_TEXT". May be combined with non-zero compression level to achieve compression without encryption. .<p><b>NOTE:</b> TLS connection downgrade is not supported on Websocket or HTTP transports */
 #define SOLCLIENT_SESSION_PROP_INITIAL_RECEIVE_BUFFER_SIZE   "SESSION_INITIAL_RECEIVE_BUFFER_SIZE" /**< If not zero, the minimum starting size for the API receive buffer. Must be zero or >= 1024 and <=64*1024*1024 */
 #define SOLCLIENT_SESSION_PROP_AUTHENTICATION_SCHEME  "SESSION_AUTHENTICATION_SCHEME"   /**< This property specifies the authentication scheme. Default: ::SOLCLIENT_SESSION_PROP_DEFAULT_AUTHENTICATION_SCHEME. */
 #define SOLCLIENT_SESSION_PROP_KRB_SERVICE_NAME        "SESSION_KRB_SERVICE_NAME"  /**< This property specifies the first part of Kerberos Service Principal Name (SPN) of the form <i>ServiceName/Hostname\@REALM</i> (for Windows) or Host Based Service of the form <i>ServiceName\@Hostname</i> (for Linux and SunOS).
@@ -2296,7 +2309,7 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
 #define SOLCLIENT_SESSION_PROP_DEFAULT_KEEP_ALIVE_INT_MS             "3000"         /**< The default amount of time (in milliseconds) to wait between sending out Keep-Alive messages. */
 #define SOLCLIENT_SESSION_PROP_DEFAULT_KEEP_ALIVE_LIMIT              "3"         /**< The default value for the number of consecutive Keep-Alive messages that can be sent without receiving a response before the connection is closed by the API.*/
 #define SOLCLIENT_SESSION_PROP_DEFAULT_APPLICATION_DESCRIPTION       ""          /**< The default value for the application description. */
-#define SOLCLIENT_SESSION_PROP_DEFAULT_CLIENT_MODE                   SOLCLIENT_PROP_DISABLE_VAL /**< The default value for client mode. When disabled, the Session uses three TCP connections for non-client mode. */
+#define SOLCLIENT_SESSION_PROP_DEFAULT_CLIENT_MODE                   SOLCLIENT_PROP_DISABLE_VAL /**<  Deprecated. ::SOLCLIENT_SESSION_PROP_CLIENT_MODE is deprecated. */
 #define SOLCLIENT_SESSION_PROP_DEFAULT_BIND_IP                       ""          /**< The default value for local IP on connect is unset (bind to any) .*/
 #define SOLCLIENT_SESSION_PROP_DEFAULT_PUB_ACK_TIMER                 "2000"      /**< The default value for publisher acknowledgment timer (in milliseconds). When a published message is not acknowledged within the time specified for this timer, the API automatically retransmits the message. There is no limit on the number of retransmissions for any message. However, while the API is resending, applications can become flow controlled. The flow control behavior is controlled by ::SOLCLIENT_SESSION_PROP_SEND_BLOCKING and ::SOLCLIENT_SESSION_PROP_BLOCKING_WRITE_TIMEOUT_MS.*/
 #define SOLCLIENT_SESSION_PROP_DEFAULT_PUB_WINDOW_SIZE               "50"        /**< The default Publisher Window size for Guaranteed messages. The Guaranteed Message Publish Window Size property limits the maximum number of messages that can be published before the API must receive an acknowledgment from the broker.*/
@@ -3150,13 +3163,19 @@ typedef enum solClient_msgOutcome
  * @struct solClient_session_rxMsgDispatchFuncInfo
  *
  * Callback information for Session message receive dispatch. This can be set on a per-subscription basis.
- * This structure is used with ::solClient_session_topicSubscribeWithDispatch and ::solClient_session_topicUnsubscribeWithDispatch.
+ * This structure is passed to ::solClient_session_topicSubscribeWithDispatch and ::solClient_session_topicUnsubscribeWithDispatch.
+ *
+ * An application may create multiple solClient_session_rxMsgDispatchFuncInfo with different callback functions or different user pointers
+ * or both, to define alternate processing for incoming messages based on subscription used to attract the messages.
+ *
+ * Through the use of wildcards, multiple unique subscriptions may match the same received messages, for example messages received on topic <i>a/b</i>
+ * will match subscriptions to <i>a/></i> and <i>a/b</i>.  In this case both dispatches are invoked on the message.
  * 
  */
   typedef struct solClient_session_rxMsgDispatchFuncInfo
   {
     solClient_dispatchType_t           dispatchType;    /**< The type of dispatch described. */
-    solClient_session_rxMsgCallbackFunc_t callback_p;   /**< An application-defined callback function; may be NULL if there is no callback. */
+    solClient_session_rxMsgCallbackFunc_t callback_p;   /**< An application-defined callback function; may be NULL in which case the default session receive message callback is used. */
     void                                 *user_p;       /**< A user pointer to return with the callback; must be NULL if callback_p is NULL. */
     void                                 *rfu_p;        /**< Reserved for Future use; must be NULL. */
   } solClient_session_rxMsgDispatchFuncInfo_t;
@@ -3187,12 +3206,18 @@ typedef enum solClient_msgOutcome
  * @struct solClient_flow_rxMsgDispatchFuncInfo
  *
  * Callback information for Flow message receive dispatch. This can be set on a per-subscription basis.
- * This structure is used with ::solClient_flow_topicSubscribeWithDispatch and ::solClient_flow_topicUnsubscribeWithDispatch.
+ * This structure is passed to ::solClient_flow_topicSubscribeWithDispatch and ::solClient_flow_topicUnsubscribeWithDispatch.
+ *
+ * An application may create multiple solClient_flow_rxMsgDispatchFuncInfo with different callback functions or different user pointers
+ * or both, to define alternate processing for incoming messages based on subscription used to attract the messages.
+ *
+ * Through the use of wildcards, multiple unique subscriptions may match the same received messages, for example messages received on topic <i>a/b</i>
+ * will match subscriptions to <i>a/></i> and <i>a/b</i>.  In this case both dispatches are invoked on the message.
  */
   typedef struct solClient_flow_rxMsgDispatchFuncInfo
   {
     solClient_dispatchType_t           dispatchType; /**< The type of dispatch described */
-    solClient_flow_rxMsgCallbackFunc_t callback_p;   /**< An application-defined callback function; may be NULL if there is no callback */
+    solClient_flow_rxMsgCallbackFunc_t callback_p;   /**< An application-defined callback function; may be NULL in which case the default flow receive message callback is used. */
     void                              *user_p;       /**< A user pointer to return with the callback; must be NULL if callback_p is NULL */
     void                              *rfu_p;        /**< Reserved for future use; must be NULL. */
   } solClient_flow_rxMsgDispatchFuncInfo_t;
@@ -4360,15 +4385,20 @@ solClient_session_isCapable(
                                       const char *topicSubscription_p);
                                       
 /**
-* Adds a Topic subscription to a Session like ::solClient_session_topicSubscribeExt(), 
-* but this function also allows a different message receive callback and dispatchUser_p to be specified.
-* Specifying a NULL funcInfo_p or if funcInfo_p references a NULL  dispatchCallback_p and a NULL dispatchUser_p makes this function
-* act the same as ::solClient_session_topicSubscribeExt(). Used in this manner, an application can set the correlationTag, which appears in asynchronouus confirmations (::SOLCLIENT_SESSION_EVENT_SUBSCRIPTION_OK). Setting correlationTag is not available when using 
+* Adds a Topic subscription to a Session similar to ::solClient_session_topicSubscribeExt(), 
+* but this function also allows the application to specifiy a different message receive callback and different user_p.
+*
+* The argument list includes a pointer to a struct solClient_session_rxMsgDispatchFuncInfo.
+* Specifying a NULL pointer to this structure, or if struct solClient_session_rxMsgDispatchFuncInfo references a
+* NULL <b>callback_p</b> and a NULL <b>user_p</b> makes this function act the same as 
+* ::solClient_session_topicSubscribeExt(). In other words, this is an alternate way to add a subscription for messages
+* delivered on the session callback.  When used in this manner, an application can set the correlationTag, which appears
+* in asynchronouus confirmations (::SOLCLIENT_SESSION_EVENT_SUBSCRIPTION_OK). Setting correlationTag is not available when using 
 * ::solClient_session_topicSubscribeExt().
 * 
 * Usually this API is used to provide a separate callback and user pointer for messages received on the given topic.
 * The Session property ::SOLCLIENT_SESSION_PROP_TOPIC_DISPATCH must be enabled for a non-NULL callback to be
-* specified. When funcInfo_p is non-NULL and a dispatchCallback_p is specified, the callback pointer and dispatchUser_p are stored
+* specified. When <i>funcInfo_p</i> is non-NULL and a <b>callback_p</b> is specified, the callback pointer and <b>user_p</b> are stored
 * in an internal callback table. funcInfo_p is <b>not</b> saved by the API.
 *
 * @see @ref subscription-syntax
@@ -4477,16 +4507,21 @@ solClient_session_isCapable(
                                         const char *topicSubscription_p);
 
 /**
-* Removes a Topic subscription from a Session like ::solClient_session_topicUnsubscribeExt(), 
-* but this function also allows a message receive callback and dispatchUser_p to be specified.
-* Specifying a NULL funcInfo_p or if funcInfo_p references a NULL  dispatchCallback_p and a NULL dispatchUser_p makes this function
-* act the same as ::solClient_session_topicUnsubscribeExt(). Used in this manner, an application can set the correlationTag which appears in asynchronouus confirmations (::SOLCLIENT_SESSION_EVENT_TE_UNSUBSCRIBE_OK). Setting correlationTag is not available when using 
+* Removes a Topic subscription from a Session similar to ::solClient_session_topicUnsubscribeExt(), 
+* but this function also allows the application to specifiy a different message receive callback and different user_p.
+*
+* The argument list includes a pointer to a struct solClient_session_rxMsgDispatchFuncInfo.
+* Specifying a NULL pointer to this structure, or if struct solClient_session_rxMsgDispatchFuncInfo references a
+* NULL <b>callback_p</b> and a NULL <b>user_p</b> makes this function act the same as 
+* ::solClient_session_topicUnsubscribeExt(). In other words, this is an alternate way to remove a subscription for messages
+* delivered on the session callback.  When used in this manner, an application can set the correlationTag, which appears
+* in asynchronouus confirmations (::SOLCLIENT_SESSION_EVENT_SUBSCRIPTION_OK). Setting correlationTag is not available when using 
 * ::solClient_session_topicUnsubscribeExt().
 * 
 * Usually this API is used to provide a separate callback and user pointer for messages received on the given topic.
 * The Session property ::SOLCLIENT_SESSION_PROP_TOPIC_DISPATCH must be enabled for a non-NULL callback to be
-* specified. When funcInfo_p is non-NULL and a dispatchCallback_p is specified, the callback pointer and dispatchUser_p are removed
-* from an internal callback table. funcInfo_p does not have to match the funcInfo_p used in ::solClient_session_topicSubscribeWithDispatch(). However,
+* specified. When <i>funcInfo_p</i> is non-NULL and a <b>callback_p</b> is specified, the callback pointer and <b>user_p</b> are removed
+* from an internal callback table.  funcInfo_p does not have to match the funcInfo_p used in ::solClient_session_topicSubscribeWithDispatch(). However,
 * the contents referenced in funcInfo_p must match an entry found in the callback table.
 *
 * @see @ref subscription-syntax
@@ -5364,13 +5399,13 @@ solClient_session_sendReply (solClient_opaqueSession_pt opaqueSession_p,
 
 
 /**
-* Allows topics to be dispatched to different message receive callbacks and with different
-* dispatchUser_p for received messages on an endpoint Flow. If the endpoint supports adding topics
+* Allows messages received on an endpoint Flow  to be dispatched to different message receive callbacks and with different
+* <b>user_p</b> based on topic in the mesage. If the endpoint supports adding topics
 * (Queue endpoints), then this function will also add the Topic subscription to the endpoint unless 
 * SOLCLIENT_SUBSCRIBE_FLAGS_LOCAL_DISPATCH_ONLY is set. SOLCLIENT_SUBSCRIBE_FLAGS_LOCAL_DISPATCH_ONLY is
 * implied for all other endpoints.
 *
-* If the dispatch function info (funcinfo_p) is NULL, the Topic subscription is only added to the endpoint and
+* If the pointer to the dispatch function info (funcinfo_p) is NULL, the Topic subscription is only added to the endpoint and
 * no local dispatch entry is created. This operation is then identical to solClient_session_endpointTopicSubscribe().
 
 * SOLCLIENT_SUBSCRIBE_FLAGS_LOCAL_DISPATCH_ONLY can only be set when funcinfo_p 
@@ -5379,8 +5414,10 @@ solClient_session_sendReply (solClient_opaqueSession_pt opaqueSession_p,
 * The Session property ::SOLCLIENT_SESSION_PROP_TOPIC_DISPATCH must be enabled for a non-NULL funcinfo_p
 * to be specified.
 *
-* When funcinfo_p is not NULL, the received messages on the Topic Endpoint Flow are further demultiplexed based on the received
-* topic.
+* When funcinfo_p is not NULL, the received messages on the Topic Endpoint Flow are further dispatched, received messages
+* are dispatched to the associated <b>callback_p</b> when the received message topic matches the topic subscription.
+*
+* Received messages may be dispatched multiple times if multiple dispatch entries match.
 * 
 * @see @ref subscription-syntax
 * @see @ref topic-dispatch

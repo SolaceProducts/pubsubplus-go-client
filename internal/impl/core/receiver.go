@@ -65,8 +65,10 @@ type Receiver interface {
 	ProvisionEndpoint(queueName string, isExclusive bool) ErrorInfo
 	// EndpointUnsubscribe will call endpoint unsubscribe on the endpoint
 	EndpointUnsubscribe(queueName string, topic string) (SubscriptionCorrelationID, <-chan SubscriptionEvent, ErrorInfo)
-	// Increments receiver metrics
+	// IncrementMetric - Increments receiver metrics
 	IncrementMetric(metric NextGenMetric, amount uint64)
+	// IncrementDuplicateAckCount - Increments receiver duplicate acks (track duplicate accepted settlement outcome metrics from auto-acks)
+	IncrementDuplicateAckCount()
 	// Creates a new persistent receiver with the given callback
 	NewPersistentReceiver(properties []string, callback RxCallback, eventCallback PersistentEventCallback) (PersistentReceiver, ErrorInfo)
     /* TODO: The `GetSessionPointer` method seems a litte out of place here. For now it works, but it might be an,
@@ -90,7 +92,13 @@ type PersistentReceiver interface {
 	// Unsubscribe will remove the subscription from the persistent receiver
 	Unsubscribe(topic string) (SubscriptionCorrelationID, <-chan SubscriptionEvent, ErrorInfo)
 	// Ack will acknowledge the given message
+	// This method is equivalent to calling the Settle method with the ACCEPTED outcome.
 	Ack(msgID MessageID) ErrorInfo
+	// Settle generates and sends a positive or negative acknowledgement for a message.InboundMessage as
+	// indicated by the MessageSettlementOutcome argument. To use the negative outcomes FAILED and REJECTED,
+	// the receiver has to have been preconfigured via its builder to support these settlement outcomes.
+	// Attempts to settle a message on an auto-acking receiver is ignored for ACCEPTED and raises error for FAILED and REJECTED.
+	Settle(msgID MessageID, msgSettlementOutcome MessageSettlementOutcome) ErrorInfo
 	// Destionation returns the destination if retrievable, or an error if one occurred
 	Destination() (destination string, durable bool, errorInfo ErrorInfo)
 }
@@ -103,6 +111,9 @@ type ReplyPublishable = ccsmp.SolClientMessagePt
 
 // MessageID type defined
 type MessageID = ccsmp.SolClientMessageID
+
+// MessageSettlementOutcome type defined
+type MessageSettlementOutcome = ccsmp.SolClientMessageSettlementOutcome
 
 // RxCallback type defined
 type RxCallback func(msg Receivable) bool
@@ -286,6 +297,10 @@ func (receiver *ccsmpBackedReceiver) IncrementMetric(metric NextGenMetric, amoun
 	receiver.metrics.IncrementMetric(metric, amount)
 }
 
+func (receiver *ccsmpBackedReceiver) IncrementDuplicateAckCount() {
+	receiver.metrics.incrementDuplicateAckCount()
+}
+
 func (receiver *ccsmpBackedReceiver) ClearSubscriptionCorrelation(id SubscriptionCorrelationID) {
 	receiver.subscriptionCorrelationLock.Lock()
 	defer receiver.subscriptionCorrelationLock.Unlock()
@@ -352,7 +367,7 @@ func (receiver *ccsmpBackedReceiver) NewPersistentReceiver(properties []string, 
 	flowEventCallback := func(flowEvent ccsmp.SolClientFlowEvent, responseCode ccsmp.SolClientResponseCode, info string) {
 		lastErrorInfo := ccsmp.GetLastErrorInfo(0)
 		var err error
-		if lastErrorInfo.SubCode != ccsmp.SolClientSubCodeOK {
+		if lastErrorInfo.SubCode() != ccsmp.SolClientSubCodeOK {
 			err = ToNativeError(lastErrorInfo)
 		}
 		eventCallback(flowEvent, &flowEventInfo{err: err, infoString: info})
@@ -417,6 +432,10 @@ func (receiver *ccsmpBackedPersistentReceiver) Unsubscribe(topic string) (Subscr
 
 func (receiver *ccsmpBackedPersistentReceiver) Ack(msgID MessageID) ErrorInfo {
 	return receiver.flow.SolClientFlowAck(msgID)
+}
+
+func (receiver *ccsmpBackedPersistentReceiver) Settle(msgID MessageID, msgSettlementOutcome MessageSettlementOutcome) ErrorInfo {
+	return receiver.flow.SolClientFlowSettleMessage(msgID, msgSettlementOutcome)
 }
 
 func (receiver *ccsmpBackedPersistentReceiver) Destination() (destination string, durable bool, errorInfo ErrorInfo) {

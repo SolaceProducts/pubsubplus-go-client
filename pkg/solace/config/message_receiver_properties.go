@@ -86,6 +86,9 @@ const (
 	// ReceiverPropertyPersistentMessageAckStrategy specifies the acknowledgement strategy for the message receiver.
 	ReceiverPropertyPersistentMessageAckStrategy ReceiverProperty = "solace.messaging.receiver.persistent.ack.strategy"
 
+	// ReceiverPropertyPersistentMessageRequiredOutcomeSupport for configuring the settlement outcomes for the message receiver.
+	ReceiverPropertyPersistentMessageRequiredOutcomeSupport ReceiverProperty = "solace.messaging.receiver.persistent.ack.required-message-outcome-support"
+
 	// ReceiverPropertyPersistentMessageReplayStrategy enables message replay and to specify a replay strategy.
 	ReceiverPropertyPersistentMessageReplayStrategy ReceiverProperty = "solace.messaging.receiver.persistent.replay.strategy"
 

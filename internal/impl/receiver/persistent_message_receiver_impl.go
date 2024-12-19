@@ -20,6 +20,7 @@ package receiver
 import (
 	"fmt"
 	"runtime/debug"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -275,7 +276,7 @@ func (receiver *persistentMessageReceiverImpl) provisionEndpoint() error {
 	if receiver.doCreateMissingResources && receiver.queue.IsDurable() {
 		errInfo := receiver.internalReceiver.ProvisionEndpoint(receiver.queue.GetName(), receiver.queue.IsExclusivelyAccessible())
 		if errInfo != nil {
-			if subcode.Code(errInfo.SubCode) == subcode.EndpointAlreadyExists {
+			if subcode.Code(errInfo.SubCode()) == subcode.EndpointAlreadyExists {
 				receiver.logger.Info("Endpoint '" + receiver.queue.GetName() + "' already exists")
 			} else {
 				receiver.logger.Warning("Failed to provision endpoint '" + receiver.queue.GetName() + "', " + errInfo.GetMessageAsString())
@@ -808,14 +809,27 @@ func (receiver *persistentMessageReceiverImpl) ReceiverInfo() (solace.Persistent
 }
 
 // Ack will acknowledge a message
+// This method is equivalent to calling the settle method with
+// the ACCEPTED outcome like this: PersistentMessageReceiver.Settle(inboundMessage, config.PersistentReceiverAcceptedOutcome)
 func (receiver *persistentMessageReceiverImpl) Ack(msg apimessage.InboundMessage) error {
+	// call the Settle() method with the accepted message settlement outcome
+	return receiver.Settle(msg, config.PersistentReceiverAcceptedOutcome)
+}
+
+// Settle generates and sends a positive or negative acknowledgement for a message.InboundMessage as
+// indicated by the MessageSettlementOutcome argument. To use the negative outcomes FAILED and REJECTED,
+// the receiver has to have been preconfigured via its builder to support these settlement outcomes.
+// Attempts to settle a message on an auto-acking receiver is ignored for ACCEPTED
+// (albeit it counts as a manual ACCEPTED in the stats), raises error for FAILED and REJECTED.
+// this returns an error object with the reason for the error if it was not possible to settle the message.
+func (receiver *persistentMessageReceiverImpl) Settle(msg apimessage.InboundMessage, outcome config.MessageSettlementOutcome) error {
 	state := receiver.getState()
 	if state != messageReceiverStateStarted && state != messageReceiverStateTerminating {
 		var message string
 		if state == messageReceiverStateTerminated {
-			message = constants.UnableToAcknowledgeAlreadyTerminated
+			message = constants.UnableToSettleAlreadyTerminated
 		} else {
-			message = constants.UnableToAcknowledgeNotStarted
+			message = constants.UnableToSettleNotStarted
 		}
 		return solace.NewError(&solace.IllegalStateError{}, message, nil)
 	}
@@ -827,7 +841,23 @@ func (receiver *persistentMessageReceiverImpl) Ack(msg apimessage.InboundMessage
 	if !present {
 		return solace.NewError(&solace.IllegalArgumentError{}, constants.UnableToRetrieveMessageID, nil)
 	}
-	errInfo := receiver.internalFlow.Ack(msgID)
+
+	// to hold the settlement outcome
+	var msgSettlementOutcome ccsmp.SolClientMessageSettlementOutcome
+
+	switch outcome {
+	case config.PersistentReceiverAcceptedOutcome:
+		msgSettlementOutcome = ccsmp.SolClientSettlementOutcomeAccepted
+	case config.PersistentReceiverFailedOutcome:
+		msgSettlementOutcome = ccsmp.SolClientSettlementOutcomeFailed
+	case config.PersistentReceiverRejectedOutcome:
+		msgSettlementOutcome = ccsmp.SolClientSettlementOutcomeRejected
+	default:
+		// return error here
+		return solace.NewError(&solace.IllegalArgumentError{}, constants.InvalidMessageSettlementOutcome, nil)
+	}
+
+	errInfo := receiver.internalFlow.Settle(msgID, msgSettlementOutcome)
 	if errInfo != nil {
 		return core.ToNativeError(errInfo)
 	}
@@ -961,6 +991,8 @@ func (receiver *persistentMessageReceiverImpl) ReceiveMessage(timeout time.Durat
 				msg.Dispose()
 				return nil, core.ToNativeError(errInfo)
 			}
+			// Successful Auto-ack, increment the auto-ack duplicate counter
+			receiver.internalReceiver.IncrementDuplicateAckCount()
 		} else {
 			receiver.logger.Error(fmt.Sprintf("Could not retrieve message ID from message %s", msg))
 		}
@@ -1128,7 +1160,10 @@ func (receiver *persistentMessageReceiverImpl) run() {
 					} else {
 						errInfo := receiver.internalFlow.Ack(msgID)
 						if errInfo != nil {
-							receiver.logger.Warning("Failed to acknowledge message: " + errInfo.GetMessageAsString() + ", sub code: " + fmt.Sprint(errInfo.SubCode))
+							receiver.logger.Warning("Failed to acknowledge message: " + errInfo.GetMessageAsString() + ", sub code: " + fmt.Sprint(errInfo.SubCode()))
+						} else {
+							// Successful Auto-Ack, increment the auto-ack duplicate counter
+							receiver.internalReceiver.IncrementDuplicateAckCount()
 						}
 					}
 				}
@@ -1314,6 +1349,44 @@ func (builder *persistentMessageReceiverBuilderImpl) Build(queue *resource.Queue
 		}
 	}
 
+	// message settlement outcome property
+	if settlementOutcomesInterface, ok := builder.properties[config.ReceiverPropertyPersistentMessageRequiredOutcomeSupport]; ok {
+		if settlementOutcomesStr, ok := settlementOutcomesInterface.(string); ok {
+			addedOutcomes := make(map[string]bool) // to track duplicates
+			settlementOutcomes := strings.Split(settlementOutcomesStr, ",")
+			// iterate through to validate the message settlement outcome values
+			for _, settlementOutcome := range settlementOutcomes {
+				_, present, err := validation.StringPropertyValidation(
+					string(config.ReceiverPropertyPersistentMessageRequiredOutcomeSupport),
+					settlementOutcome,
+					string(config.PersistentReceiverAcceptedOutcome),
+					string(config.PersistentReceiverFailedOutcome),
+					string(config.PersistentReceiverRejectedOutcome))
+
+				if !present || err != nil {
+					return nil, solace.NewError(&solace.IllegalArgumentError{},
+						fmt.Sprintf("invalid value for receiver message settlement outcome, expected either 'ACCEPTED', 'FAILED' or 'REJECTED', got %T", settlementOutcome), nil)
+				}
+
+				// ignore duplicate message settlement outcomes from the ccsmp properties array
+				if _, added := addedOutcomes[settlementOutcome]; !added {
+					// add the corresponding ccsmp property to the properties array
+					switch config.MessageSettlementOutcome(settlementOutcome) {
+					case config.PersistentReceiverFailedOutcome:
+						properties = append(properties, ccsmp.SolClientFlowPropRequiredOutcomeFailed, ccsmp.SolClientPropEnableVal)
+					case config.PersistentReceiverRejectedOutcome:
+						properties = append(properties, ccsmp.SolClientFlowPropRequiredOutcomeRejected, ccsmp.SolClientPropEnableVal)
+					case config.PersistentReceiverAcceptedOutcome:
+					default:
+						logging.Default.Info(builder.String() + ": Receiver message settlement outcome of 'ACCEPTED' is supported by default")
+					}
+					// mark it as added
+					addedOutcomes[settlementOutcome] = true
+				}
+			}
+		}
+	}
+
 	// Create the receiver with the given properties
 	receiver := &persistentMessageReceiverImpl{}
 	receiver.construct(
@@ -1413,6 +1486,32 @@ func (builder *persistentMessageReceiverBuilderImpl) WithMessageReplay(strategy 
 	return builder
 }
 
+// WithRequiredMessageOutcomeSupport configures the types of settlements the receiver can use.
+// Any combination of PersistentReceiverAcceptedOutcome, PersistentReceiverFailedOutcome, and
+// PersistentReceiverRejectedOutcome; the order is irrelevant.
+// Attempting to Settle() a message later with an Outcome not listed here may result in an error.
+func (builder *persistentMessageReceiverBuilderImpl) WithRequiredMessageOutcomeSupport(messageSettlementOutcomes ...config.MessageSettlementOutcome) solace.PersistentMessageReceiverBuilder {
+	settlementOutcomesStrArray := []string{}
+	addedOutcomes := make(map[config.MessageSettlementOutcome]bool)
+	for _, settlementOutcome := range messageSettlementOutcomes {
+		if !isSupportedMessageSettlementOutcome(settlementOutcome) {
+			logging.Default.Warning(
+				builder.String() + ": Unknown message settlement outcome(s) passed to WithRequiredMessageOutcomeSupport, " + string(settlementOutcome) +
+					"allowed values are: 'config.PersistentReceiverAcceptedOutcome', 'config.PersistentReceiverFailedOutcome' and 'config.PersistentReceiverRejectedOutcome'")
+			// We'll still add it so we can return an error on Build(). The setter can't return the error even if it knows about it.
+		}
+		if _, added := addedOutcomes[settlementOutcome]; !added {
+			addedOutcomes[settlementOutcome] = true // mark it as added
+			settlementOutcomesStrArray = append(settlementOutcomesStrArray, string(settlementOutcome))
+		} else {
+			logging.Default.Warning(
+				builder.String() + ": Repeat message settlement outcome(s) passed to WithRequiredMessageOutcomeSupport: " + string(settlementOutcome))
+		}
+	}
+	builder.properties[config.ReceiverPropertyPersistentMessageRequiredOutcomeSupport] = strings.Join(settlementOutcomesStrArray, ",")
+	return builder
+}
+
 func (builder *persistentMessageReceiverBuilderImpl) String() string {
 	return fmt.Sprintf("solace.PersistentMessageReceiverBuilder at %p", builder)
 }
@@ -1424,6 +1523,12 @@ func checkPersistentMessageReceiverSubscriptionType(subscription resource.Subscr
 		return nil
 	}
 	return solace.NewError(&solace.IllegalArgumentError{}, fmt.Sprintf(constants.PersistentReceiverUnsupportedSubscriptionType, subscription), nil)
+}
+
+func isSupportedMessageSettlementOutcome(messageSettlementOutcome config.MessageSettlementOutcome) bool {
+	return (messageSettlementOutcome == config.PersistentReceiverAcceptedOutcome ||
+		messageSettlementOutcome == config.PersistentReceiverFailedOutcome ||
+		messageSettlementOutcome == config.PersistentReceiverRejectedOutcome)
 }
 
 type persistentReceiverInfoImpl struct {

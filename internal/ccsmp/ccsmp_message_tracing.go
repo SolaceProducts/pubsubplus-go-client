@@ -17,6 +17,7 @@
 package ccsmp
 
 /*
+#cgo CFLAGS: -DSOLCLIENT_PSPLUS_GO
 #include <stdlib.h>
 #include <string.h>
 
@@ -81,7 +82,7 @@ func SolClientMessageGetTraceContextTraceID(messageP SolClientMessagePt, context
 				fmt.Sprintf(
 					"Encountered error fetching Creation context traceID prop: %s, subcode: %d",
 					errorInfo.GetMessageAsString(),
-					errorInfo.SubCode))
+					errorInfo.SubCode()))
 		}
 		return [TraceIDSize]byte{}, errorInfo
 	}
@@ -122,7 +123,7 @@ func SolClientMessageGetTraceContextSpanID(messageP SolClientMessagePt, contextT
 				fmt.Sprintf(
 					"Encountered error fetching Creation context spanID prop: %s, subcode: %d",
 					errorInfo.GetMessageAsString(),
-					errorInfo.SubCode))
+					errorInfo.SubCode()))
 		}
 		return [SpanIDSize]byte{}, errorInfo
 	}
@@ -161,7 +162,7 @@ func SolClientMessageGetTraceContextSampled(messageP SolClientMessagePt, context
 				fmt.Sprintf(
 					"Encountered error fetching Creation context sampled prop: %s, subcode: %d",
 					errorInfo.GetMessageAsString(),
-					errorInfo.SubCode))
+					errorInfo.SubCode()))
 		}
 		return false, errorInfo
 	}
@@ -198,7 +199,7 @@ func SolClientMessageGetTraceContextTraceState(messageP SolClientMessagePt, cont
 				fmt.Sprintf(
 					"Encountered error fetching Creation contex traceState prop: %s, subcode: %d",
 					errorInfo.GetMessageAsString(),
-					errorInfo.SubCode))
+					errorInfo.SubCode()))
 		}
 		return "", errorInfo
 	}
@@ -336,7 +337,7 @@ func SolClientMessageGetBaggage(messageP SolClientMessagePt) (string, *SolClient
 				fmt.Sprintf(
 					"Encountered error fetching baggage: %s, subcode: %d",
 					errorInfo.GetMessageAsString(),
-					errorInfo.SubCode))
+					errorInfo.SubCode()))
 		}
 		return "", errorInfo
 	}

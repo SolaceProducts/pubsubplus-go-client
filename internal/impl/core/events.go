@@ -151,7 +151,7 @@ func (events *ccsmpBackedEvents) eventCallback(sessionEvent ccsmp.SolClientSessi
 			logging.Default.Debug(fmt.Sprintf("Retrieved Last Error Info: %s", lastErrorInfo))
 		}
 		var err error
-		if lastErrorInfo.SubCode != ccsmp.SolClientSubCodeOK {
+		if lastErrorInfo.SubCode() != ccsmp.SolClientSubCodeOK {
 			err = ToNativeError(lastErrorInfo)
 		}
 		for _, eventHandler := range eventHandlers {

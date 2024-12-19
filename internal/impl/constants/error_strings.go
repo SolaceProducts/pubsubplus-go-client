@@ -64,11 +64,14 @@ const UnableToStartReceiver = "cannot start the receiver as it has already been 
 // UnableToStartReceiverParentServiceNotStarted error string
 const UnableToStartReceiverParentServiceNotStarted = "cannot start receiver unless parent MessagingService is connected"
 
-// UnableToAcknowledgeAlreadyTerminated error string
-const UnableToAcknowledgeAlreadyTerminated = "unable to acknowledge message: message receiver has been terminated"
+// UnableToSettleAlreadyTerminated error string
+const UnableToSettleAlreadyTerminated = "unable to settle message: message receiver has been terminated"
 
-// UnableToAcknowledgeNotStarted error string
-const UnableToAcknowledgeNotStarted = "unable to acknowledge meessage: message receiver is not yet started"
+// UnableToSettleNotStarted error string
+const UnableToSettleNotStarted = "unable to settle meessage: message receiver is not yet started"
+
+// InvalidMessageSettlementOutcome error string
+const InvalidMessageSettlementOutcome = "invalid message settlement outcome used to settle message"
 
 // UnableToModifySubscriptionBadState error string
 const UnableToModifySubscriptionBadState = "unable to modify subscriptions in state %s"

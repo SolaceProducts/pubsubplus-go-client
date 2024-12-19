@@ -47,14 +47,14 @@ func (message *MessageImpl) GetProperties() (propMap sdt.Map) {
 	opaqueContainer, errorInfo := ccsmp.SolClientMessageGetUserPropertyMap(message.messagePointer)
 	if errorInfo != nil {
 		if errorInfo.ReturnCode != ccsmp.SolClientReturnCodeNotFound {
-			logging.Default.Warning(fmt.Sprintf("Encountered error fetching user property map: %s, subcode: %d", errorInfo.GetMessageAsString(), errorInfo.SubCode))
+			logging.Default.Warning(fmt.Sprintf("Encountered error fetching user property map: %s, subcode: %d", errorInfo.GetMessageAsString(), errorInfo.SubCode()))
 		}
 		return nil
 	}
 	defer func() {
 		errorInfo := opaqueContainer.SolClientContainerClose()
 		if errorInfo != nil && logging.Default.IsDebugEnabled() {
-			logging.Default.Debug(fmt.Sprintf("Encountered error while closing container: %s, errorCode %d", errorInfo.GetMessageAsString(), errorInfo.SubCode))
+			logging.Default.Debug(fmt.Sprintf("Encountered error while closing container: %s, errorCode %d", errorInfo.GetMessageAsString(), errorInfo.SubCode()))
 		}
 	}()
 	return parseMap(opaqueContainer)
@@ -67,14 +67,14 @@ func (message *MessageImpl) GetProperty(propertyName string) (propertyValue sdt.
 	opaqueContainer, errorInfo := ccsmp.SolClientMessageGetUserPropertyMap(message.messagePointer)
 	if errorInfo != nil {
 		if errorInfo.ReturnCode != ccsmp.SolClientReturnCodeNotFound {
-			logging.Default.Warning(fmt.Sprintf("Encountered error fetching user property map: %s, subcode: %d", errorInfo.GetMessageAsString(), errorInfo.SubCode))
+			logging.Default.Warning(fmt.Sprintf("Encountered error fetching user property map: %s, subcode: %d", errorInfo.GetMessageAsString(), errorInfo.SubCode()))
 		}
 		return nil, false
 	}
 	defer func() {
 		errorInfo := opaqueContainer.SolClientContainerClose()
 		if errorInfo != nil && logging.Default.IsDebugEnabled() {
-			logging.Default.Debug(fmt.Sprintf("Encountered error while closing container: %s, errorCode %d", errorInfo.GetMessageAsString(), errorInfo.SubCode))
+			logging.Default.Debug(fmt.Sprintf("Encountered error while closing container: %s, errorCode %d", errorInfo.GetMessageAsString(), errorInfo.SubCode()))
 		}
 	}()
 	val, ok := opaqueContainer.SolClientContainerGetField(propertyName)
@@ -98,6 +98,7 @@ func (message *MessageImpl) HasProperty(propertyName string) bool {
 func (message *MessageImpl) GetPayloadAsBytes() (bytes []byte, ok bool) {
 	binaryAttachmentBytes, binaryAttachmentOk := ccsmp.SolClientMessageGetBinaryAttachmentAsBytes(message.messagePointer)
 	xmlContentBytes, xmlContentOk := ccsmp.SolClientMessageGetXMLAttachmentAsBytes(message.messagePointer)
+	//if binaryAttachmentOk && xmlContentOk && binaryAttachmentBytes == nil && xmlContentBytes == nil {
 	if binaryAttachmentOk && xmlContentOk {
 		logging.Default.Warning(fmt.Sprintf("Internal error: message %p contained multiple payloads", message))
 		return nil, false
@@ -143,7 +144,7 @@ func (message *MessageImpl) GetPayloadAsMap() (sdt.Map, bool) {
 	defer func() {
 		errorInfo := container.SolClientContainerClose()
 		if errorInfo != nil && logging.Default.IsDebugEnabled() {
-			logging.Default.Debug(fmt.Sprintf("Encountered error while closing container: %s, errorCode %d", errorInfo.GetMessageAsString(), errorInfo.SubCode))
+			logging.Default.Debug(fmt.Sprintf("Encountered error while closing container: %s, errorCode %d", errorInfo.GetMessageAsString(), errorInfo.SubCode()))
 		}
 	}()
 	parsedMap := parseMap(container)
@@ -165,7 +166,7 @@ func (message *MessageImpl) GetPayloadAsStream() (sdtStream sdt.Stream, ok bool)
 	defer func() {
 		errorInfo := container.SolClientContainerClose()
 		if errorInfo != nil && logging.Default.IsDebugEnabled() {
-			logging.Default.Debug(fmt.Sprintf("Encountered error while closing container: %s, errorCode %d", errorInfo.GetMessageAsString(), errorInfo.SubCode))
+			logging.Default.Debug(fmt.Sprintf("Encountered error while closing container: %s, errorCode %d", errorInfo.GetMessageAsString(), errorInfo.SubCode()))
 		}
 	}()
 	parsedStream := parseStream(container)
