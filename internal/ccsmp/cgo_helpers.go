@@ -17,6 +17,7 @@
 package ccsmp
 
 /*
+#cgo CFLAGS: -DSOLCLIENT_PSPLUS_GO
 #include <stdio.h>
 #include <stdlib.h>
 

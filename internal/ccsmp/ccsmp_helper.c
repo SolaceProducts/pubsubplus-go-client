@@ -25,10 +25,15 @@ solClient_rxMsgCallback_returnCode_t
 messageReceiveCallback(solClient_opaqueSession_pt opaqueSession_p, solClient_opaqueMsg_pt msg_p, void *user_p);
 
 solClient_rxMsgCallback_returnCode_t
+defaultMessageReceiveCallback(solClient_opaqueSession_pt opaqueSession_p, solClient_opaqueMsg_pt msg_p, void *user_p);
+
+solClient_rxMsgCallback_returnCode_t
 requestResponseReplyMessageReceiveCallback(solClient_opaqueSession_pt opaqueSession_p, solClient_opaqueMsg_pt msg_p, void *user_p);
 
 solClient_rxMsgCallback_returnCode_t
 flowMessageReceiveCallback(solClient_opaqueFlow_pt opaqueFlow_p, solClient_opaqueMsg_pt msg_p, void *user_p);
+
+void eventCallback(solClient_opaqueSession_pt opaqueSession_p, solClient_session_eventCallbackInfo_pt eventInfo_p, void *user_p);
 
 void flowEventCallback(solClient_opaqueFlow_pt opaqueFlow_p, solClient_flow_eventCallbackInfo_pt eventInfo_p, void *user_p);
 
@@ -51,6 +56,37 @@ solClientgo_msg_isRequestReponseMsg(solClient_opaqueMsg_pt msg_p, char **correla
     // This string is a direct read from the message backing memory and shoud be copied into go memory for persistent use.
     *correlationId_p = (char *)correlationId;
     return SOLCLIENT_OK;
+}
+
+solClient_returnCode_t
+SessionCreate( solClient_propertyArray_pt sessionPropsP,
+                solClient_opaqueContext_pt contextP,
+                solClient_opaqueSession_pt *opaqueSession_p)
+{
+        /* allocate the session create struct */
+        solClient_session_createFuncInfo_t sessionCreateFuncInfo;
+        sessionCreateFuncInfo.rxMsgInfo.callback_p = (solClient_session_rxMsgCallbackFunc_t)defaultMessageReceiveCallback;
+        sessionCreateFuncInfo.rxMsgInfo.user_p = NULL;
+        sessionCreateFuncInfo.eventInfo.callback_p = (solClient_session_eventCallbackFunc_t)eventCallback;
+        sessionCreateFuncInfo.eventInfo.user_p = NULL;
+        // allocate thse struct fields to NULL too
+        sessionCreateFuncInfo.rxInfo.user_p = NULL;
+        sessionCreateFuncInfo.rxInfo.callback_p = NULL;
+
+        return solClient_session_create(sessionPropsP, contextP, opaqueSession_p, &sessionCreateFuncInfo, sizeof(sessionCreateFuncInfo));
+}
+
+solClient_returnCode_t
+SessionContextCreate( solClient_propertyArray_pt contextPropsP,
+                        solClient_opaqueContext_pt *contextP)
+{
+        /* allocate the session context create struct to NULL */
+        solClient_context_createFuncInfo_t contextCreateFuncInfo;
+        contextCreateFuncInfo.regFdInfo.user_p = NULL;
+        contextCreateFuncInfo.regFdInfo.regFdFunc_p = NULL;
+        contextCreateFuncInfo.regFdInfo.unregFdFunc_p = NULL;
+
+        return solClient_context_create(contextPropsP, contextP, &contextCreateFuncInfo, sizeof(contextCreateFuncInfo));
 }
 
 solClient_returnCode_t  

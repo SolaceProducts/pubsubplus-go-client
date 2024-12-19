@@ -568,6 +568,18 @@ typedef char ** solClient_propertyArray_pt;        /**< pointer to an array of s
 * is returned from solClient_context_create() when a Context is created, and it is passed into other
 * APIs that operate on a Context.
  */
+#if defined(SOLCLIENT_PSPLUS_GO)
+#include <stdint.h>
+typedef uintptr_t                    solClient_opaqueContext_pt;   /**< An opaque pointer to a processing Context. */
+typedef uintptr_t                    solClient_opaqueSession_pt;   /**< An opaque pointer to a Session. */
+typedef uintptr_t                    solClient_opaqueFlow_pt;      /**< An opaque pointer to a Flow. */
+typedef uintptr_t                    solClient_opaqueMsg_pt;       /**< An opaque pointer to a message. */
+typedef uintptr_t                    solClient_opaqueContainer_pt; /**< An opaque pointer to a container (such as a map or stream). */
+typedef uintptr_t                    solClient_opaqueDatablock_pt; /**< An opaque pointer to a data block. */
+typedef uintptr_t                    solClient_opaqueTransactedSession_pt;      /**< An opaque pointer to a Transacted Session. */
+/*@}*/
+typedef void   *                    *solClient_opaquePointer_pt;   /**< An opaque pointer to a pointer */
+#else
 typedef void                        *solClient_opaqueContext_pt;   /**< An opaque pointer to a processing Context. */
 typedef void                        *solClient_opaqueSession_pt;   /**< An opaque pointer to a Session. */
 typedef void                        *solClient_opaqueFlow_pt;      /**< An opaque pointer to a Flow. */
@@ -577,6 +589,7 @@ typedef void                        *solClient_opaqueDatablock_pt; /**< An opaqu
 typedef void                        *solClient_opaqueTransactedSession_pt;      /**< An opaque pointer to a Transacted Session. */
 /*@}*/
 typedef void   *                    *solClient_opaquePointer_pt;   /**< An opaque pointer to a pointer */
+#endif
 
 /**
  * @enum solClient_destinationType

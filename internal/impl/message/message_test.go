@@ -29,7 +29,7 @@ func TestOutboundMessageFree(t *testing.T) {
 	if err != nil {
 		t.Error("did not expect error, got " + err.Error())
 	}
-	if msg.messagePointer == nil {
+	if msg.messagePointer == ccsmp.SolClientOpaquePointerInvalidValue {
 		t.Error("expected message pointer to not be nil")
 	}
 	if msg.IsDisposed() {
@@ -39,7 +39,7 @@ func TestOutboundMessageFree(t *testing.T) {
 	if !msg.IsDisposed() {
 		t.Error("IsDisposed returned false, expected true")
 	}
-	if msg.messagePointer != nil {
+	if msg.messagePointer != ccsmp.SolClientOpaquePointerInvalidValue {
 		t.Error("expected MessagePointer to be freed and set to nil, it was not")
 	}
 }
@@ -50,7 +50,7 @@ func TestInboundMessageFree(t *testing.T) {
 		t.Error("did not expect error, got " + ccsmpErr.GetMessageAsString())
 	}
 	msg := NewInboundMessage(msgP, false)
-	if msg.messagePointer == nil {
+	if msg.messagePointer == ccsmp.SolClientOpaquePointerInvalidValue {
 		t.Error("expected message pointer to not be nil")
 	}
 	if msg.IsDisposed() {
@@ -60,7 +60,7 @@ func TestInboundMessageFree(t *testing.T) {
 	if !msg.IsDisposed() {
 		t.Error("IsDisposed returned false, expected true")
 	}
-	if msg.messagePointer != nil {
+	if msg.messagePointer != ccsmp.SolClientOpaquePointerInvalidValue {
 		t.Error("expected MessagePointer to be freed and set to nil, it was not")
 	}
 }
@@ -85,7 +85,7 @@ func TestSetCreationTraceContext(t *testing.T) {
 		t.Error("did not expect error, got " + ccsmpErr.GetMessageAsString())
 	}
 	msg := NewInboundMessage(msgP, false)
-	if msg.messagePointer == nil {
+	if msg.messagePointer == ccsmp.SolClientOpaquePointerInvalidValue {
 		t.Error("expected message pointer to not be nil")
 	}
 	if msg.IsDisposed() {
@@ -145,7 +145,7 @@ func TestGetCreationTraceContext(t *testing.T) {
 		t.Error("did not expect error, got " + ccsmpErr.GetMessageAsString())
 	}
 	msg := NewInboundMessage(msgP, false)
-	if msg.messagePointer == nil {
+	if msg.messagePointer == ccsmp.SolClientOpaquePointerInvalidValue {
 		t.Error("expected message pointer to not be nil")
 	}
 	if msg.IsDisposed() {
@@ -208,7 +208,7 @@ func TestSetTransportTraceContext(t *testing.T) {
 		t.Error("did not expect error, got " + ccsmpErr.GetMessageAsString())
 	}
 	msg := NewInboundMessage(msgP, false)
-	if msg.messagePointer == nil {
+	if msg.messagePointer == ccsmp.SolClientOpaquePointerInvalidValue {
 		t.Error("expected message pointer to not be nil")
 	}
 	if msg.IsDisposed() {
@@ -268,7 +268,7 @@ func TestGetTransportTraceContext(t *testing.T) {
 		t.Error("did not expect error, got " + ccsmpErr.GetMessageAsString())
 	}
 	msg := NewInboundMessage(msgP, false)
-	if msg.messagePointer == nil {
+	if msg.messagePointer == ccsmp.SolClientOpaquePointerInvalidValue {
 		t.Error("expected message pointer to not be nil")
 	}
 	if msg.IsDisposed() {
@@ -323,7 +323,7 @@ func TestSetBaggage(t *testing.T) {
 		t.Error("did not expect error, got " + ccsmpErr.GetMessageAsString())
 	}
 	msg := NewInboundMessage(msgP, false)
-	if msg.messagePointer == nil {
+	if msg.messagePointer == ccsmp.SolClientOpaquePointerInvalidValue {
 		t.Error("expected message pointer to not be nil")
 	}
 	if msg.IsDisposed() {
@@ -357,7 +357,7 @@ func TestGetBaggage(t *testing.T) {
 		t.Error("did not expect error, got " + ccsmpErr.GetMessageAsString())
 	}
 	msg := NewInboundMessage(msgP, false)
-	if msg.messagePointer == nil {
+	if msg.messagePointer == ccsmp.SolClientOpaquePointerInvalidValue {
 		t.Error("expected message pointer to not be nil")
 	}
 	if msg.IsDisposed() {
