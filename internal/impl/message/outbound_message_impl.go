@@ -166,7 +166,7 @@ func SetAsReplyMessage(message *OutboundMessageImpl, replyToDestination string, 
 // GetOutboundMessagePointer function
 func GetOutboundMessagePointer(message *OutboundMessageImpl) ccsmp.SolClientMessagePt {
 	if message == nil {
-		return nil
+		return ccsmp.SolClientOpaquePointerInvalidValue
 	}
 	return message.messagePointer
 }
