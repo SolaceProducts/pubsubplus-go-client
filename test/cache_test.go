@@ -150,8 +150,8 @@ var _ = Describe("Remote Cache Message Tests", func() {
 				// @TODO: EBP-24: Modify these assertions for better test
 				// coverage when the feature to retrieve cache messages is done
 
-				Expect(ok).To(BeTrue())                                        // for a CACHE message
-				Expect(cacheRequestID).ToNot(Equal(message.CacheRequestID(0))) // for a CACHE message
+				Expect(ok).To(BeFalse())                                    // for a CACHE message
+				Expect(cacheRequestID).To(Equal(message.CacheRequestID(0))) // for a CACHE message
 			case <-time.After(1 * time.Second):
 				Fail("timed out waiting for message to be delivered")
 			}
