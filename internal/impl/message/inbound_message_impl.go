@@ -164,7 +164,7 @@ func (inboundMessage *InboundMessageImpl) GetCacheRequestID() (message.CacheRequ
 	cacheID, errInfo := ccsmp.SolClientMessageGetCacheRequestID(inboundMessage.messagePointer)
 	if errInfo != nil {
 		if errInfo.ReturnCode == ccsmp.SolClientReturnCodeFail {
-			logging.Default.Info(fmt.Sprintf("Encountered error retrieving Cache ID: %s, subcode: %d", errInfo.GetMessageAsString(), errInfo.SubCode))
+			logging.Default.Info(fmt.Sprintf("Encountered error retrieving Cache ID: %s, subcode: %d", errInfo.GetMessageAsString(), errInfo.SubCode()))
 		}
 		return 0, false
 	}

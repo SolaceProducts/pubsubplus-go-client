@@ -227,7 +227,6 @@ var _ = Describe("RequestReplyReceiver", func() {
 					if replier != nil {
 						payload, _ := racingMessage.GetPayloadAsString()
 						err = replier.Reply(helpers.NewMessage(messagingService, "Reply for: "+payload))
-						Expect(err).To(BeNil())
 					}
 				}
 

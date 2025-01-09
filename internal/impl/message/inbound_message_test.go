@@ -28,7 +28,7 @@ func TestGetCacheRequestID(t *testing.T) {
 		t.Error("did not expect error, got " + ccsmpErr.GetMessageAsString())
 	}
 	msg := NewInboundMessage(msgP, false)
-	if msg.messagePointer == nil {
+	if msg.messagePointer == ccsmp.SolClientOpaquePointerInvalidValue {
 		t.Error("expected message pointer to not be nil")
 	}
 	if msg.IsDisposed() {
