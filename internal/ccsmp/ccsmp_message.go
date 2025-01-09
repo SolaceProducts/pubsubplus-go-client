@@ -516,6 +516,15 @@ func SolClientMessageGetRGMID(messageP SolClientMessagePt) (SolClientRGMIDPt, *S
 	return &rmid, nil
 }
 
+// SolClientMessageGetCacheRequestID function
+func SolClientMessageGetCacheRequestID(messageP SolClientMessagePt) (uint64, *SolClientErrorInfoWrapper) {
+	var cuint64 C.solClient_uint64_t
+	errorInfo := handleCcsmpError(func() SolClientReturnCode {
+		return C.solClient_msg_getCacheRequestId(messageP, &cuint64)
+	})
+	return uint64(cuint64), errorInfo
+}
+
 // Write only properties
 
 // SolClientMessageSetAckImmediately function
