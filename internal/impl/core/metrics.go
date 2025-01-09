@@ -189,7 +189,7 @@ func (backedMetrics *ccsmpBackedMetrics) getNextGenStat(metric NextGenMetric) ui
 	return atomic.LoadUint64(&backedMetrics.metrics[metric])
 }
 
-func (metrics *ccsmpBackedMetrics) getAggregateStat(stats []interface{}) uint64 {
+func (backedMetrics *ccsmpBackedMetrics) getAggregateStat(stats []interface{}) uint64 {
 	// accumulate multiple ccsmp metrics to generate an aggregated metric
 	aggregatedMetricsCount := uint64(0)
 	for _, stat := range stats {
@@ -197,10 +197,10 @@ func (metrics *ccsmpBackedMetrics) getAggregateStat(stats []interface{}) uint64 
 		switch casted := stat.(type) {
 		case ccsmp.SolClientStatsRX:
 			// this is a RX stat
-			aggregatedMetricsCount += metrics.getRXStat(casted)
+			aggregatedMetricsCount += backedMetrics.getRXStat(casted)
 		case ccsmp.SolClientStatsTX:
 			// this is a TX stat
-			aggregatedMetricsCount += metrics.getTXStat(casted)
+			aggregatedMetricsCount += backedMetrics.getTXStat(casted)
 		default:
 			// don't recognize the metric stat, continue
 			logging.Default.Warning("Could not find mapping for aggregated metric with ID " + fmt.Sprint(stat))

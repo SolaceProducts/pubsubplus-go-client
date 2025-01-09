@@ -66,7 +66,12 @@ typedef enum solCache_event {
     SOLCACHE_EVENT_REQUEST_COMPLETED_NOTICE     /** Cache Request has finished. The event returnCode and subCode provide status information */
 } solCache_event_t;
 
-typedef void *solClient_opaqueCacheSession_pt;  /**< An opaque pointer to a cache session. */
+#if defined(SOLCLIENT_PSPLUS_GO)
+#include <stdint.h>
+typedef uintptr_t solClient_opaqueCacheSession_pt;  /**< An opaque pointer to a cache session. */
+#else
+typedef void   *solClient_opaqueCacheSession_pt;  /**< An opaque pointer to a cache session. */
+#endif
 
 /**
  *

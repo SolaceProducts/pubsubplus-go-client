@@ -5,6 +5,14 @@
     "semp": {
         "host": "localhost"
     },
+    "toxiproxy": {
+        "upstream": "solbroker",
+        "host": "localhost",
+        "port": 8474,
+        "plaintext_port": 15555,
+        "compressed_port": 15003,
+        "secure_port": 15443
+    },
     "cache": {
         "vpn": "SolCacheUT",
         "distributed_caches": [

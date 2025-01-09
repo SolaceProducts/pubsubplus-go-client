@@ -288,11 +288,11 @@ func NewCachedMessageSubscriptionRequest(cachedMessageSubscriptionStrategy Cache
 	var cachedMsgSubStrategy *CachedMessageSubscriptionStrategy = nil
 	switch cachedMessageSubscriptionStrategy {
 	case AsAvailable:
-            fallthrough
+		fallthrough
 	case CachedFirst:
-            fallthrough
+		fallthrough
 	case CachedOnly:
-            fallthrough
+		fallthrough
 	case LiveCancelsCached:
 		// these are valid
 		cachedMsgSubStrategy = &cachedMessageSubscriptionStrategy

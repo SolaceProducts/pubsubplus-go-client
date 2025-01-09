@@ -303,9 +303,7 @@ CacheSessionSendCacheRequest(
          * object is necessarily unique. It is easiest to use the cache session pointer since it is a unique
          * value that will persist until the end of the cache request lifetime, at which point the user_p is
          * removed from any subscription tables anyways. */
-        printf("CacheSessionSendCacheRequest::opaqueCacheSession_p is %p", opaqueCacheSession_p);
         void * user_p = (void *)opaqueCacheSession_p;
-        printf("CacheSessionSendCacheRequest::user_p is %p", user_p);
         solClient_session_rxMsgDispatchFuncInfo_t dispatchInfo;      /* msg dispatch callback to set */
         dispatchInfo.dispatchType = SOLCLIENT_DISPATCH_TYPE_CALLBACK;
         dispatchInfo.callback_p = messageReceiveCallback;

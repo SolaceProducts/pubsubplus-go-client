@@ -17,6 +17,7 @@
 package ccsmp
 
 /*
+#cgo CFLAGS: -DSOLCLIENT_PSPLUS_GO
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -41,13 +42,13 @@ solClient_returnCode_t _solClient_version_set(solClient_version_info_pt version_
 */
 import "C"
 import (
-        "unsafe"
-        "sync"
-        "fmt"
+	"fmt"
+	"sync"
+	"unsafe"
 
-        "solace.dev/go/messaging/pkg/solace/resource"
-        "solace.dev/go/messaging/pkg/solace/message"
-        "solace.dev/go/messaging/internal/impl/logging"
+	"solace.dev/go/messaging/internal/impl/logging"
+	"solace.dev/go/messaging/pkg/solace/message"
+	"solace.dev/go/messaging/pkg/solace/resource"
 )
 
 // CachedMessageSubscriptionRequestStrategyMappingToCCSMPCacheRequestFlags is the mapping for Cached message Subscription Request Strategies to respective CCSMP cache request flags
@@ -59,13 +60,12 @@ var CachedMessageSubscriptionRequestStrategyMappingToCCSMPCacheRequestFlags = ma
 }
 
 // CachedMessageSubscriptionRequestStrategyMappingToCCSMPSubscribeFlags is the mapping for Cached message Subscription Request Strategies to respective CCSMP subscription flags
-var CachedMessageSubscriptionRequestStrategyMappingToCCSMPSubscribeFlags = map[resource.CachedMessageSubscriptionStrategy]C.solClient_subscribeFlags_t {
-        resource.AsAvailable: C.SOLCLIENT_SUBSCRIBE_FLAGS_REQUEST_CONFIRM,
-        resource.LiveCancelsCached: C.SOLCLIENT_SUBSCRIBE_FLAGS_REQUEST_CONFIRM,
-        resource.CachedFirst: C.SOLCLIENT_SUBSCRIBE_FLAGS_REQUEST_CONFIRM,
-        resource.CachedOnly: C.SOLCLIENT_SUBSCRIBE_FLAGS_LOCAL_DISPATCH_ONLY,
+var CachedMessageSubscriptionRequestStrategyMappingToCCSMPSubscribeFlags = map[resource.CachedMessageSubscriptionStrategy]C.solClient_subscribeFlags_t{
+	resource.AsAvailable:       C.SOLCLIENT_SUBSCRIBE_FLAGS_REQUEST_CONFIRM,
+	resource.LiveCancelsCached: C.SOLCLIENT_SUBSCRIBE_FLAGS_REQUEST_CONFIRM,
+	resource.CachedFirst:       C.SOLCLIENT_SUBSCRIBE_FLAGS_REQUEST_CONFIRM,
+	resource.CachedOnly:        C.SOLCLIENT_SUBSCRIBE_FLAGS_LOCAL_DISPATCH_ONLY,
 }
-
 
 // SolClientCacheSessionPt is assigned a value
 type SolClientCacheSessionPt = C.solClient_opaqueCacheSession_pt
@@ -74,10 +74,12 @@ type SolClientCacheSessionPt = C.solClient_opaqueCacheSession_pt
 
 // SolClientCacheSession structure
 type SolClientCacheSession struct {
-       pointer SolClientCacheSessionPt 
+	pointer SolClientCacheSessionPt
 }
 
-/* sessionToCacheEventCallbackMap is required as a global var even though cache sessions etc. are
+/*
+	sessionToCacheEventCallbackMap is required as a global var even though cache sessions etc. are
+
 scoped to a single receiver. This is required because the event callback that is passed to CCSMP when
 performing an async cache request cannot have a pointer into Go-managed memory by being associated with
 receiver. If it did, and CCSMP the event callback after the Go-managed receiver instance was garbage
@@ -91,63 +93,61 @@ to this one.
 var cacheToEventCallbackMap sync.Map
 
 func CreateCacheSession(cacheSessionProperties []string, sessionP SolClientSessionPt) (SolClientCacheSessionPt, *SolClientErrorInfoWrapper) {
-        cacheSessionPropertiesP , freeArrayFunc := ToCArray(cacheSessionProperties, true)
-        defer freeArrayFunc()
-        var cacheSessionP SolClientCacheSessionPt
-        errorInfo := handleCcsmpError(func() SolClientReturnCode {
-                return C.SessionCreateCacheSession(
-                        cacheSessionPropertiesP,
-                        sessionP,
-                        &cacheSessionP,
-                )
-        })
-        fmt.Printf("cacheSessionP after cacheSessionCreate is: %p\n", cacheSessionP)
-        /* TODO: handle errors from cache sessino create? */
-        return cacheSessionP, errorInfo
+	cacheSessionPropertiesP, freeArrayFunc := ToCArray(cacheSessionProperties, true)
+	defer freeArrayFunc()
+	var cacheSessionP SolClientCacheSessionPt
+	errorInfo := handleCcsmpError(func() SolClientReturnCode {
+		return C.SessionCreateCacheSession(
+			cacheSessionPropertiesP,
+			sessionP,
+			&cacheSessionP,
+		)
+	})
+	return cacheSessionP, errorInfo
 }
 
-func SendCacheRequest (
-        dispatchID uintptr,
-        cacheSessionP SolClientCacheSessionPt,
-        topic string,
-        cacheRequestID message.CacheRequestID,
-        cacheRequestFlags C.solClient_cacheRequestFlags_t, // There may be a custom type for this? TBD
-        subscribeFlags C.solClient_subscribeFlags_t, // There may be a custom type for this? TBD
-        eventCallback SolClientCacheEventCallback,
-        ) *SolClientErrorInfoWrapper {
+func SendCacheRequest(
+	dispatchID uintptr,
+	cacheSessionP SolClientCacheSessionPt,
+	topic string,
+	cacheRequestID message.CacheRequestID,
+	cacheRequestFlags C.solClient_cacheRequestFlags_t, // There may be a custom type for this? TBD
+	subscribeFlags C.solClient_subscribeFlags_t, // There may be a custom type for this? TBD
+	eventCallback SolClientCacheEventCallback,
+) *SolClientErrorInfoWrapper {
 
-        cacheToEventCallbackMap.Store(cacheSessionP, eventCallback)
-        /* NOTE: Do we need to add the dispatch callback to the map here, or is that already done by the receiver in calls to Receive() or ReceiveAsync()? */
+	cacheToEventCallbackMap.Store(cacheSessionP, eventCallback)
+	/* NOTE: Do we need to add the dispatch callback to the map here, or is that already done by the receiver in calls to Receive() or ReceiveAsync()? */
 
-        topicP := C.CString(topic)
-        errorInfo := handleCcsmpError(func() SolClientReturnCode {
-                return C.CacheSessionSendCacheRequest(
-                        C.solClient_uint64_t(dispatchID),
-                        // TODO: rework this, we should probably just have a pointer and not a whole object.
-                        cacheSessionP,
-                        topicP,
-                        C.solClient_uint64_t(cacheRequestID), // This is done elsewhere such as in SolClientMessgeSetSequenceNumber
-                        cacheRequestFlags,
-                        subscribeFlags,
-                )
-        })
-        return errorInfo
+	topicP := C.CString(topic)
+	errorInfo := handleCcsmpError(func() SolClientReturnCode {
+		return C.CacheSessionSendCacheRequest(
+			C.solClient_uint64_t(dispatchID),
+			// TODO: rework this, we should probably just have a pointer and not a whole object.
+			cacheSessionP,
+			topicP,
+			C.solClient_uint64_t(cacheRequestID), // This is done elsewhere such as in SolClientMessgeSetSequenceNumber
+			cacheRequestFlags,
+			subscribeFlags,
+		)
+	})
+	return errorInfo
 }
 
 func DestroyCacheSession(cacheSessionP SolClientCacheSessionPt) *SolClientErrorInfoWrapper {
-        /* NOTE: We remove the cache session pointer from the map before we destroy the cache session
-         * so that map access using that pointer as an index won't collide with another cache session
-         * that is created immediately after this one is destroyed.*/
-        cacheToEventCallbackMap.Delete(cacheSessionP)
-        return handleCcsmpError(func() SolClientReturnCode {
-                return C.CacheSessionDestroy(&cacheSessionP)
-        })
+	/* NOTE: We remove the cache session pointer from the map before we destroy the cache session
+	 * so that map access using that pointer as an index won't collide with another cache session
+	 * that is created immediately after this one is destroyed.*/
+	cacheToEventCallbackMap.Delete(cacheSessionP)
+	return handleCcsmpError(func() SolClientReturnCode {
+		return C.CacheSessionDestroy(&cacheSessionP)
+	})
 }
 
-func CancelCacheRequest(cacheSessionP SolClientCacheSessionPt) * SolClientErrorInfoWrapper {
-        return handleCcsmpError(func () SolClientReturnCode {
-                return C.CacheSessionCancelRequests(cacheSessionP)
-        })
+func CancelCacheRequest(cacheSessionP SolClientCacheSessionPt) *SolClientErrorInfoWrapper {
+	return handleCcsmpError(func() SolClientReturnCode {
+		return C.CacheSessionCancelRequests(cacheSessionP)
+	})
 }
 
 // SolClientCacheEventCallback functions should format CCSMP args into Go objects and then pass those objects
@@ -159,66 +159,63 @@ type SolClientCacheEventInfoPt = C.solCache_eventCallbackInfo_pt
 type SolClientCacheEvent = C.solCache_event_t
 
 type SolClientCacheEventInfo struct {
-        /* TODO: Rename this to CacheEventInfo to better distinguish it from CCSMP objects, since it now has more than
-         * just the original event fields. */
-        cacheSessionP SolClientCacheSessionPt
-        event SolClientCacheEvent
-        topic string
-        returnCode SolClientReturnCode
-        subCode SolClientSubCode
-        cacheRequestID message.CacheRequestID
-        err error
+	/* TODO: Rename this to CacheEventInfo to better distinguish it from CCSMP objects, since it now has more than
+	 * just the original event fields. */
+	cacheSessionP  SolClientCacheSessionPt
+	event          SolClientCacheEvent
+	topic          string
+	returnCode     SolClientReturnCode
+	subCode        SolClientSubCode
+	cacheRequestID message.CacheRequestID
+	err            error
+}
+
+func (eventInfo *SolClientCacheEventInfo) String() string {
+	return fmt.Sprintf("SolClientCacheEventInfo:\n\tcacheSesionP: 0x%x\n\tevent: %d\n\ttopic: %s\n\treturnCode: %d\n\tsubCode: %d\n\tcacheRequestID: %d\n\terr: %s", eventInfo.cacheSessionP, eventInfo.event, eventInfo.topic, eventInfo.returnCode, eventInfo.subCode, eventInfo.cacheRequestID, eventInfo.err)
 }
 
 const (
-        SolClientCacheEventRequestCompletedNotice SolClientCacheEvent = 1
+	SolClientCacheEventRequestCompletedNotice SolClientCacheEvent = 1
 )
 
 func NewConfiguredSolClientCacheEventInfo(cacheSessionP SolClientCacheSessionPt, cacheRequestID message.CacheRequestID, topic string, err error) SolClientCacheEventInfo {
-        return SolClientCacheEventInfo{
-                cacheSessionP: cacheSessionP,
-                event: SolClientCacheEventRequestCompletedNotice,
-                topic: topic,
-                returnCode: SolClientReturnCodeFail,
-                subCode: SolClientSubCodeInternalError,
-                cacheRequestID: cacheRequestID,
-                err: err,
-        }
+	return SolClientCacheEventInfo{
+		cacheSessionP:  cacheSessionP,
+		event:          SolClientCacheEventRequestCompletedNotice,
+		topic:          topic,
+		returnCode:     SolClientReturnCodeFail,
+		subCode:        SolClientSubCodeInternalError,
+		cacheRequestID: cacheRequestID,
+		err:            err,
+	}
 }
 
-func (i * SolClientCacheEventInfo) GetCacheSessionPointer() SolClientCacheSessionPt {
-        return i.cacheSessionP
+func (i *SolClientCacheEventInfo) GetCacheSessionPointer() SolClientCacheSessionPt {
+	return i.cacheSessionP
 }
 
-func SolClientCacheEventInfoFromCoreCacheEventInfo(eventCallbackInfo SolClientCacheEventInfoPt, userP unsafe.Pointer) SolClientCacheEventInfo {
-        return SolClientCacheEventInfo{
-                cacheSessionP: SolClientCacheSessionPt(userP),
-                event: SolClientCacheEvent(eventCallbackInfo.cacheEvent),
-                topic: C.GoString(eventCallbackInfo.topic),
-                returnCode: SolClientReturnCode(eventCallbackInfo.rc),
-                subCode: SolClientSubCode(eventCallbackInfo.subCode),
-                cacheRequestID: message.CacheRequestID(eventCallbackInfo.cacheRequestId),
-        }
+func SolClientCacheEventInfoFromCoreCacheEventInfo(eventCallbackInfo SolClientCacheEventInfoPt, userP uintptr) SolClientCacheEventInfo {
+	return SolClientCacheEventInfo{
+		cacheSessionP:  SolClientCacheSessionPt(userP),
+		event:          SolClientCacheEvent(eventCallbackInfo.cacheEvent),
+		topic:          C.GoString(eventCallbackInfo.topic),
+		returnCode:     SolClientReturnCode(eventCallbackInfo.rc),
+		subCode:        SolClientSubCode(eventCallbackInfo.subCode),
+		cacheRequestID: message.CacheRequestID(eventCallbackInfo.cacheRequestId),
+	}
 }
 
 //export goCacheEventCallback
-func goCacheEventCallback(/*opaqueSessionP*/_ SolClientSessionPt, eventCallbackInfo SolClientCacheEventInfoPt, userP unsafe.Pointer) {
-        /* NOTE: We don't need to use the session pointer since we can use the user_p(a.k.a. the cache session pointer)
-         * which is guaranteed to be unique for at least the duration that the cache session pointer is in the global
-         * map since during receiver termination we destory the cache session only after we remove it from all maps.
-         */
-        fmt.Printf("Got to goCacheEventCallback\n")
-        fmt.Printf("goCacheEvntCallback::userP is %p\n", uintptr(userP))
-        fmt.Printf("goCacheEvntCallback::userP is %p\n", SolClientCacheSessionPt(userP))
-        //if callback, ok := cacheToEventCallbackMap.Load(uintptr(userP)); ok {
-        if callback, ok := cacheToEventCallbackMap.Load(SolClientCacheSessionPt(userP)); ok {
-callback.(SolClientCacheEventCallback)(SolClientCacheEventInfoFromCoreCacheEventInfo(eventCallbackInfo, userP))
-        fmt.Printf("Finished receiver cache event callback\n")
-        } else {
-                fmt.Printf("Received event callback from core API without an associated cache event callback\n")
-                if logging.Default.IsDebugEnabled() {
-                        logging.Default.Debug("Received event callback from core API without an associated cache event callback")
-                }
-        }
-        fmt.Printf("finished goCacheEventCallback\n")
+func goCacheEventCallback( /*opaqueSessionP*/ _ SolClientSessionPt, eventCallbackInfo SolClientCacheEventInfoPt, userP unsafe.Pointer) {
+	/* NOTE: We don't need to use the session pointer since we can use the user_p(a.k.a. the cache session pointer)
+	 * which is guaranteed to be unique for at least the duration that the cache session pointer is in the global
+	 * map since during receiver termination we destory the cache session only after we remove it from all maps.
+	 */
+	if callback, ok := cacheToEventCallbackMap.Load(SolClientCacheSessionPt(uintptr(userP))); ok {
+		callback.(SolClientCacheEventCallback)(SolClientCacheEventInfoFromCoreCacheEventInfo(eventCallbackInfo, uintptr(userP)))
+	} else {
+		if logging.Default.IsDebugEnabled() {
+			logging.Default.Debug("Received event callback from core API without an associated cache event callback")
+		}
+	}
 }

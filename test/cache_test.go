@@ -18,7 +18,7 @@ package test
 
 import (
 	"fmt"
-	//"time"
+	"time"
 
 	"solace.dev/go/messaging"
 	"solace.dev/go/messaging/pkg/solace"
@@ -27,7 +27,7 @@ import (
 	"solace.dev/go/messaging/pkg/solace/message"
 	"solace.dev/go/messaging/pkg/solace/metrics"
 	"solace.dev/go/messaging/pkg/solace/resource"
-	//"solace.dev/go/messaging/pkg/solace/subcode"
+	"solace.dev/go/messaging/pkg/solace/subcode"
 	"solace.dev/go/messaging/test/helpers"
 	"solace.dev/go/messaging/test/testcontext"
 
@@ -46,494 +46,881 @@ func CheckCacheProxy() {
 		Skip("The infrastructure required for running cache proxy tests is not available, skipping this test since it requires a cache proxy.")
 	}
 }
+
 var _ = Describe("Cache Strategy", func() {
-        logging.SetLogLevel(logging.LogLevelDebug)
-        var messagingService solace.MessagingService
-        var receiver solace.DirectMessageReceiver
-        Describe("When the cache is available and configured", func() {
-                BeforeEach(func() {
-                        logging.SetLogLevel(logging.LogLevelDebug)
-                        CheckCache() // skips test with message if cache image is not available
-                        helpers.InitAllCacheClustersWithMessages()
-                        var err error
-                        messagingService, err = messaging.NewMessagingServiceBuilder().FromConfigurationProvider(helpers.DefaultCacheConfiguration()).Build()
-                        Expect(err).To(BeNil())
-                })
-                AfterEach(func () {
-                        var err error
-                        if messagingService.IsConnected() {
-                                err = messagingService.Disconnect()
-                                Expect(err).To(BeNil())
-                        }
-                        Expect(messagingService.IsConnected()).To(BeFalse())
-                        if receiver.IsRunning() {
-                                err = receiver.Terminate(0)
-                                Expect(err).To(BeNil())
-                        }
-                        Expect(receiver.IsRunning()).To(BeFalse())
-                        Expect(receiver.IsTerminated()).To(BeTrue())
-                })
-                DescribeTable("a direct receiver should be able to submit a valid cache request, receive a response, and terminate",
-                /* name test_async_cache_req_with_live_data. */
-                        func(strategy resource.CachedMessageSubscriptionStrategy, cacheResponseProcessStrategy helpers.CacheResponseProcessStrategy) {
-                                logging.SetLogLevel(logging.LogLevelDebug)
-                                strategyString := ""
-                                switch strategy {
-                                case resource.AsAvailable:
-                                        strategyString = "AsAvailable"
-                                case resource.CachedOnly:
-                                        strategyString = "CachedOnly"
-                                case resource.CachedFirst:
-                                        strategyString = "CachedFirst"
-                                case resource.LiveCancelsCached:
-                                        strategyString = "LiveCancelsCached"
-                                }
-                                //time.Sleep(time.Second * 100)
-                                numExpectedCachedMessages := 3
-                                numExpectedLiveMessages := 1
-                                numSentCacheRequests := 1
-                                numExpectedCacheResponses := numSentCacheRequests
-                                numExpectedSentMessages := 0
-                                totalMessagesReceived := 0
-                                numExpectedReceivedMessages := numExpectedSentMessages
-                                switch strategy {
-                                case resource.AsAvailable:
-                                        numExpectedReceivedMessages += numExpectedCachedMessages
-                                        numExpectedReceivedMessages += numExpectedLiveMessages
-                                case resource.LiveCancelsCached:
-                                        numExpectedReceivedMessages += numExpectedLiveMessages
-                                case resource.CachedFirst:
-                                        numExpectedReceivedMessages += numExpectedCachedMessages
-                                        numExpectedReceivedMessages += numExpectedLiveMessages
-                                case resource.CachedOnly:
-                                        numExpectedReceivedMessages += numExpectedCachedMessages
-                                }
-                                numExpectedSentDirectMessages := numSentCacheRequests + numExpectedSentMessages
-                                err := messagingService.Connect()
-                                defer func() {
-                                        messagingService.Disconnect()
-                                }()
-                                Expect(err).To(BeNil())
-                                receiver, err := messagingService.CreateDirectMessageReceiverBuilder().Build()
-                                defer func() {
-                                        receiver.Terminate(0)
-                                }()
-                                Expect(err).To(BeNil())
-                                err = receiver.Start()
-                                Expect(err).To(BeNil())
-                                topic := fmt.Sprintf("MaxMsgs%d/%s/data1", numExpectedCachedMessages, testcontext.Cache().Vpn)
-                                cacheName := fmt.Sprintf("MaxMsgs%d/delay=2000,msgs=%d", numExpectedCachedMessages, numExpectedLiveMessages)
-                                cacheRequestConfig := helpers.GetValidCacheRequestConfig(strategy, cacheName, topic)
-                                cacheRequestID := message.CacheRequestID(1)
-                                receivedMsgChan := make(chan message.InboundMessage, 3)
-                                defer close(receivedMsgChan)
-                                receiver.ReceiveAsync(func(msg message.InboundMessage) {
-                                        fmt.Printf("Received message from test:\n%s\n", msg.String())
-                                        receivedMsgChan <- msg
-                                })
-                                switch cacheResponseProcessStrategy {
-                                case helpers.ProcessCacheResponseThroughChannel:
-                                        cacheResponseChan, err := receiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
-                                        Expect(err).To(BeNil())
-                                        for i := 0; i < numExpectedCacheResponses; i++ {
-                                                Eventually(cacheResponseChan, "10s").Should(Receive())
-                                                fmt.Printf("Got response %d for channel\n", i)
-                                        }
-                                case helpers.ProcessCacheResponseThroughCallback:
-                                        cacheResponseSignalChan := make(chan solace.CacheResponse, 1)
-                                        defer close(cacheResponseSignalChan)
-                                        cacheResponseCallback := func (cacheResponse solace.CacheResponse) {
-                                                cacheResponseSignalChan <- cacheResponse
-                                        }
-                                        err = receiver.RequestCachedAsyncWithCallback(cacheRequestConfig, cacheRequestID, cacheResponseCallback)
-                                        Expect(err).To(BeNil())
-                                        for i := 0; i < numExpectedCacheResponses; i++ {
-                                                Eventually(cacheResponseSignalChan, "10s").Should(Receive())
-                                                fmt.Printf("Got response %d for callback\n", i)
-                                        }
-                                default:
-                                        Fail(fmt.Sprintf("Got unexpected CacheResponseProcessStrategy %d", cacheResponseProcessStrategy))
-                                }
-                                for i := 0; i < numExpectedReceivedMessages; i ++ {
-                                        Eventually(receivedMsgChan, "10s").Should(Receive())
-                                        fmt.Printf("Found message\n")
-                                        totalMessagesReceived ++
-                                }
-                                Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSent)).To(BeNumerically("==", numSentCacheRequests), fmt.Sprintf("CacheRequestsSent for %s was wrong", strategyString))
-                                Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSucceeded)).To(BeNumerically("==", numSentCacheRequests), fmt.Sprintf("CacheRequestsSucceeded for %s was wrong", strategyString))
-                                Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsFailed)).To(BeNumerically("==", 0), fmt.Sprintf("CacheRequestsFailed for %s was wrong", strategyString))
-                                Expect(messagingService.Metrics().GetValue(metrics.DirectMessagesSent)).To(BeNumerically("==", numExpectedSentDirectMessages), fmt.Sprintf("DirectMessagesSent for %s was wrong", strategyString))
-                                Expect(totalMessagesReceived).To(BeNumerically("==", numExpectedReceivedMessages))
-                        },
-                        Entry("test cache RR for valid AsAvailable with channel", resource.AsAvailable, helpers.ProcessCacheResponseThroughChannel),
-                        Entry("test cache RR for valid AsAvailable with callback", resource.AsAvailable, helpers.ProcessCacheResponseThroughCallback),
-                        Entry("test cache RR for valid CachedFirst with channel", resource.CachedFirst, helpers.ProcessCacheResponseThroughChannel),
-                        Entry("test cache RR for valid CachedFirst with callback", resource.CachedFirst, helpers.ProcessCacheResponseThroughCallback),
-                        Entry("test cache RR for valid CachedOnly with channel", resource.CachedOnly, helpers.ProcessCacheResponseThroughChannel),
-                        Entry("test cache RR for valid CachedOnly with callback", resource.CachedOnly, helpers.ProcessCacheResponseThroughCallback),
-                        Entry("test cache RR for valid LiveCancelsCached with channel", resource.LiveCancelsCached, helpers.ProcessCacheResponseThroughChannel),
-                        Entry("test cache RR for valid LivCancelsCached  with callback", resource.LiveCancelsCached, helpers.ProcessCacheResponseThroughCallback),
-                )
-        Describe("Lifecycle tests", func() {
-                var messagingService solace.MessagingService
-                var messageReceiver solace.DirectMessageReceiver
-                type terminationContext struct {
-                        terminateFunction func(messagingService solace.MessagingService,
-                                                messageReceiver solace.DirectMessageReceiver)
-                        configuration func() config.ServicePropertyMap
-                        cleanupFunc func(messagingService solace.MessagingService)
+	logging.SetLogLevel(logging.LogLevelDebug)
+	var messagingService solace.MessagingService
+	var receiver solace.DirectMessageReceiver
+	Describe("When the cache is available and configured", func() {
+		BeforeEach(func() {
+			logging.SetLogLevel(logging.LogLevelDebug)
+			CheckCache() // skips test with message if cache image is not available
+			helpers.InitAllCacheClustersWithMessages()
+			var err error
+			messagingService, err = messaging.NewMessagingServiceBuilder().FromConfigurationProvider(helpers.DefaultCacheConfiguration()).Build()
+			Expect(err).To(BeNil())
+			err = messagingService.Connect()
+			Expect(err).To(BeNil())
+			receiver, err = messagingService.CreateDirectMessageReceiverBuilder().Build()
+			Expect(err).To(BeNil())
+			err = receiver.Start()
+			Expect(err).To(BeNil())
+		})
+		AfterEach(func() {
+			var err error
+			if messagingService.IsConnected() {
+				err = messagingService.Disconnect()
+				Expect(err).To(BeNil())
+			}
+			Expect(messagingService.IsConnected()).To(BeFalse())
+			if receiver.IsRunning() {
+				err = receiver.Terminate(0)
+				Expect(err).To(BeNil())
+			}
+			Expect(receiver.IsRunning()).To(BeFalse())
+			Expect(receiver.IsTerminated()).To(BeTrue())
+		})
+		It("a direct receiver should get an error when trying to send an invalid cache request", func() {
+			var cacheRequestID message.CacheRequestID = 0
+			trivialCacheName := "trivial cache name"
+			trivialTopic := "trivial topic"
+			strategy := resource.AsAvailable
+			invalidCacheRequestConfig := helpers.GetInvalidCacheRequestConfig(strategy, trivialCacheName, trivialTopic)
+			channel, err := receiver.RequestCachedAsync(invalidCacheRequestConfig, cacheRequestID)
+			Expect(channel).To(BeNil())
+			Expect(err).To(BeAssignableToTypeOf(&solace.InvalidConfigurationError{}))
+			callback := func(solace.CacheResponse) {
+				Fail("This callback function should never run!")
+			}
+			err = receiver.RequestCachedAsyncWithCallback(invalidCacheRequestConfig, cacheRequestID, callback)
+			Expect(err).To(BeAssignableToTypeOf(&solace.InvalidConfigurationError{}))
+		})
+		It("a direct receiver should be able to submit multiple concurrent cache requests with the same cache request ID without error", func() {
+			cacheRequestID := message.CacheRequestID(1)
+			numExpectedCachedMessages := 3
+			/* NOTE: delay will give us time to have concurrent cache requests with the same ID */
+			delay := 25000
+			topic := fmt.Sprintf("MaxMsgs%d/%s/data1", numExpectedCachedMessages, testcontext.Cache().Vpn)
+			cacheName := fmt.Sprintf("MaxMsgs%d/delay=%d,", numExpectedCachedMessages, delay)
+			cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.AsAvailable, cacheName, resource.TopicSubscriptionOf(topic), int32(delay+5000), helpers.ValidMaxCachedMessages, helpers.ValidCachedMessageAge)
 
-                }
-                terminationCases := map[string]terminationContext {
-                        /*
-                        "messaging service disconnect": {
-                                terminateFunction: func(messagingService solace.MessagingService,
-                                                        messageReceiver solace.DirectMessageReceiver) {
-                                        Expect(messagingService.Disconnect()).To(BeNil())
-                                        Expect(messagingService.IsConnected()).To(BeFalse())
-                                        Eventually(messageReceiver.IsTerminated(), "5s").Should(BeTrue())
-                                },
-                                configuration: func() config.ServicePropertyMap {
-                                        return helpers.DefaultCacheConfiguration()
-                                },
-                        },
-                        "messaging service disconnect async with channel": {
-                                 terminateFunction: func(messagingService solace.MessagingService,
-                                                        messageReceiver solace.DirectMessageReceiver) {
-                                        var err error
-                                        Eventually(messagingService.DisconnectAsync(), "5s").Should(Receive(&err))
-                                        Expect(err).To(BeNil())
-                                        Expect(messagingService.IsConnected()).To(BeFalse())
-                                        Eventually(messageReceiver.IsTerminated(), "5s").Should(BeTrue())
-                                },
-                                configuration: func() config.ServicePropertyMap {
-                                        return helpers.DefaultCacheConfiguration()
-                                },
-                        },
-                        "messaging service disconnect async with callback": {
-                                 terminateFunction: func(messagingService solace.MessagingService,
-                                                        messageReceiver solace.DirectMessageReceiver) {
-                                        errorChan := make(chan error)
-                                        messagingService.DisconnectAsyncWithCallback(func(err error) {
-                                                errorChan <- err
-                                        })
-                                        select {
-                                        case err := <-errorChan:
-                                                Expect(err).To(BeNil())
-                                        case <- time.After(time.Second * 5):
-                                                Fail("Timed out waiting for error chan from call to DisconnectAsyncWithCallback")
-                                        }
-                                        Expect(messagingService.IsConnected()).To(BeFalse())
-                                        Eventually(messageReceiver.IsTerminated(), "5s").Should(BeTrue())
-                                },
-                                configuration: func() config.ServicePropertyMap {
-                                        return helpers.DefaultCacheConfiguration()
-                                },
-                        },
-                        "management disconnect": {
-                                terminateFunction: func(messagingService solace.MessagingService,
-                                                        messageReceiver solace.DirectMessageReceiver) {
-                                        eventChan := make(chan solace.ServiceEvent)
-                                        messagingService.AddServiceInterruptionListener(func(event solace.ServiceEvent) {
-                                                eventChan <- event
-                                        })
-                                        helpers.ForceDisconnectViaSEMPv2(messagingService)
-                                        select {
-                                        case event := <- eventChan:
-                                                helpers.ValidateNativeError(event.GetCause(), subcode.CommunicationError)
-                                        case <- time.After(time.Second * 10):
-                                                Fail("Timed out waiting for management disconnect")
-                                        }
-                                        Expect(messagingService.IsConnected()).To(BeFalse())
-                                        Eventually(messageReceiver.IsTerminated(), "5s").Should(BeTrue())
-                                },
-                                configuration: func() config.ServicePropertyMap {
-                                        return helpers.DefaultCacheConfiguration()
-                                },
-                        },
-                        "toxic disconnect": {
-                                terminateFunction: func(messagingService solace.MessagingService,
-                                                        messageReceiver solace.DirectMessageReceiver) {
-                                        eventChan := make(chan solace.ServiceEvent)
-                                        messagingService.AddServiceInterruptionListener(func(event solace.ServiceEvent) {
-                                                eventChan <- event
-                                        })
-                                        testcontext.Toxi().SMF().Disable()
-                                        select {
-                                        case event := <- eventChan:
-                                                helpers.ValidateNativeError(event.GetCause(), subcode.CommunicationError)
-                                        case <- time.After(time.Second * 10):
-                                                Fail("Timed out waiting for toxic disconnect")
-                                        }
-                                        Expect(messagingService.IsConnected()).To(BeFalse())
-                                        Eventually(messageReceiver.IsTerminated(), "5s").Should(BeTrue())
-                                },
-                                configuration: func() config.ServicePropertyMap {
-                                        helpers.CheckToxiProxy()
-                                        return helpers.CacheToxicConfiguration()
-                                },
-                                cleanupFunc: func(_ solace.MessagingService) {
-                                        testcontext.Toxi().ResetProxies()
-                                },
-                        },
-                        */
-                        "receiver terminate": {
-                                terminateFunction: func(messagingService solace.MessagingService,
-                                                        messageReceiver solace.DirectMessageReceiver) {
-                                        Expect(messageReceiver.Terminate(0)).To(BeNil())
-                                        Expect(messagingService.IsConnected()).To(BeTrue())
-                                },
-                                configuration: func() config.ServicePropertyMap {
-                                        return helpers.DefaultCacheConfiguration()
-                                },
-                                cleanupFunc: func(messagingService solace.MessagingService) {
-                                        Expect(messagingService.Disconnect()).To(BeNil())
-                                        Expect(messagingService.IsConnected()).To(BeFalse())
-                                },
-                        },
-                        /*
-                        "receiver terminate with grace period": {
-                                terminateFunction: func(messagingService solace.MessagingService,
-                                                        messageReceiver solace.DirectMessageReceiver) {
-                                        gracePeriod := time.Second * 5
-                                        Eventually(messageReceiver.Terminate(gracePeriod), gracePeriod + 1).Should(BeNil())
-                                        Expect(messagingService.IsConnected()).To(BeTrue())
-                                },
-                                configuration: func() config.ServicePropertyMap {
-                                        return helpers.DefaultCacheConfiguration()
-                                },
-                                cleanupFunc: func(messagingService solace.MessagingService) {
-                                        Expect(messagingService.Disconnect()).To(BeNil())
-                                        Expect(messagingService.IsConnected()).To(BeFalse())
-                                },
-                        },
-                        "receiver terminate async with channel": {
-                                terminateFunction: func(messagingService solace.MessagingService,
-                                                        messageReceiver solace.DirectMessageReceiver) {
-                                        gracePeriod := time.Second * 0
-                                        var err error
-                                        Eventually(messageReceiver.TerminateAsync(gracePeriod), gracePeriod + 1).Should(Receive(&err))
-                                        Expect(err).To(BeNil())
-                                        Expect(messagingService.IsConnected()).To(BeTrue())
-                                },
-                                configuration: func() config.ServicePropertyMap {
-                                        return helpers.DefaultCacheConfiguration()
-                                },
-                                cleanupFunc: func(messagingService solace.MessagingService) {
-                                        Expect(messagingService.Disconnect()).To(BeNil())
-                                        Expect(messagingService.IsConnected()).To(BeFalse())
-                                },
-                        },
-                        "receiver terminate async with grace period with channel": {
-                                terminateFunction: func(messagingService solace.MessagingService,
-                                                        messageReceiver solace.DirectMessageReceiver) {
-                                        gracePeriod := time.Second * 5
-                                        var err error
-                                        Eventually(messageReceiver.TerminateAsync(gracePeriod), gracePeriod + 1).Should(Receive(&err))
-                                        Expect(err).To(BeNil())
-                                        Expect(messagingService.IsConnected()).To(BeTrue())
-                                },
-                                configuration: func() config.ServicePropertyMap {
-                                        return helpers.DefaultCacheConfiguration()
-                                },
-                                cleanupFunc: func(messagingService solace.MessagingService) {
-                                        Expect(messagingService.Disconnect()).To(BeNil())
-                                        Expect(messagingService.IsConnected()).To(BeFalse())
-                                },
-                        },
-                        "receiver terminate async with callback": {
-                                terminateFunction: func(messagingService solace.MessagingService,
-                                                        messageReceiver solace.DirectMessageReceiver) {
-                                        gracePeriod := time.Second * 0
-                                        errChan := make(chan error)
-                                        var err error
-                                        messageReceiver.TerminateAsyncCallback(gracePeriod, func (err error) {
-                                                errChan <- err
-                                        })
-                                        Eventually(errChan, gracePeriod + 1).Should(Receive(&err))
-                                        Expect(err).To(BeNil())
-                                        Expect(messagingService.IsConnected()).To(BeTrue())
-                                },
-                                configuration: func() config.ServicePropertyMap {
-                                        return helpers.DefaultCacheConfiguration()
-                                },
-                                cleanupFunc: func(messagingService solace.MessagingService) {
-                                        Expect(messagingService.Disconnect()).To(BeNil())
-                                        Expect(messagingService.IsConnected()).To(BeFalse())
-                                },
-                        },
-                        "receiver terminate async with grace period with callback": {
-                                terminateFunction: func(messagingService solace.MessagingService,
-                                                        messageReceiver solace.DirectMessageReceiver) {
-                                        gracePeriod := time.Second * 5
-                                        errChan := make(chan error)
-                                        var err error
-                                        messageReceiver.TerminateAsyncCallback(gracePeriod, func (err error) {
-                                                errChan <- err
-                                        })
-                                        Eventually(errChan, gracePeriod + 1).Should(Receive(&err))
-                                        Expect(err).To(BeNil())
-                                        Expect(messagingService.IsConnected()).To(BeTrue())
-                                },
-                                configuration: func() config.ServicePropertyMap {
-                                        return helpers.DefaultCacheConfiguration()
-                                },
-                                cleanupFunc: func(messagingService solace.MessagingService) {
-                                        Expect(messagingService.Disconnect()).To(BeNil())
-                                        Expect(messagingService.IsConnected()).To(BeFalse())
-                                },
-                        },
-                        */
-                }
-                cacheRequestID := 0
-                for terminationCaseName, terminationContextRef := range terminationCases {
-                        terminationConfiguration := terminationContextRef.configuration
-                        terminationFunction := terminationContextRef.terminateFunction
-                        terminationCleanup := terminationContextRef.cleanupFunc
-                        Context("using termination scheme " + terminationCaseName, func() {
-                                var terminate func()
-                                const numExpectedCachedMessages int = 3
-                                const numExpectedLiveMessages int = 1
-                                const delay int = 25000
-                                var receivedMsgChan chan message.InboundMessage
+			channelOne, err := receiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
+			Expect(channelOne).ToNot(BeNil())
+			Expect(err).To(BeNil())
+			Eventually(func() uint64 { return messagingService.Metrics().GetValue(metrics.CacheRequestsSent) }, "5s").Should(BeNumerically("==", 1))
 
-                                var cacheName string
-                                var topic string
-                                BeforeEach(func() {
-                                        logging.SetLogLevel(logging.LogLevelDebug)
-                                        CheckCache() // skips test with message if cache image is not available
-                                        helpers.InitAllCacheClustersWithMessages()
-                                        var err error
-                                        messagingService, err = messaging.NewMessagingServiceBuilder().FromConfigurationProvider(terminationConfiguration()).Build()
-                                        Expect(err).To(BeNil())
-                                        err = messagingService.Connect()
-                                        Expect(err).To(BeNil())
-                                        messageReceiver, err = messagingService.CreateDirectMessageReceiverBuilder().Build()
-                                        Expect(err).To(BeNil())
-                                        err = messageReceiver.Start()
-                                        Expect(err).To(BeNil())
-                                        receivedMsgChan = make(chan message.InboundMessage, 3)
-                                        defer close(receivedMsgChan)
-                                        messageReceiver.ReceiveAsync(func(msg message.InboundMessage) {
-                                                fmt.Printf("Received message from test:\n%s\n", msg.String())
-                                                receivedMsgChan <- msg
-                                        })
+			channelTwo, err := receiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
+			Expect(channelTwo).ToNot(BeNil())
+			Expect(err).To(BeNil())
+			Eventually(func() uint64 { return messagingService.Metrics().GetValue(metrics.CacheRequestsSent) }, "5s").Should(BeNumerically("==", 2))
 
-                                        topic = fmt.Sprintf("MaxMsgs%d/%s/data1", numExpectedCachedMessages, testcontext.Cache().Vpn)
-                                        cacheName = fmt.Sprintf("MaxMsgs%d/delay=%d,msgs=%d", numExpectedCachedMessages, delay, numExpectedLiveMessages)
-                                        terminate = func() {
-                                                Expect(messagingService.IsConnected()).To(BeTrue())
-                                                Expect(messageReceiver.IsRunning()).To(BeTrue())
-                                                terminationFunction(messagingService, messageReceiver)
-                                                Eventually(messageReceiver.IsTerminated(), "5s").Should(BeTrue())
-                                        }
-                                })
-                                AfterEach(func () {
-                                        if messageReceiver.IsRunning() {
-                                                messageReceiver.Terminate(0)
-                                        }
-                                        if messagingService.IsConnected() {
-                                                messagingService.Disconnect()
-                                        }
-                                        if terminationCleanup != nil {
-                                                terminationCleanup(messagingService)
-                                        }
-                                })
+			Consistently(channelOne, "1ms").ShouldNot(Receive())
+			Consistently(channelTwo, "1ms").ShouldNot(Receive())
+		})
+		It("a direct receiver should be able to submit multiple consecutive cache requests with the same cache request ID without error", func() {
+			cacheRequestID := message.CacheRequestID(1)
+			numExpectedCachedMessages := 3
+			topic := fmt.Sprintf("MaxMsgs%d/%s/data1", numExpectedCachedMessages, testcontext.Cache().Vpn)
+			cacheName := fmt.Sprintf("MaxMsgs%d", numExpectedCachedMessages)
+			cacheRequestConfig := helpers.GetValidCacheRequestConfig(resource.AsAvailable, cacheName, topic)
 
-                                DescribeTable("A receiver should be able to terminate gracefully with inflight cache requests",
-                                        func(strategy resource.CachedMessageSubscriptionStrategy, cacheResponseProcessStrategy helpers.CacheResponseProcessStrategy) {
-                                                fmt.Printf("Got to beginning of DescribeTable iteration\n")
-                                                fmt.Printf("strategy is %d and response strategy is %d\n", strategy, cacheResponseProcessStrategy)
-                                                logging.SetLogLevel(logging.LogLevelDebug)
-                                                strategyString := ""
-                                                switch strategy {
-                                                case resource.AsAvailable:
-                                                        strategyString = "AsAvailable"
-                                                case resource.CachedOnly:
-                                                        strategyString = "CachedOnly"
-                                                case resource.CachedFirst:
-                                                        strategyString = "CachedFirst"
-                                                case resource.LiveCancelsCached:
-                                                        strategyString = "LiveCancelsCached"
-                                                }
-                                                numSentCacheRequests := 1
-                                                numExpectedCacheResponses := numSentCacheRequests
-                                                numExpectedSentMessages := 0
-                                                totalMessagesReceived := 0
-                                                numExpectedReceivedMessages := numExpectedSentMessages
-                                                switch strategy {
-                                                case resource.AsAvailable:
-                                                        numExpectedReceivedMessages += numExpectedCachedMessages
-                                                        numExpectedReceivedMessages += numExpectedLiveMessages
-                                                case resource.LiveCancelsCached:
-                                                        numExpectedReceivedMessages += numExpectedLiveMessages
-                                                case resource.CachedFirst:
-                                                        numExpectedReceivedMessages += numExpectedCachedMessages
-                                                        numExpectedReceivedMessages += numExpectedLiveMessages
-                                                case resource.CachedOnly:
-                                                        numExpectedReceivedMessages += numExpectedCachedMessages
-                                                }
-                                                numExpectedSentDirectMessages := numSentCacheRequests + numExpectedSentMessages
+			channelOne, err := receiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
+			Expect(channelOne).ToNot(BeNil())
+			Expect(err).To(BeNil())
+			Eventually(func() uint64 { return messagingService.Metrics().GetValue(metrics.CacheRequestsSent) }, "5s").Should(BeNumerically("==", 1))
+			var cacheResponseOne solace.CacheResponse
+			Eventually(channelOne, "10s").Should(Receive(&cacheResponseOne))
+			Expect(cacheResponseOne).ToNot(BeNil())
 
-                                                cacheRequestConfig := helpers.GetValidCacheRequestConfig(strategy, cacheName, topic)
-                                                cacheRequestID := message.CacheRequestID(cacheRequestID)
-                                                fmt.Printf("Finished all setup, choosing cache request strat\n")
-                                                switch cacheResponseProcessStrategy {
-                                                case helpers.ProcessCacheResponseThroughChannel:
-                                                        fmt.Printf("About to send cache request")
-                                                        cacheResponseChan, err := messageReceiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
-                                                        Expect(err).To(BeNil())
-                                                        fmt.Printf("Sent cache request!")
-                                                        terminate()
-                                                        for i := 0; i < numExpectedCacheResponses; i++ {
-                                                                Eventually(cacheResponseChan, delay * 2).Should(Receive())
-                                                                fmt.Printf("Got response %d for channel\n", i)
-                                                        }
-                                                case helpers.ProcessCacheResponseThroughCallback:
-                                                        fmt.Printf("About to send cache request")
-                                                        cacheResponseSignalChan := make(chan solace.CacheResponse, numExpectedCacheResponses)
-                                                        defer close(cacheResponseSignalChan)
-                                                        cacheResponseCallback := func (cacheResponse solace.CacheResponse) {
-                                                                cacheResponseSignalChan <- cacheResponse
-                                                        }
-                                                        err := messageReceiver.RequestCachedAsyncWithCallback(cacheRequestConfig, cacheRequestID, cacheResponseCallback)
-                                                        Expect(err).To(BeNil())
-                                                        fmt.Printf("Sent cache request!")
-                                                        terminate()
-                                                        for i := 0; i < numExpectedCacheResponses; i++ {
-                                                                Eventually(cacheResponseSignalChan, delay * 2).Should(Receive())
-                                                                fmt.Printf("Got response %d for callback\n", i)
-                                                        }
-                                                default:
-                                                        Fail(fmt.Sprintf("Got unexpected CacheResponseProcessStrategy %d", cacheResponseProcessStrategy))
-                                                }
-                                                /* TODO: Should this even be here? */
-                                                for i := 0; i < numExpectedReceivedMessages; i ++ {
-                                                        Eventually(receivedMsgChan, "10s").Should(Receive())
-                                                        fmt.Printf("Found message\n")
-                                                        totalMessagesReceived ++
-                                                }
-                                                Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSent)).To(BeNumerically("==", numSentCacheRequests), fmt.Sprintf("CacheRequestsSent for %s was wrong", strategyString))
-                                                Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSucceeded)).To(BeNumerically("==", numSentCacheRequests), fmt.Sprintf("CacheRequestsSucceeded for %s was wrong", strategyString))
-                                                Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsFailed)).To(BeNumerically("==", 0), fmt.Sprintf("CacheRequestsFailed for %s was wrong", strategyString))
-                                                Expect(messagingService.Metrics().GetValue(metrics.DirectMessagesSent)).To(BeNumerically("==", numExpectedSentDirectMessages), fmt.Sprintf("DirectMessagesSent for %s was wrong", strategyString))
-                                                Expect(totalMessagesReceived).To(BeNumerically("==", numExpectedReceivedMessages))
-                                               
-                                        },
-                                        Entry("test cache RR for valid AsAvailable with channel", resource.AsAvailable, helpers.ProcessCacheResponseThroughChannel),
-                                        /*
-                                        Entry("test cache RR for valid AsAvailable with callback", resource.AsAvailable, helpers.ProcessCacheResponseThroughCallback),
-                                        Entry("test cache RR for valid CachedFirst with channel", resource.CachedFirst, helpers.ProcessCacheResponseThroughChannel),
-                                        Entry("test cache RR for valid CachedFirst with callback", resource.CachedFirst, helpers.ProcessCacheResponseThroughCallback),
-                                        Entry("test cache RR for valid CachedOnly with channel", resource.CachedOnly, helpers.ProcessCacheResponseThroughChannel),
-                                        Entry("test cache RR for valid CachedOnly with callback", resource.CachedOnly, helpers.ProcessCacheResponseThroughCallback),
-                                        Entry("test cache RR for valid LiveCancelsCached with channel", resource.LiveCancelsCached, helpers.ProcessCacheResponseThroughChannel),
-                                        Entry("test cache RR for valid LivCancelsCached  with callback", resource.LiveCancelsCached, helpers.ProcessCacheResponseThroughCallback),
-                                        */
-                                )
-                        })
-                        cacheRequestID++
-                }
-        })
-})
+			channelTwo, err := receiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
+			Expect(channelTwo).ToNot(BeNil())
+			Expect(err).To(BeNil())
+			Eventually(func() uint64 { return messagingService.Metrics().GetValue(metrics.CacheRequestsSent) }, "5s").Should(BeNumerically("==", 2))
+			var cacheResponseTwo solace.CacheResponse
+			Eventually(channelTwo, "10s").Should(Receive(&cacheResponseTwo))
+			Expect(cacheResponseTwo).ToNot(BeNil())
+		})
+		It("a direct receiver that tries to submit more than the maximum number of cache requests should get an IllegalStateError", func() {
+			maxCacheRequests := 1024
+			/* NOTE: First we will fill the internal buffer, then we will try one more and assert an error */
+			i := 0
+			numExpectedCachedMessages := 3
+			topic := fmt.Sprintf("MaxMsgs%d/%s/data1", numExpectedCachedMessages, testcontext.Cache().Vpn)
+			cacheName := fmt.Sprintf("MaxMsgs%d", numExpectedCachedMessages)
+			cacheRequestConfig := helpers.GetValidCacheRequestConfig(resource.AsAvailable, cacheName, topic)
+			cacheResponseSignalChan := make(chan solace.CacheResponse)
+			callback := func(cacheResponse solace.CacheResponse) {
+				cacheResponseSignalChan <- cacheResponse
+			}
+			for ; i <= maxCacheRequests; i++ {
+				cacheRequestID := message.CacheRequestID(i)
+				err := receiver.RequestCachedAsyncWithCallback(cacheRequestConfig, cacheRequestID, callback)
+				Expect(err).To(BeNil())
+			}
+			Eventually(func() uint64 { return messagingService.Metrics().GetValue(metrics.CacheRequestsSent) }).Should(BeNumerically("==", maxCacheRequests+1))
+			Eventually(func() uint64 { return messagingService.Metrics().GetValue(metrics.CacheRequestsSucceeded) }).Should(BeNumerically("==", maxCacheRequests+1))
+
+			err := receiver.RequestCachedAsyncWithCallback(cacheRequestConfig, message.CacheRequestID(maxCacheRequests+1), callback)
+			Expect(err).To(BeAssignableToTypeOf(&solace.IllegalStateError{}))
+
+			channel, err := receiver.RequestCachedAsync(cacheRequestConfig, message.CacheRequestID(maxCacheRequests+1))
+			Expect(err).To(BeAssignableToTypeOf(&solace.IllegalStateError{}))
+			Expect(channel).To(BeNil())
+			for i := 0; i <= maxCacheRequests; i++ {
+				<-cacheResponseSignalChan
+			}
+		})
+		DescribeTable("a direct receiver should be able to submit a valid cache request, receive a response, and terminate",
+			func(strategy resource.CachedMessageSubscriptionStrategy, cacheResponseProcessStrategy helpers.CacheResponseProcessStrategy) {
+				logging.SetLogLevel(logging.LogLevelDebug)
+				strategyString := ""
+				numExpectedCachedMessages := 3
+				numExpectedLiveMessages := 1
+				numSentCacheRequests := 1
+				numExpectedCacheResponses := numSentCacheRequests
+				numExpectedSentMessages := 0
+				totalMessagesReceived := 0
+				numExpectedReceivedMessages := numExpectedSentMessages
+				switch strategy {
+				case resource.AsAvailable:
+					strategyString = "AsAvailable"
+					numExpectedReceivedMessages += numExpectedCachedMessages
+					numExpectedReceivedMessages += numExpectedLiveMessages
+				case resource.LiveCancelsCached:
+					strategyString = "LiveCancelsCached"
+					numExpectedReceivedMessages += numExpectedLiveMessages
+				case resource.CachedFirst:
+					strategyString = "CachedFirst"
+					numExpectedReceivedMessages += numExpectedCachedMessages
+					numExpectedReceivedMessages += numExpectedLiveMessages
+				case resource.CachedOnly:
+					strategyString = "CachedOnly"
+					numExpectedReceivedMessages += numExpectedCachedMessages
+				}
+				numExpectedSentDirectMessages := numSentCacheRequests + numExpectedSentMessages
+				topic := fmt.Sprintf("MaxMsgs%d/%s/data1", numExpectedCachedMessages, testcontext.Cache().Vpn)
+				cacheName := fmt.Sprintf("MaxMsgs%d/delay=2000,msgs=%d", numExpectedCachedMessages, numExpectedLiveMessages)
+				cacheRequestConfig := helpers.GetValidCacheRequestConfig(strategy, cacheName, topic)
+				cacheRequestID := message.CacheRequestID(1)
+				receivedMsgChan := make(chan message.InboundMessage, 3)
+				defer close(receivedMsgChan)
+				receiver.ReceiveAsync(func(msg message.InboundMessage) {
+					receivedMsgChan <- msg
+				})
+				switch cacheResponseProcessStrategy {
+				case helpers.ProcessCacheResponseThroughChannel:
+					cacheResponseChan, err := receiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
+					Expect(err).To(BeNil())
+					for i := 0; i < numExpectedCacheResponses; i++ {
+						Eventually(cacheResponseChan, "10s").Should(Receive())
+					}
+				case helpers.ProcessCacheResponseThroughCallback:
+					cacheResponseSignalChan := make(chan solace.CacheResponse, 1)
+					defer close(cacheResponseSignalChan)
+					cacheResponseCallback := func(cacheResponse solace.CacheResponse) {
+						cacheResponseSignalChan <- cacheResponse
+					}
+					err := receiver.RequestCachedAsyncWithCallback(cacheRequestConfig, cacheRequestID, cacheResponseCallback)
+					Expect(err).To(BeNil())
+					for i := 0; i < numExpectedCacheResponses; i++ {
+						Eventually(cacheResponseSignalChan, "10s").Should(Receive())
+					}
+				default:
+					Fail(fmt.Sprintf("Got unexpected CacheResponseProcessStrategy %d", cacheResponseProcessStrategy))
+				}
+				for i := 0; i < numExpectedReceivedMessages; i++ {
+					Eventually(receivedMsgChan, "10s").Should(Receive())
+					totalMessagesReceived++
+				}
+				Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSent)).To(BeNumerically("==", numSentCacheRequests), fmt.Sprintf("CacheRequestsSent for %s was wrong", strategyString))
+				Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSucceeded)).To(BeNumerically("==", numSentCacheRequests), fmt.Sprintf("CacheRequestsSucceeded for %s was wrong", strategyString))
+				Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsFailed)).To(BeNumerically("==", 0), fmt.Sprintf("CacheRequestsFailed for %s was wrong", strategyString))
+				Expect(messagingService.Metrics().GetValue(metrics.DirectMessagesSent)).To(BeNumerically("==", numExpectedSentDirectMessages), fmt.Sprintf("DirectMessagesSent for %s was wrong", strategyString))
+				Expect(totalMessagesReceived).To(BeNumerically("==", numExpectedReceivedMessages))
+			},
+			Entry("test cache RR for valid AsAvailable with channel", resource.AsAvailable, helpers.ProcessCacheResponseThroughChannel),
+			Entry("test cache RR for valid AsAvailable with callback", resource.AsAvailable, helpers.ProcessCacheResponseThroughCallback),
+			Entry("test cache RR for valid CachedFirst with channel", resource.CachedFirst, helpers.ProcessCacheResponseThroughChannel),
+			Entry("test cache RR for valid CachedFirst with callback", resource.CachedFirst, helpers.ProcessCacheResponseThroughCallback),
+			Entry("test cache RR for valid CachedOnly with channel", resource.CachedOnly, helpers.ProcessCacheResponseThroughChannel),
+			Entry("test cache RR for valid CachedOnly with callback", resource.CachedOnly, helpers.ProcessCacheResponseThroughCallback),
+			Entry("test cache RR for valid LiveCancelsCached with channel", resource.LiveCancelsCached, helpers.ProcessCacheResponseThroughChannel),
+			Entry("test cache RR for valid LivCancelsCached  with callback", resource.LiveCancelsCached, helpers.ProcessCacheResponseThroughCallback),
+		)
+		Describe("Lifecycle tests", func() {
+			var messagingService solace.MessagingService
+			var messageReceiver solace.DirectMessageReceiver
+			var cacheRequestID = 0
+			type terminationContext struct {
+				terminateFunction func(messagingService solace.MessagingService,
+					messageReceiver solace.DirectMessageReceiver)
+				configuration func() config.ServicePropertyMap
+				cleanupFunc   func(messagingService solace.MessagingService)
+				// blockable indicates whether or not it is feasible for the application to block this
+				// termination method. Termination methods that run on the main thread are candidates
+				// since the test(application) can block termination only from the main thread and so would
+				// reach a deadlock, or have to call terminate in another thread which would be equivalent
+				// to the asynchronous interface. This would create redundant test coverage since the
+				// asynchronous methods are already being tested.
+				blockable bool
+				// seversConnection informs the test that it should expect cache requests to be incomplete
+				// since the connection is broken before the request completes.
+				seversConnection bool
+			}
+			terminationCases := map[string]terminationContext{
+				"messaging service disconnect": {
+					terminateFunction: func(messagingService solace.MessagingService,
+						messageReceiver solace.DirectMessageReceiver) {
+						Expect(messagingService.Disconnect()).To(BeNil())
+						Expect(messagingService.IsConnected()).To(BeFalse())
+						Eventually(messageReceiver.IsTerminated(), "5s").Should(BeTrue())
+					},
+					configuration: func() config.ServicePropertyMap {
+						return helpers.DefaultCacheConfiguration()
+					},
+					blockable:        true,
+					seversConnection: true,
+					// FFC: Assert subcode SESSION_NOT_ESTABLISHED, outcome.FAILED
+				},
+				"messaging service disconnect async with channel": {
+					terminateFunction: func(messagingService solace.MessagingService,
+						messageReceiver solace.DirectMessageReceiver) {
+						var err error
+						Eventually(messagingService.DisconnectAsync(), "5s").Should(Receive(&err))
+						Expect(err).To(BeNil())
+						Expect(messagingService.IsConnected()).To(BeFalse())
+						Eventually(messageReceiver.IsTerminated(), "5s").Should(BeTrue())
+					},
+					configuration: func() config.ServicePropertyMap {
+						return helpers.DefaultCacheConfiguration()
+					},
+					blockable:        true,
+					seversConnection: true,
+					// FFC: Assert subcode SESSION_NOT_ESTABLISHED, outcome.FAILED
+				},
+				"messaging service disconnect async with callback": {
+					terminateFunction: func(messagingService solace.MessagingService,
+						messageReceiver solace.DirectMessageReceiver) {
+						errorChan := make(chan error)
+						messagingService.DisconnectAsyncWithCallback(func(err error) {
+							errorChan <- err
+						})
+						var err_holder error
+						Eventually(errorChan, "5s").Should(Receive(&err_holder))
+						Expect(err_holder).To(BeNil())
+						Expect(messagingService.IsConnected()).To(BeFalse())
+						Eventually(messageReceiver.IsTerminated(), "5s").Should(BeTrue())
+					},
+					configuration: func() config.ServicePropertyMap {
+						return helpers.DefaultCacheConfiguration()
+					},
+					blockable:        true,
+					seversConnection: true,
+					// FFC: Assert subcode SESSION_NOT_ESTABLISHED, outcome.FAILED
+				},
+				"management disconnect": {
+					terminateFunction: func(messagingService solace.MessagingService,
+						messageReceiver solace.DirectMessageReceiver) {
+						eventChan := make(chan solace.ServiceEvent)
+						messagingService.AddServiceInterruptionListener(func(event solace.ServiceEvent) {
+							eventChan <- event
+						})
+						helpers.ForceDisconnectViaSEMPv2WithConfiguration(
+							messagingService,
+							// make sure this is the same config as assigned to the termination
+							// strategy's `configuration` field.
+							helpers.DefaultCacheConfiguration())
+						var event_holder solace.ServiceEvent
+						Eventually(eventChan, "5s").Should(Receive(&event_holder))
+						Expect(event_holder).To(Not(BeNil()))
+						helpers.ValidateNativeError(event_holder.GetCause(), subcode.CommunicationError)
+
+						Expect(messagingService.IsConnected()).To(BeFalse())
+						Eventually(messageReceiver.IsTerminated(), "5s").Should(BeTrue())
+					},
+					configuration: func() config.ServicePropertyMap {
+						return helpers.DefaultCacheConfiguration()
+					},
+					blockable:        true,
+					seversConnection: true,
+					// FFC: Assert subcode COMMUNICATION_ERROR, outcome.FAILED
+				},
+				"toxic disconnect": {
+					terminateFunction: func(messagingService solace.MessagingService,
+						messageReceiver solace.DirectMessageReceiver) {
+						eventChan := make(chan solace.ServiceEvent)
+						messagingService.AddServiceInterruptionListener(func(event solace.ServiceEvent) {
+							eventChan <- event
+						})
+						testcontext.Toxi().SMF().Delete()
+
+						var event_holder solace.ServiceEvent
+						Eventually(eventChan, "30s").Should(Receive(&event_holder))
+						Expect(event_holder).To(Not(BeNil()))
+						helpers.ValidateNativeError(event_holder.GetCause(), subcode.CommunicationError)
+
+						Expect(messagingService.IsConnected()).To(BeFalse())
+						Eventually(messageReceiver.IsTerminated(), "5s").Should(BeTrue())
+					},
+					configuration: func() config.ServicePropertyMap {
+						helpers.CheckToxiProxy()
+						return helpers.CacheToxicConfiguration()
+					},
+					cleanupFunc: func(_ solace.MessagingService) {
+						testcontext.Toxi().ResetProxies()
+					},
+					blockable:        true,
+					seversConnection: true,
+					// FFC: Assert subcode COMMUNICATION_ERROR, outcome.FAILED
+				},
+				"receiver terminate": {
+					terminateFunction: func(messagingService solace.MessagingService,
+						messageReceiver solace.DirectMessageReceiver) {
+						Expect(messageReceiver.Terminate(0)).To(BeNil())
+						Expect(messagingService.IsConnected()).To(BeTrue())
+					},
+					configuration: func() config.ServicePropertyMap {
+						return helpers.DefaultCacheConfiguration()
+					},
+					cleanupFunc: func(messagingService solace.MessagingService) {
+						Expect(messagingService.Disconnect()).To(BeNil())
+						Expect(messagingService.IsConnected()).To(BeFalse())
+					},
+					blockable:        false,
+					seversConnection: false,
+					// FFC: Assert subcode CACHE_REQUEST_CANCELLED, outcome.FAILED
+				},
+				"receiver terminate with grace period": {
+					terminateFunction: func(messagingService solace.MessagingService,
+						messageReceiver solace.DirectMessageReceiver) {
+						gracePeriod := time.Second * 5
+						Expect(messageReceiver.Terminate(gracePeriod)).To(BeNil())
+						Eventually(messageReceiver.IsRunning(), gracePeriod+(time.Second*1)).Should(BeFalse())
+						Expect(messageReceiver.IsTerminated()).To(BeTrue())
+						Expect(messagingService.IsConnected()).To(BeTrue())
+					},
+					configuration: func() config.ServicePropertyMap {
+						return helpers.DefaultCacheConfiguration()
+					},
+					cleanupFunc: func(messagingService solace.MessagingService) {
+						Expect(messagingService.Disconnect()).To(BeNil())
+						Expect(messagingService.IsConnected()).To(BeFalse())
+					},
+					blockable:        false,
+					seversConnection: false,
+					// FFC: Assert subcode CACHE_REQUEST_CANCELLED, outcome.FAILED
+				},
+				"receiver terminate async with channel": {
+					terminateFunction: func(messagingService solace.MessagingService,
+						messageReceiver solace.DirectMessageReceiver) {
+						gracePeriod := time.Second * 0
+						var err error
+						Eventually(messageReceiver.TerminateAsync(gracePeriod), gracePeriod+(time.Second*1)).Should(Receive(&err))
+						Expect(err).To(BeNil())
+						Expect(messageReceiver.IsRunning()).To(BeFalse())
+						Expect(messageReceiver.IsTerminated()).To(BeTrue())
+						Expect(messagingService.IsConnected()).To(BeTrue())
+					},
+					configuration: func() config.ServicePropertyMap {
+						return helpers.DefaultCacheConfiguration()
+					},
+					cleanupFunc: func(messagingService solace.MessagingService) {
+						Expect(messagingService.Disconnect()).To(BeNil())
+						Expect(messagingService.IsConnected()).To(BeFalse())
+					},
+					blockable:        true,
+					seversConnection: false,
+					// FFC: Assert subcode CACHE_REQUEST_CANCELLED, outcome.FAILED
+				},
+				"receiver terminate async with grace period with channel": {
+					terminateFunction: func(messagingService solace.MessagingService,
+						messageReceiver solace.DirectMessageReceiver) {
+						gracePeriod := time.Second * 5
+						var err error
+						Eventually(messageReceiver.TerminateAsync(gracePeriod), gracePeriod+(time.Second*1)).Should(Receive(&err))
+						Expect(err).To(BeNil())
+						Expect(messageReceiver.IsRunning()).To(BeFalse())
+						Expect(messageReceiver.IsTerminated()).To(BeTrue())
+						Expect(messagingService.IsConnected()).To(BeTrue())
+					},
+					configuration: func() config.ServicePropertyMap {
+						return helpers.DefaultCacheConfiguration()
+					},
+					cleanupFunc: func(messagingService solace.MessagingService) {
+						Expect(messagingService.Disconnect()).To(BeNil())
+						Expect(messagingService.IsConnected()).To(BeFalse())
+					},
+					blockable:        true,
+					seversConnection: false,
+					// FFC: Assert subcode CACHE_REQUEST_CANCELLED, outcome.FAILED
+				},
+				"receiver terminate async with callback": {
+					terminateFunction: func(messagingService solace.MessagingService,
+						messageReceiver solace.DirectMessageReceiver) {
+						gracePeriod := time.Second * 0
+						errChan := make(chan error)
+						var err error
+						messageReceiver.TerminateAsyncCallback(gracePeriod, func(err error) {
+							errChan <- err
+						})
+						Eventually(errChan, gracePeriod+(time.Second*1)).Should(Receive(&err))
+						Expect(err).To(BeNil())
+						Expect(messageReceiver.IsRunning()).To(BeFalse())
+						Expect(messageReceiver.IsTerminated()).To(BeTrue())
+						Expect(messagingService.IsConnected()).To(BeTrue())
+					},
+					configuration: func() config.ServicePropertyMap {
+						return helpers.DefaultCacheConfiguration()
+					},
+					cleanupFunc: func(messagingService solace.MessagingService) {
+						Expect(messagingService.Disconnect()).To(BeNil())
+						Expect(messagingService.IsConnected()).To(BeFalse())
+					},
+					blockable:        true,
+					seversConnection: false,
+					// FFC: Assert subcode CACHE_REQUEST_CANCELLED, outcome.FAILED
+				},
+				"receiver terminate async with grace period with callback": {
+					terminateFunction: func(messagingService solace.MessagingService,
+						messageReceiver solace.DirectMessageReceiver) {
+						gracePeriod := time.Second * 5
+						errChan := make(chan error)
+						var err error
+						messageReceiver.TerminateAsyncCallback(gracePeriod, func(err error) {
+							errChan <- err
+						})
+						Eventually(errChan, gracePeriod+(time.Second*1)).Should(Receive(&err))
+						Expect(err).To(BeNil())
+						Expect(messageReceiver.IsRunning()).To(BeFalse())
+						Expect(messageReceiver.IsTerminated()).To(BeTrue())
+						Expect(messagingService.IsConnected()).To(BeTrue())
+					},
+					configuration: func() config.ServicePropertyMap {
+						return helpers.DefaultCacheConfiguration()
+					},
+					cleanupFunc: func(messagingService solace.MessagingService) {
+						Expect(messagingService.Disconnect()).To(BeNil())
+						Expect(messagingService.IsConnected()).To(BeFalse())
+					},
+					blockable:        true,
+					seversConnection: false,
+					// FFC: Assert subcode CACHE_REQUEST_CANCELLED, outcome.FAILED
+				},
+			}
+			Context("a connected messaging service with a built direct message receiver", func() {
+				const cacheName string = "trivial cache name"
+				const topic string = "trivial topic"
+				const strategy resource.CachedMessageSubscriptionStrategy = resource.AsAvailable
+				const cacheRequestID message.CacheRequestID = 1
+				BeforeEach(func() {
+					logging.SetLogLevel(logging.LogLevelDebug)
+					CheckCache() // skips test with message if cache image is not available
+					var err error
+					messagingService, err = messaging.NewMessagingServiceBuilder().FromConfigurationProvider(helpers.DefaultCacheConfiguration()).Build()
+					Expect(err).To(BeNil())
+					err = messagingService.Connect()
+					Expect(err).To(BeNil())
+					messageReceiver, err = messagingService.CreateDirectMessageReceiverBuilder().Build()
+					Expect(err).To(BeNil())
+				})
+				AfterEach(func() {
+					var err error
+					if messageReceiver.IsRunning() {
+						err = messageReceiver.Terminate(0)
+						Expect(err).To(BeNil())
+					}
+					// One of the test cases involves an unstarted receiver, whose only common terminal
+					// state with a terminated receiver is !IsRunning(). To make this block resuable
+					// between both test cases, we only check that the receiver is not running at the end
+					// of the test, which is enough state coverage anyways.
+					Expect(messageReceiver.IsRunning()).To(BeFalse())
+					if messagingService.IsConnected() {
+						err = messagingService.Disconnect()
+						Expect(err).To(BeNil())
+					}
+					Expect(messagingService.IsConnected()).To(BeFalse())
+				})
+				It("will return an IllegalStateError when a cache request is attempted before the receiver is started", func() {
+					cacheRequestConfig := helpers.GetValidCacheRequestConfig(strategy, cacheName, topic)
+					_, err := messageReceiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
+					Expect(err).To(BeAssignableToTypeOf(&solace.IllegalStateError{}))
+
+					cacheResponseCallback := func(cacheResponse solace.CacheResponse) {
+						Fail("This function should never be called.")
+					}
+					err = messageReceiver.RequestCachedAsyncWithCallback(cacheRequestConfig, cacheRequestID, cacheResponseCallback)
+					Expect(err).To(BeAssignableToTypeOf(&solace.IllegalStateError{}))
+				})
+			})
+			for terminationCaseName, terminationContextRef := range terminationCases {
+				terminationConfiguration := terminationContextRef.configuration
+				terminationFunction := terminationContextRef.terminateFunction
+				terminationCleanup := terminationContextRef.cleanupFunc
+
+				Context("a connected messaging service with a built direct message receiver", func() {
+					const cacheName string = "trivial cache name"
+					const topic string = "trivial topic"
+					const strategy resource.CachedMessageSubscriptionStrategy = resource.AsAvailable
+					const cacheRequestID message.CacheRequestID = 1
+					BeforeEach(func() {
+						logging.SetLogLevel(logging.LogLevelDebug)
+						CheckCache() // skips test with message if cache image is not available
+						var err error
+						messagingService, err = messaging.NewMessagingServiceBuilder().FromConfigurationProvider(terminationConfiguration()).Build()
+						Expect(err).To(BeNil())
+						err = messagingService.Connect()
+						Expect(err).To(BeNil())
+						messageReceiver, err = messagingService.CreateDirectMessageReceiverBuilder().Build()
+						Expect(err).To(BeNil())
+						Expect(messageReceiver.Start()).To(BeNil())
+						Expect(messageReceiver.IsRunning()).To(BeTrue())
+						Expect(messageReceiver.Terminate(0)).To(BeNil())
+
+					})
+					AfterEach(func() {
+						var err error
+						if messageReceiver.IsRunning() {
+							err = messageReceiver.Terminate(0)
+							Expect(err).To(BeNil())
+						}
+						// One of the test cases involves an unstarted receiver, whose only common terminal
+						// state with a terminated receiver is !IsRunning(). To make this block resuable
+						// between both test cases, we only check that the receiver is not running at the end
+						// of the test, which is enough state coverage anyways.
+						Expect(messageReceiver.IsRunning()).To(BeFalse())
+						if messagingService.IsConnected() {
+							err = messagingService.Disconnect()
+							Expect(err).To(BeNil())
+						}
+						Expect(messagingService.IsConnected()).To(BeFalse())
+						if terminationCleanup != nil {
+							terminationCleanup(messagingService)
+						}
+					})
+
+					It("will return an IllegalStateError when a cache request is attempted after the receiver is terminated using the "+terminationCaseName+"termination method", func() {
+						terminationFunction(messagingService, messageReceiver)
+						cacheRequestConfig := helpers.GetValidCacheRequestConfig(strategy, cacheName, topic)
+						_, err := messageReceiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
+						Expect(err).To(BeAssignableToTypeOf(&solace.IllegalStateError{}))
+
+						cacheResponseCallback := func(cacheResponse solace.CacheResponse) {
+							Fail("This function should never be called.")
+						}
+						err = messageReceiver.RequestCachedAsyncWithCallback(cacheRequestConfig, cacheRequestID, cacheResponseCallback)
+						Expect(err).To(BeAssignableToTypeOf(&solace.IllegalStateError{}))
+					})
+				})
+			}
+			for terminationCaseName, terminationContextRef := range terminationCases {
+				terminationConfiguration := terminationContextRef.configuration
+				terminationFunction := terminationContextRef.terminateFunction
+				terminationCleanup := terminationContextRef.cleanupFunc
+				Context("using termination scheme "+terminationCaseName, func() {
+					const numConfiguredCachedMessages int = 3
+					const numExpectedCachedMessages int = 0
+					const numExpectedLiveMessages int = 0
+					const delay int = 25000
+					var cacheName string
+					var topic string
+
+					var terminate func()
+					var receivedMsgChan chan message.InboundMessage
+
+					BeforeEach(func() {
+						cacheName = fmt.Sprintf("MaxMsgs%d/delay=%d", numConfiguredCachedMessages, delay)
+						topic = fmt.Sprintf("MaxMsgs%d/%s/data1", numConfiguredCachedMessages, testcontext.Cache().Vpn)
+						cacheRequestID++
+						logging.SetLogLevel(logging.LogLevelDebug)
+						CheckCache() // skips test with message if cache image is not available
+						helpers.InitAllCacheClustersWithMessages()
+						var err error
+						messagingService, err = messaging.NewMessagingServiceBuilder().FromConfigurationProvider(terminationConfiguration()).Build()
+						Expect(err).To(BeNil())
+						err = messagingService.Connect()
+						Expect(err).To(BeNil())
+						messageReceiver, err = messagingService.CreateDirectMessageReceiverBuilder().Build()
+						Expect(err).To(BeNil())
+						err = messageReceiver.Start()
+						Expect(err).To(BeNil())
+						receivedMsgChan = make(chan message.InboundMessage, 3)
+						messageReceiver.ReceiveAsync(func(msg message.InboundMessage) {
+							receivedMsgChan <- msg
+						})
+
+						terminate = func() {
+							Expect(messagingService.IsConnected()).To(BeTrue())
+							Expect(messageReceiver.IsRunning()).To(BeTrue())
+							terminationFunction(messagingService, messageReceiver)
+							Eventually(messageReceiver.IsTerminated(), "5s").Should(BeTrue())
+						}
+					})
+					AfterEach(func() {
+						if messageReceiver.IsRunning() {
+							messageReceiver.Terminate(0)
+						}
+						if messagingService.IsConnected() {
+							messagingService.Disconnect()
+						}
+						if terminationCleanup != nil {
+							terminationCleanup(messagingService)
+						}
+						close(receivedMsgChan)
+					})
+
+					DescribeTable("a receiver should be able to terminate gracefully with inflight cache requests",
+						func(strategy resource.CachedMessageSubscriptionStrategy, cacheResponseProcessStrategy helpers.CacheResponseProcessStrategy) {
+							logging.SetLogLevel(logging.LogLevelDebug)
+							strategyString := ""
+							numSentCacheRequests := 1
+							numExpectedCacheResponses := numSentCacheRequests
+							// The cache request should be cancelled, so it is not successful
+							numExpectedSuccessfulCacheRequests := 0
+							// The cache request should be cancelled, which counts as the
+							// application stopping the cache request, not as an error/failure
+							numExpectedFailedCacheRequests := 0
+							numExpectedSentMessages := 0
+							totalMessagesReceived := 0
+							numExpectedReceivedMessages := numExpectedSentMessages
+							switch strategy {
+							case resource.AsAvailable:
+								strategyString = "AsAvailable"
+								numExpectedReceivedMessages += numExpectedCachedMessages
+								numExpectedReceivedMessages += numExpectedLiveMessages
+							case resource.LiveCancelsCached:
+								strategyString = "LiveCancelsCached"
+								numExpectedReceivedMessages += numExpectedLiveMessages
+							case resource.CachedFirst:
+								strategyString = "CachedFirst"
+								numExpectedReceivedMessages += numExpectedCachedMessages
+								numExpectedReceivedMessages += numExpectedLiveMessages
+							case resource.CachedOnly:
+								strategyString = "CachedOnly"
+								numExpectedReceivedMessages += numExpectedCachedMessages
+							}
+							numExpectedSentDirectMessages := numSentCacheRequests + numExpectedSentMessages
+
+							cacheRequestConfig := helpers.GetValidCacheRequestConfig(strategy, cacheName, topic)
+							cacheRequestID := message.CacheRequestID(cacheRequestID)
+							switch cacheResponseProcessStrategy {
+							case helpers.ProcessCacheResponseThroughChannel:
+								cacheResponseChan, err := messageReceiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
+								Expect(err).To(BeNil())
+								Eventually(func() uint64 {
+									return messagingService.Metrics().GetValue(metrics.CacheRequestsSent)
+								}, "10s").Should(BeNumerically("==", 1))
+
+								for i := 0; i < numExpectedReceivedMessages; i++ {
+									Eventually(receivedMsgChan, "10s").Should(Receive())
+									totalMessagesReceived++
+								}
+
+								terminate()
+								for i := 0; i < numExpectedCacheResponses; i++ {
+									Eventually(cacheResponseChan, delay*2).Should(Receive())
+								}
+							case helpers.ProcessCacheResponseThroughCallback:
+								cacheResponseSignalChan := make(chan solace.CacheResponse, numExpectedCacheResponses)
+								defer func() {
+									close(cacheResponseSignalChan)
+								}()
+								cacheResponseCallback := func(cacheResponse solace.CacheResponse) {
+									cacheResponseSignalChan <- cacheResponse
+								}
+								err := messageReceiver.RequestCachedAsyncWithCallback(cacheRequestConfig, cacheRequestID, cacheResponseCallback)
+								Expect(err).To(BeNil())
+
+								Eventually(func() uint64 {
+									return messagingService.Metrics().GetValue(metrics.CacheRequestsSent)
+								}, "10s").Should(BeNumerically("==", 1))
+								for i := 0; i < numExpectedReceivedMessages; i++ {
+									Eventually(receivedMsgChan, "10s").Should(Receive())
+									totalMessagesReceived++
+								}
+								terminate()
+								for i := 0; i < numExpectedCacheResponses; i++ {
+									Eventually(cacheResponseSignalChan, delay*2).Should(Receive())
+								}
+							default:
+								Fail(fmt.Sprintf("Got unexpected CacheResponseProcessStrategy %d", cacheResponseProcessStrategy))
+							}
+
+							Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSent)).To(BeNumerically("==", numSentCacheRequests), fmt.Sprintf("CacheRequestsSent for %s was wrong", strategyString))
+							Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSucceeded)).To(BeNumerically("==", numExpectedSuccessfulCacheRequests), fmt.Sprintf("CacheRequestsSucceeded for %s was wrong", strategyString))
+							Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsFailed)).To(BeNumerically("==", numExpectedFailedCacheRequests), fmt.Sprintf("CacheRequestsFailed for %s was wrong", strategyString))
+							Expect(messagingService.Metrics().GetValue(metrics.DirectMessagesSent)).To(BeNumerically("==", numExpectedSentDirectMessages), fmt.Sprintf("DirectMessagesSent for %s was wrong", strategyString))
+							Expect(totalMessagesReceived).To(BeNumerically("==", numExpectedReceivedMessages))
+						},
+						Entry("test cache RR for valid AsAvailable with channel", resource.AsAvailable, helpers.ProcessCacheResponseThroughChannel),
+						Entry("test cache RR for valid AsAvailable with callback", resource.AsAvailable, helpers.ProcessCacheResponseThroughCallback),
+						Entry("test cache RR for valid CachedFirst with channel", resource.CachedFirst, helpers.ProcessCacheResponseThroughChannel),
+						Entry("test cache RR for valid CachedFirst with callback", resource.CachedFirst, helpers.ProcessCacheResponseThroughCallback),
+						Entry("test cache RR for valid CachedOnly with channel", resource.CachedOnly, helpers.ProcessCacheResponseThroughChannel),
+						Entry("test cache RR for valid CachedOnly with callback", resource.CachedOnly, helpers.ProcessCacheResponseThroughCallback),
+						Entry("test cache RR for valid LiveCancelsCached with channel", resource.LiveCancelsCached, helpers.ProcessCacheResponseThroughChannel),
+						Entry("test cache RR for valid LivCancelsCached  with callback", resource.LiveCancelsCached, helpers.ProcessCacheResponseThroughCallback),
+					)
+				})
+			}
+			for terminationCaseName, terminationContextRef := range terminationCases {
+				if !terminationContextRef.blockable {
+					/* NOTE: The selected termination method cannot be blocked, so this test must be
+					 * skipped.
+					 */
+					continue
+				}
+				terminationConfiguration := terminationContextRef.configuration
+				terminationFunction := terminationContextRef.terminateFunction
+				terminationCleanup := terminationContextRef.cleanupFunc
+				terminationSeversConnection := terminationContextRef.seversConnection
+				Context("using termination scheme "+terminationCaseName, func() {
+					const numConfiguredCachedMessages int = 3
+					const numExpectedCachedMessages int = 0
+					const numExpectedLiveMessages int = 0
+					var cacheName string
+					var topic string
+
+					var terminate func()
+					var receivedMsgChan chan message.InboundMessage
+
+					BeforeEach(func() {
+						cacheName = fmt.Sprintf("MaxMsgs%d", numConfiguredCachedMessages)
+						topic = fmt.Sprintf("MaxMsgs%d/%s/data1", numConfiguredCachedMessages, testcontext.Cache().Vpn)
+						cacheRequestID++
+						logging.SetLogLevel(logging.LogLevelDebug)
+						CheckCache() // skips test with message if cache image is not available
+						helpers.InitAllCacheClustersWithMessages()
+						var err error
+						messagingService, err = messaging.NewMessagingServiceBuilder().FromConfigurationProvider(terminationConfiguration()).Build()
+						Expect(err).To(BeNil())
+						err = messagingService.Connect()
+						Expect(err).To(BeNil())
+						messageReceiver, err = messagingService.CreateDirectMessageReceiverBuilder().Build()
+						Expect(err).To(BeNil())
+						err = messageReceiver.Start()
+						Expect(err).To(BeNil())
+						receivedMsgChan = make(chan message.InboundMessage, 3)
+						messageReceiver.ReceiveAsync(func(msg message.InboundMessage) {
+							receivedMsgChan <- msg
+						})
+
+						terminate = func() {
+							Expect(messagingService.IsConnected()).To(BeTrue())
+							Expect(messageReceiver.IsRunning()).To(BeTrue())
+							terminationFunction(messagingService, messageReceiver)
+							Eventually(messageReceiver.IsTerminated(), "5s").Should(BeTrue())
+						}
+					})
+					AfterEach(func() {
+						if messageReceiver.IsRunning() {
+							messageReceiver.Terminate(0)
+						}
+						if messagingService.IsConnected() {
+							messagingService.Disconnect()
+						}
+						if terminationCleanup != nil {
+							terminationCleanup(messagingService)
+						}
+						close(receivedMsgChan)
+					})
+
+					DescribeTable("a receiver should be able to terminate gracefully with received cache responses and termination blocked by the application",
+						func(strategy resource.CachedMessageSubscriptionStrategy) {
+							logging.SetLogLevel(logging.LogLevelDebug)
+							strategyString := ""
+							numSentCacheRequests := 1
+							numExpectedCacheResponses := numSentCacheRequests
+							var numExpectedSuccessfulCacheRequests int
+							if terminationSeversConnection {
+								// The cache request should not complete, so it's not successful
+								numExpectedSuccessfulCacheRequests = 0
+							} else {
+								// The cache request should be completed, so it's successful
+								numExpectedSuccessfulCacheRequests = numSentCacheRequests
+							}
+							numExpectedFailedCacheRequests := 0
+							numExpectedSentMessages := 0
+							totalMessagesReceived := 0
+							numExpectedReceivedMessages := numExpectedSentMessages
+							switch strategy {
+							case resource.AsAvailable:
+								strategyString = "AsAvailable"
+								numExpectedReceivedMessages += numExpectedCachedMessages
+								numExpectedReceivedMessages += numExpectedLiveMessages
+							case resource.LiveCancelsCached:
+								strategyString = "LiveCancelsCached"
+								numExpectedReceivedMessages += numExpectedLiveMessages
+							case resource.CachedFirst:
+								strategyString = "CachedFirst"
+								numExpectedReceivedMessages += numExpectedCachedMessages
+								numExpectedReceivedMessages += numExpectedLiveMessages
+							case resource.CachedOnly:
+								strategyString = "CachedOnly"
+								numExpectedReceivedMessages += numExpectedCachedMessages
+							}
+							numExpectedSentDirectMessages := numSentCacheRequests + numExpectedSentMessages
+
+							cacheRequestConfig := helpers.GetValidCacheRequestConfig(strategy, cacheName, topic)
+							cacheRequestID := message.CacheRequestID(cacheRequestID)
+							/* NOTE: This channel receives the cache response and indicates to the
+							 * test that it is time to call terminate().
+							 */
+							cacheResponseChan := make(chan solace.CacheResponse)
+							defer func() {
+								close(cacheResponseChan)
+							}()
+							/* NOTE: We make the signal chan size 0 so that all writers (the API)
+							 * have to wait for the reader (the application) to empty the channel.
+							 * This allows us to simulate blocking behaviour.
+							 */
+							cacheResponseSignalChan := make(chan bool)
+							defer close(cacheResponseSignalChan)
+							cacheResponseCallback := func(cacheResponse solace.CacheResponse) {
+								cacheResponseChan <- cacheResponse
+								<-cacheResponseSignalChan
+							}
+							err := messageReceiver.RequestCachedAsyncWithCallback(cacheRequestConfig, cacheRequestID, cacheResponseCallback)
+							Expect(err).To(BeNil())
+
+							Eventually(func() uint64 {
+								return messagingService.Metrics().GetValue(metrics.CacheRequestsSent)
+							}, "10s").Should(BeNumerically("==", 1))
+
+							for i := 0; i < numExpectedCacheResponses; i++ {
+								Eventually(cacheResponseChan, "5s").Should(Receive())
+							}
+							/* NOTE: We call terminate after confirming that we have received the
+							 * cache response so that we can verify termination behaviour when the
+							 * application is blocking termination through the provided callback.
+							 */
+							terminate()
+							cacheResponseSignalChan <- true
+
+							Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSent)).To(BeNumerically("==", numSentCacheRequests), fmt.Sprintf("CacheRequestsSent for %s was wrong", strategyString))
+							Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSucceeded)).To(BeNumerically("==", numExpectedSuccessfulCacheRequests), fmt.Sprintf("CacheRequestsSucceeded for %s was wrong", strategyString))
+							Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsFailed)).To(BeNumerically("==", numExpectedFailedCacheRequests), fmt.Sprintf("CacheRequestsFailed for %s was wrong", strategyString))
+							Expect(messagingService.Metrics().GetValue(metrics.DirectMessagesSent)).To(BeNumerically("==", numExpectedSentDirectMessages), fmt.Sprintf("DirectMessagesSent for %s was wrong", strategyString))
+							Expect(totalMessagesReceived).To(BeNumerically("==", numExpectedReceivedMessages))
+
+						},
+						/* NOTE: The point of this test is to verify that if the application's
+						 * processing of the cache response is blocking, it blocks termination. Since
+						 * the `RequestCachedAsync()` method returns a channel for the application to
+						 * listen to, there is no way for the application's processing of its response
+						 * to block termination. This makes this test unapplicable to the
+						 * `RequestCachedAsync`() method. In contrast, the
+						 * `RequestCachedAsyncWithCallback()` interface requires that the application
+						 * process the cache response in an application-provided callback. This provides
+						 * the application with the opportunity to block during termination, making the
+						 * `RequestCachedAsyncWithCallback()` interface relevant to this test.
+						 */
+						Entry("test cache RR for valid AsAvailable with callback", resource.AsAvailable),
+						Entry("test cache RR for valid CachedFirst with callback", resource.CachedFirst),
+						Entry("test cache RR for valid CachedOnly with callback", resource.CachedOnly),
+						Entry("test cache RR for valid LivCancelsCached  with callback", resource.LiveCancelsCached),
+					)
+				})
+			}
+		})
+	})
 })

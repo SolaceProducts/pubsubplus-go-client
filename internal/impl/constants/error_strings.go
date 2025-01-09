@@ -226,5 +226,41 @@ const AttemptingCancellationNoticeGeneration = "Attempting to generate a cache r
 // FailedToDestroyCacheSession error string
 const FailedToDestroyCacheSession = "Failed to destroy cache session"
 
-// InvalidCachedMessageSubscriptionRequestStrategy error string
+// InvalidCachedMessageSubscriptionStrategyPassed error string
 const InvalidCachedMessageSubscriptionStrategyPassed = "an invalid CachedMessageSubscriptionStrategy was passed"
+
+// UnableToPassCacheResponseToApplication error string
+const UnableToPassCacheResponseToApplication = "Unable to pass cache response to application because: "
+
+// NoCacheChannelAvailable error string
+const NoCacheChannelAvailable = "The API failed to retrieve the configured channel that was intended for the application"
+
+// UnableToRunApplicationCacheCallback error string
+const UnableToRunApplicationCacheCallback = "Unable to run the cache response callback given by the application because: "
+
+// NoCacheCallbackAvailable error string
+const NoCacheCallbackAvailable = "The application did not provide a callback that could be used to process the cache response."
+
+// UnableToProcessCacheResponse error string
+const UnableToProcessCacheResponse = "Unable to process cache response because: "
+
+// InvalidCacheSession error string
+const InvalidCacheSession = "The cache session associated with the given cache request/response was invalid"
+
+// FailedToRetrieveCacheResponseProcessor error string
+const FailedToRetrieveCacheResponseProcessor = "Tried to retrieve CacheResponseProcessor from cacheSessionMap, but none existed for the given cacheSessionP:"
+
+// ApplicationTriedToCreateCacheRequest error string
+const ApplicationTriedToCreateCacheRequest = "The application API to create a new cache request using cache session pointer"
+
+// AnotherCacheSessionAlreadyExists error string
+const AnotherCacheSessionAlreadyExists = "but another cache request's cache session under that pointer already exists."
+
+// StartedCachePolling error string
+const StartedCachePolling = "Started go routine for polling cache response channel."
+
+// DidntStartCachePolling error string
+const DidntStartCachePolling = "Didn't start go routine for polling cache response channel again because it is already running."
+
+// InitializedReceiverCacheSessionMap error string
+const InitializedReceiverCacheSessionMap = "Initialized receiver cacheSessionMap"

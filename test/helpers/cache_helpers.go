@@ -34,76 +34,43 @@ import (
 
 type CacheHandlerCustomCallback = func(HelpersCacheResponse)
 
-type HelpersCacheResponse struct {}
+type HelpersCacheResponse struct{}
 
 func NewHelpersCacheResponseFromCacheResponse(cacheResponse solace.CacheResponse) HelpersCacheResponse {
-        return HelpersCacheResponse{}
+	return HelpersCacheResponse{}
 }
 
 type HelpersCacheResponseHandler struct {
-        cacheResponses []HelpersCacheResponse
-        customCallback CacheHandlerCustomCallback
+	cacheResponses []HelpersCacheResponse
+	customCallback CacheHandlerCustomCallback
 }
 
 func NewHelpersCacheResponseHandler(customCallback CacheHandlerCustomCallback) HelpersCacheResponseHandler {
-        return HelpersCacheResponseHandler {
-                cacheResponses: []HelpersCacheResponse{},
-                customCallback: customCallback,
-        }
+	return HelpersCacheResponseHandler{
+		cacheResponses: []HelpersCacheResponse{},
+		customCallback: customCallback,
+	}
 }
 
-func (h * HelpersCacheResponseHandler) Callback(cacheResponse solace.CacheResponse) {
-        helpersCacheResponse := NewHelpersCacheResponseFromCacheResponse(cacheResponse)
-        h.cacheResponses = append(h.cacheResponses, helpersCacheResponse)
-        h.customCallback(helpersCacheResponse)
+func (h *HelpersCacheResponseHandler) Callback(cacheResponse solace.CacheResponse) {
+	helpersCacheResponse := NewHelpersCacheResponseFromCacheResponse(cacheResponse)
+	h.cacheResponses = append(h.cacheResponses, helpersCacheResponse)
+	h.customCallback(helpersCacheResponse)
 }
 
-func (h * HelpersCacheResponseHandler) ResetMetrics() {
-        h.cacheResponses = []HelpersCacheResponse{}
+func (h *HelpersCacheResponseHandler) ResetMetrics() {
+	h.cacheResponses = []HelpersCacheResponse{}
 }
 
 const (
-        ValidCachedMessageAge int32 = 5
-        ValidMaxCachedMessages int32 = 5
-        ValidCacheAccessTimeout int32 = 5000
+	ValidCachedMessageAge   int32 = 5
+	ValidMaxCachedMessages  int32 = 5
+	ValidCacheAccessTimeout int32 = 5000
 )
-/*
-type TestMessageHandler interface {
-        Callback(inboundMessage message.InboundMessage)
-        NumHandledMessages() int
-}
 
-type CacheMessageHandler struct {
-        receivedMessages []message.InboundMessage
-        customCallback solace.MessageHandler
-}
-
-func DefaultCacheMessageHandlerCustomCallback(inboundMessage message.InboundMessage) {
-        return
-}
-
-// NewCachedMessageHandler creates a new message handler that can be passed to ReceiveAsync().
-// If nil is passed as the value for customCallback, the default callback
-// [DefaultCacheMessageHandlerCustomCallback] is used.
-func NewCachedMessageHandler(customCallback solace.MessageHandler) CacheMessageHandler {
-        if customCallback == nil {
-                customCallback = DefaultCacheMessageHandlerCustomCallback
-        }
-        return CacheMessageHandler{
-                receivedMessages: []message.InboundMessage{},
-                customCallback: customCallback,
-        }
-}
-
-func (messageHandler * CacheMessageHandler) Callback(inboundMessage message.InboundMessage) {
-        messageHandler.receivedMessages = append(messageHandler.receivedMessages, inboundMessage)
-        messageHandler.customCallback(inboundMessage)
-}
-
-func (messageHandler * CacheMessageHandler) NumHandledMessages() int {
-        return len(messageHandler.receivedMessages)
-}
-*/
+const (
+	InvalidCacheAccessTimoeout int32 = 1000
+)
 
 func DefaultCacheConfiguration() config.ServicePropertyMap {
 	connectionDetails := testcontext.Messaging()
@@ -119,124 +86,128 @@ func DefaultCacheConfiguration() config.ServicePropertyMap {
 }
 
 func SendMsgsToTopic(topic string, numMessages int) {
-        builder := messaging.NewMessagingServiceBuilder().FromConfigurationProvider(DefaultCacheConfiguration())
-        messagingService := buildMessagingService(builder, 2)
-        defer func() {
-                err := messagingService.Disconnect()
-                Expect(err).To(BeNil())
-        }()
-        err := messagingService.Connect()
-        Expect(err).To(BeNil())
-        receiver, err := messagingService.CreateDirectMessageReceiverBuilder().WithSubscriptions(resource.TopicSubscriptionOf(topic)).Build()
-        Expect(err).To(BeNil())
-        defer func() {
-                err := receiver.Terminate(0)
-                Expect(err).To(BeNil())
-        }()
-        err = receiver.Start()
-        Expect(err).To(BeNil())
-        publisher, err := messagingService.CreateDirectMessagePublisherBuilder().OnBackPressureReject(0).Build()
-        Expect(err).To(BeNil())
-        defer func() {
-                err := publisher.Terminate(0)
-                Expect(err).To(BeNil())
-        }()
-        err = publisher.Start()
-        Expect(err).To(BeNil())
-        //cacheMessageHandler := NewCachedMessageHandler(nil)
-        //err = receiver.ReceiveAsync(cacheMessageHandler.Callback)
-        receivedMsgs := make(chan message.InboundMessage, numMessages)
-        cacheMessageHandlerCallback := func (msg message.InboundMessage) {
-                receivedMsgs <- msg
-        }
-        err = receiver.ReceiveAsync(cacheMessageHandlerCallback)
-        Expect(err).To(BeNil())
-        counter := 0
-        for counter < numMessages {
-                msg, err := messagingService.MessageBuilder().BuildWithStringPayload(fmt.Sprintf("message %d", counter))
-                Expect(err).To(BeNil())
-                err = publisher.Publish(msg, resource.TopicOf(topic))
-                Expect(err).To(BeNil())
-                counter++
-        }
-        for i := 0; i < numMessages; i++ {
-                var receivedMessage message.InboundMessage
-                Eventually(receivedMsgs, "5000ms").Should(Receive(&receivedMessage))
-                Expect(receivedMessage.GetDestinationName()).To(Equal(topic))
-        }
+	builder := messaging.NewMessagingServiceBuilder().FromConfigurationProvider(DefaultCacheConfiguration())
+	messagingService := buildMessagingService(builder, 2)
+	defer func() {
+		err := messagingService.Disconnect()
+		Expect(err).To(BeNil())
+	}()
+	err := messagingService.Connect()
+	Expect(err).To(BeNil())
+	receiver, err := messagingService.CreateDirectMessageReceiverBuilder().WithSubscriptions(resource.TopicSubscriptionOf(topic)).Build()
+	Expect(err).To(BeNil())
+	defer func() {
+		err := receiver.Terminate(0)
+		Expect(err).To(BeNil())
+	}()
+	err = receiver.Start()
+	Expect(err).To(BeNil())
+	publisher, err := messagingService.CreateDirectMessagePublisherBuilder().OnBackPressureReject(0).Build()
+	Expect(err).To(BeNil())
+	defer func() {
+		err := publisher.Terminate(0)
+		Expect(err).To(BeNil())
+	}()
+	err = publisher.Start()
+	Expect(err).To(BeNil())
+	//cacheMessageHandler := NewCachedMessageHandler(nil)
+	//err = receiver.ReceiveAsync(cacheMessageHandler.Callback)
+	receivedMsgs := make(chan message.InboundMessage, numMessages)
+	cacheMessageHandlerCallback := func(msg message.InboundMessage) {
+		receivedMsgs <- msg
+	}
+	err = receiver.ReceiveAsync(cacheMessageHandlerCallback)
+	Expect(err).To(BeNil())
+	counter := 0
+	for counter < numMessages {
+		msg, err := messagingService.MessageBuilder().BuildWithStringPayload(fmt.Sprintf("message %d", counter))
+		Expect(err).To(BeNil())
+		err = publisher.Publish(msg, resource.TopicOf(topic))
+		Expect(err).To(BeNil())
+		counter++
+	}
+	for i := 0; i < numMessages; i++ {
+		var receivedMessage message.InboundMessage
+		Eventually(receivedMsgs, "5000ms").Should(Receive(&receivedMessage))
+		Expect(receivedMessage.GetDestinationName()).To(Equal(topic))
+	}
 }
 
 // InitCacheWithPreExistingMessages assumes that `clusterName` is the name of a valid cache cluster.
 func InitCacheWithPreExistingMessages(cacheCluster testcontext.CacheClusterConfig) {
-        topics := []string{}
-        const defaultNumMessages int = 1
-        const standardClusterNamePrefix string = "MaxMsgs"
-        vpnName := testcontext.Cache().Vpn
-        numMessages := defaultNumMessages
-        clusterName := cacheCluster.Name
-        for _, topic := range cacheCluster.Topics {
-                if strings.HasPrefix(topic, fmt.Sprintf("%s/*/data", clusterName)) {
-                        /* NOTE: Checking the length is greater than the prefix means we can
-                         * split the string immediately instead of needing to check that the 
-                         * slice length is 2. */
-                        if strings.HasPrefix(clusterName, standardClusterNamePrefix) && (len(clusterName) != len(standardClusterNamePrefix)) {
-                                if convertedNum, err := strconv.Atoi(strings.Split(clusterName, standardClusterNamePrefix)[1]); err == nil {
-                                        numMessages = convertedNum
-                                }
-                        }
-                        splitString := strings.Split(topic, "*")
-                        /* NOTE: This should never happen, but we have this check just in case
-                         * something goes wrong so we can avoid a panic if we try to go outside
-                         * the list size in the next line. */
-                        Expect(len(splitString)).To(BeNumerically("==", 2))
-                        topics = append(topics, fmt.Sprintf("%s%s%s", splitString[0], vpnName, splitString[1]))
-                }
-        }
-        for _, topic := range topics {
-                SendMsgsToTopic(topic, numMessages)
-        }
+	topics := []string{}
+	const defaultNumMessages int = 1
+	const standardClusterNamePrefix string = "MaxMsgs"
+	vpnName := testcontext.Cache().Vpn
+	numMessages := defaultNumMessages
+	clusterName := cacheCluster.Name
+	for _, topic := range cacheCluster.Topics {
+		if strings.HasPrefix(topic, fmt.Sprintf("%s/*/data", clusterName)) {
+			/* NOTE: Checking the length is greater than the prefix means we can
+			 * split the string immediately instead of needing to check that the
+			 * slice length is 2. */
+			if strings.HasPrefix(clusterName, standardClusterNamePrefix) && (len(clusterName) != len(standardClusterNamePrefix)) {
+				if convertedNum, err := strconv.Atoi(strings.Split(clusterName, standardClusterNamePrefix)[1]); err == nil {
+					numMessages = convertedNum
+				}
+			}
+			splitString := strings.Split(topic, "*")
+			/* NOTE: This should never happen, but we have this check just in case
+			 * something goes wrong so we can avoid a panic if we try to go outside
+			 * the list size in the next line. */
+			Expect(len(splitString)).To(BeNumerically("==", 2))
+			topics = append(topics, fmt.Sprintf("%s%s%s", splitString[0], vpnName, splitString[1]))
+		}
+	}
+	for _, topic := range topics {
+		SendMsgsToTopic(topic, numMessages)
+	}
 }
 
 func InitAllCacheClustersWithMessages() {
-        for _, distributedCache := range testcontext.Cache().DistributedCaches {
-                for _, cacheCluster := range distributedCache.CacheClusters {
-                        InitCacheWithPreExistingMessages(cacheCluster)
-                }
-        }
+	for _, distributedCache := range testcontext.Cache().DistributedCaches {
+		for _, cacheCluster := range distributedCache.CacheClusters {
+			InitCacheWithPreExistingMessages(cacheCluster)
+		}
+	}
 }
 
 func GetValidAsAvailableCacheRequestConfig(cacheName string, topic string) resource.CachedMessageSubscriptionRequest {
-        return GetValidCacheRequestConfig(resource.AsAvailable, cacheName, topic)
+	return GetValidCacheRequestConfig(resource.AsAvailable, cacheName, topic)
 }
 
 func GetValidCachedOnlyCacheRequestConfig(cacheName string, topic string) resource.CachedMessageSubscriptionRequest {
-        return GetValidCacheRequestConfig(resource.CachedOnly, cacheName, topic)
+	return GetValidCacheRequestConfig(resource.CachedOnly, cacheName, topic)
 }
 
 func GetValidLiveCancelsCachedRequestConfig(cacheName string, topic string) resource.CachedMessageSubscriptionRequest {
-        return GetValidCacheRequestConfig(resource.LiveCancelsCached, cacheName, topic)
+	return GetValidCacheRequestConfig(resource.LiveCancelsCached, cacheName, topic)
 }
 
 func GetValidCachedFirstCacheRequestConfig(cacheName string, topic string) resource.CachedMessageSubscriptionRequest {
-        return GetValidCacheRequestConfig(resource.CachedFirst, cacheName, topic)
+	return GetValidCacheRequestConfig(resource.CachedFirst, cacheName, topic)
 }
 
 func GetValidCacheRequestConfig(strategy resource.CachedMessageSubscriptionStrategy, cacheName string, topic string) resource.CachedMessageSubscriptionRequest {
-        return resource.NewCachedMessageSubscriptionRequest(strategy, cacheName, resource.TopicSubscriptionOf(topic), ValidCacheAccessTimeout, ValidMaxCachedMessages, ValidCachedMessageAge)
+	return resource.NewCachedMessageSubscriptionRequest(strategy, cacheName, resource.TopicSubscriptionOf(topic), ValidCacheAccessTimeout, ValidMaxCachedMessages, ValidCachedMessageAge)
+}
+
+func GetInvalidCacheRequestConfig(strategy resource.CachedMessageSubscriptionStrategy, cacheName string, topic string) resource.CachedMessageSubscriptionRequest {
+	return resource.NewCachedMessageSubscriptionRequest(strategy, cacheName, resource.TopicSubscriptionOf(topic), InvalidCacheAccessTimoeout, ValidMaxCachedMessages, ValidCachedMessageAge)
 }
 
 type CacheResponseProcessStrategy = int
 
 const (
-        ProcessCacheResponseThroughChannel CacheResponseProcessStrategy = iota
-        ProcessCacheResponseThroughCallback CacheResponseProcessStrategy = iota
+	ProcessCacheResponseThroughChannel  CacheResponseProcessStrategy = iota
+	ProcessCacheResponseThroughCallback CacheResponseProcessStrategy = iota
 )
 
 func CacheToxicConfiguration() config.ServicePropertyMap {
-        if toxiConfig := ToxicConfiguration(); toxiConfig == nil {
-                return nil
-        } else {
-                toxiConfig[config.ServicePropertyVPNName] = testcontext.Cache().Vpn
-                return toxiConfig
-        }
+	if toxiConfig := ToxicConfiguration(); toxiConfig == nil {
+		return nil
+	} else {
+		toxiConfig[config.ServicePropertyVPNName] = testcontext.Cache().Vpn
+		return toxiConfig
+	}
 }

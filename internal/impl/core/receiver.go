@@ -71,11 +71,11 @@ type Receiver interface {
 	IncrementDuplicateAckCount()
 	// Creates a new persistent receiver with the given callback
 	NewPersistentReceiver(properties []string, callback RxCallback, eventCallback PersistentEventCallback) (PersistentReceiver, ErrorInfo)
-    /* TODO: The `GetSessionPointer` method seems a litte out of place here. For now it works, but it might be an,
-     * anti-pattern so we should look into clarifying this and maybe doing this differently in a future iteration.*/
+	/* TODO: The `GetSessionPointer` method seems a litte out of place here. For now it works, but it might be an,
+	 * anti-pattern so we should look into clarifying this and maybe doing this differently in a future iteration.*/
 
-    // Retrieves the sesion pointer
-    GetSessionPointer() ccsmp.SolClientSessionPt
+	// Retrieves the sesion pointer
+	GetSessionPointer() ccsmp.SolClientSessionPt
 }
 
 // PersistentReceiver interface
@@ -206,7 +206,6 @@ func (receiver *ccsmpBackedReceiver) Events() Events {
 }
 
 func (receiver *ccsmpBackedReceiver) rxCallback(msg Receivable, userP unsafe.Pointer) bool {
-        fmt.Printf("Got to rxCallback with user_p %p\n", userP)
 	receiver.rxLock.RLock()
 	defer receiver.rxLock.RUnlock()
 	callback, ok := receiver.rxMap[uintptr(userP)]
@@ -384,7 +383,7 @@ func (receiver *ccsmpBackedReceiver) NewPersistentReceiver(properties []string, 
 
 /* FFC: It might be better if this were in ccsmp_core.go? */
 func (receiver *ccsmpBackedReceiver) GetSessionPointer() ccsmp.SolClientSessionPt {
-        return receiver.session.GetPointer()
+	return receiver.session.GetPointer()
 }
 
 // Destroy destroys the flow

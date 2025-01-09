@@ -55,7 +55,7 @@ func (context *remoteTestContext) Setup() error {
 			return err
 		}
 		context.toxi = newToxiProxy(context.config.ToxiProxy)
-		context.toxi.setup()
+		context.toxi.setupWithPreExistingProxy()
 	}
 
 	if context.config.Cache.Image != "" {
