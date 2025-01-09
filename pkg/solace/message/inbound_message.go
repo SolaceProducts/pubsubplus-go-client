@@ -22,6 +22,10 @@ import (
 	"solace.dev/go/messaging/pkg/solace/message/rgmid"
 )
 
+// CacheRequestID - a type to be used for correlating received,
+// previously cached messages with their associated cache response.
+type CacheRequestID uint64
+
 // InboundMessage represents a message received by a consumer.
 type InboundMessage interface {
 	// Extend the Message interface.
@@ -60,6 +64,11 @@ type InboundMessage interface {
 	// IsRedelivered retrieves the message's redelivery status. Returns true if the message
 	// redelivery occurred in the past, otherwise false.
 	IsRedelivered() bool
+
+	// GetCacheRequestID retrieves the [CacheRequestID] of the message
+	// and a [True] result if the message was received as a part of a
+	// cache response. Otherwise, returns 0 and False.
+	GetCacheRequestID() (CacheRequestID, bool)
 }
 
 // MessageDiscardNotification is used to indicate that there are discarded messages.
