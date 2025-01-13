@@ -29,7 +29,7 @@ import (
 // PollAndProcessCacheResponseChannel is intended to be run as a go routine.
 func (receiver *directMessageReceiverImpl) PollAndProcessCacheResponseChannel() {
 	receiver.cachePollingRunning.Store(true)
-	var cacheEventInfo ccsmp.SolClientCacheEventInfo
+	var cacheEventInfo ccsmp.CacheEventInfo
 	channelIsOpen := true
 	/* poll cacheventinfo channel */
 	for channelIsOpen {
@@ -41,7 +41,7 @@ func (receiver *directMessageReceiverImpl) PollAndProcessCacheResponseChannel() 
 			// Any function that closes the channel must guarantee this.
 			break
 		}
-		/* We decrement the counter first, since as soon as we pop the SolClientCacheEventInfo
+		/* We decrement the counter first, since as soon as we pop the CacheEventInfo
 		 * off the channel, CCSMP is able to put another on. If CCSMP is able resume processing the
 		 * cache responses, we should unblock the application by allowing it to submit more cache
 		 * requests ASAP.*/
@@ -52,9 +52,14 @@ func (receiver *directMessageReceiverImpl) PollAndProcessCacheResponseChannel() 
 }
 
 // ProcessCacheEvent is intended to be run by any agent trying to process a cache response. This can be run from a polling go routine, or during termination to cleanup remaining resources, and possibly by other agents as well.
-func (receiver *directMessageReceiverImpl) ProcessCacheEvent(cacheEventInfo ccsmp.SolClientCacheEventInfo) {
+func (receiver *directMessageReceiverImpl) ProcessCacheEvent(cacheEventInfo ccsmp.CacheEventInfo) {
+	fmt.Printf("ProcessCacheEvent::cacheEventInfo is:\n%s\n", cacheEventInfo.String())
+	if receiver.logger.IsDebugEnabled() {
+		receiver.logger.Debug(fmt.Sprintf("ProcessCacheEvent::cacheEventInfo is:\n%s\n", cacheEventInfo.String()))
+	}
 	cacheSessionP := cacheEventInfo.GetCacheSessionPointer()
 	receiver.cacheLock.Lock()
+	fmt.Printf("ProcessCacheEvent::loading cache response processor\n")
 	cacheResponseHolder, found := receiver.loadCacheResponseProcessorFromMapUnsafe(cacheSessionP)
 	receiver.cacheLock.Unlock()
 	if !found {

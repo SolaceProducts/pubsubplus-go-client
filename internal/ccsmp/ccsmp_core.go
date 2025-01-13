@@ -145,7 +145,7 @@ func goEventCallback(sessionP SolClientSessionPt, eventInfoP SolClientSessionEve
 	if callback, ok := sessionToEventCallbackMap.Load(sessionP); ok {
 		callback.(SolClientSessionEventCallback)(SolClientSessionEvent(eventInfoP.sessionEvent), eventInfoP.responseCode, C.GoString(eventInfoP.info_p), eventInfoP.correlation_p, userP)
 	} else {
-		logging.Default.Debug(fmt.Sprintf("Received event callback from core API without an associated session callback:\n%s\n", C.GoString(eventInfoP.info_p)))
+		logging.Default.Debug("Received event callback from core API without an associated session callback")
 	}
 }
 
@@ -334,11 +334,6 @@ func (context *SolClientContext) SolClientSessionCreate(properties []string) (se
 	var sessionP SolClientSessionPt
 	sessionPropsP, sessionPropertiesFreeFunction := ToCArray(properties, true)
 	defer sessionPropertiesFreeFunction()
-	var sessionFuncInfo C.solClient_session_createFuncInfo_t
-	sessionFuncInfo.rxMsgInfo.callback_p = (C.solClient_session_rxMsgCallbackFunc_t)(unsafe.Pointer(C.defaultMessageReceiveCallback))
-	sessionFuncInfo.rxMsgInfo.user_p = nil
-	sessionFuncInfo.eventInfo.callback_p = (C.solClient_session_eventCallbackFunc_t)(unsafe.Pointer(C.eventCallback))
-	sessionFuncInfo.eventInfo.user_p = nil
 
 	solClientErrorInfo := handleCcsmpError(func() SolClientReturnCode {
 		return C.SessionCreate(sessionPropsP,

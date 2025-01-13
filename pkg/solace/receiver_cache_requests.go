@@ -32,15 +32,12 @@ import (
 // resulting from outstanding cache requests. Data messages related to the cache response willbe passed through the
 // conventional [Receiver] interfaces of [Receive()] and [ReceiveAsync()].
 type ReceiverCacheRequests interface {
-	/* TODO: Check the error types in this doc string are correct. */
 
 	// RequestCachedAsync asynchronously requests cached data from a cache and defers processing of the resulting
 	// cache response to the application throufh the returned channel.
 	// Returns IllegalStateError if the service is not connected or the receiver is not running.
 	// Returns InvalidConfigurationError if an invalid [resource.CachedMessageSubscriptionRequest] was passed.
 	RequestCachedAsync(cachedMessageSubscriptionRequest resource.CachedMessageSubscriptionRequest, cacheRequestID message.CacheRequestID) (<-chan CacheResponse, error)
-
-	/* TODO: Check the error types in this doc string are correct. */
 
 	// RequestCachedAsyncWithCallback asynchronously requests cached data from a cache and processes the resulting
 	// cache response through the provided function callback.

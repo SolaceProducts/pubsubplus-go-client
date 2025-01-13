@@ -18,7 +18,6 @@
 #include "solclient/solClient.h"
 #include "solclient/solClientMsg.h"
 #include "solclient/solCache.h"
-#include <stdio.h> // remove later, only needed for debugging
 
 //
 // external callbacks defined in ccsmp_callbacks.c
@@ -298,12 +297,6 @@ CacheSessionSendCacheRequest(
         solClient_cacheRequestFlags_t cacheFlags,
         solClient_subscribeFlags_t subscribeFlags)
 {
-        /* We can use the cache session pointer as the unique identifier for the cache request since by design
-         * are having only one cache request/response per cache session, and the pointer to the cache session
-         * object is necessarily unique. It is easiest to use the cache session pointer since it is a unique
-         * value that will persist until the end of the cache request lifetime, at which point the user_p is
-         * removed from any subscription tables anyways. */
-        void * user_p = (void *)opaqueCacheSession_p;
         solClient_session_rxMsgDispatchFuncInfo_t dispatchInfo;      /* msg dispatch callback to set */
         dispatchInfo.dispatchType = SOLCLIENT_DISPATCH_TYPE_CALLBACK;
         dispatchInfo.callback_p = messageReceiveCallback;
@@ -315,7 +308,7 @@ CacheSessionSendCacheRequest(
                 topic_p,
                 cacheRequestId,
                 (solCache_eventCallbackFunc_t)cacheEventCallback,
-                /* CCSMP does not copy the contents of user_p, only the pointer. This means we cannot have
+                /* NOTE: CCSMP does not copy the contents of user_p, only the pointer. This means we cannot have
                  * Go-allocated memory as the object being pointed to, since that object might be garbage
                  * collected before the cache response is received and the user_p is used for some purpose
                  * by either the CCSMP or PSPGo APIs. We also cannot allocate a struct for user_p in C since
@@ -323,9 +316,11 @@ CacheSessionSendCacheRequest(
                  * properly. This means that our only option, AFAIK, is to just pass the cache session
                  * pointer as a void pointer, since its lifecycle is managed outside of this function in a
                  * safe way, and must survive at least until CCSMP receives a cache response or the request
-                 * is cancelled.
+                 * is cancelled. While destroying the cache session, the user_p/opaqueCacheSession_p will be
+                 * removed from the tables anyways. Cancelling a cache request is always followed by destroying
+                 * the cache associated session.
                  * */
-                user_p,
+                (void *)opaqueCacheSession_p,
                 cacheFlags,
                 subscribeFlags,
                 &dispatchInfo);

@@ -93,7 +93,7 @@ type directMessageReceiverImpl struct {
 	// as specified by the application on a call to a [ReceiverCacheRequester] interface.
 	cacheSessionMap map[ccsmp.SolClientCacheSessionPt]CacheResponseProcessor // ([keyType]valueType) [ccsmp.SolClientCacheSessionPt]CacheResponseProcessor
 	// cacheResponseChan is used to buffer the cache responses from CCSMP.
-	cacheResponseChan chan ccsmp.SolClientCacheEventInfo
+	cacheResponseChan chan ccsmp.CacheEventInfo
 	/* NOTE: This data type could be changed from int32 if necessary, but must match the type of
 	 * directMessageReceiverImpl.cacheResponseChanCounter. */
 	// cacheResponseChanCounter is used to prevent cache requests from being submitted if the
@@ -948,7 +948,7 @@ func (receiver *directMessageReceiverImpl) addCacheSessionToMapIfNotPresent(hold
 	return err
 }
 
-// isAvailableForCache returns true if the receiver is ready to send a cache request, or false if it is not.
+// isAvailableForCache returns nil if the receiver is ready to send a cache request, or an error if it is not.
 func (receiver *directMessageReceiverImpl) checkStateForCacheRequest() error {
 	var err error
 	var errorString string = ""
@@ -975,7 +975,7 @@ func (receiver *directMessageReceiverImpl) checkStateForCacheRequest() error {
 
 func (receiver *directMessageReceiverImpl) initCacheResourcesIfNotPresent() {
 	if receiver.cacheResponseChan == nil {
-		receiver.cacheResponseChan = make(chan ccsmp.SolClientCacheEventInfo, cacheResponseChannelMaxSize)
+		receiver.cacheResponseChan = make(chan ccsmp.CacheEventInfo, cacheResponseChannelMaxSize)
 	}
 	if !receiver.cachePollingRunning.Load() {
 		go receiver.PollAndProcessCacheResponseChannel()
@@ -995,11 +995,11 @@ func (receiver *directMessageReceiverImpl) initCacheResourcesIfNotPresent() {
 	}
 }
 
-func (receiver *directMessageReceiverImpl) generateCacheRequestCancellationNotice(cacheSessionP ccsmp.SolClientCacheSessionPt, cacheResponseProcessor CacheResponseProcessor, errorInfo *ccsmp.SolClientErrorInfoWrapper) ccsmp.SolClientCacheEventInfo {
+func (receiver *directMessageReceiverImpl) generateCacheRequestCancellationNotice(cacheSessionP ccsmp.SolClientCacheSessionPt, cacheResponseProcessor CacheResponseProcessor, errorInfo *ccsmp.SolClientErrorInfoWrapper) ccsmp.CacheEventInfo {
 	if receiver.logger.IsDebugEnabled() {
 		receiver.logger.Debug(constants.AttemptingCancellationNoticeGeneration)
 	}
-	cacheEventInfo := ccsmp.NewConfiguredSolClientCacheEventInfo(cacheSessionP, cacheResponseProcessor.GetCacheRequestInfo().GetCacheRequestID(), cacheResponseProcessor.GetCacheRequestInfo().GetTopic(), core.ToNativeError(errorInfo, constants.FailedToCancelCacheRequest))
+	cacheEventInfo := ccsmp.NewConfiguredCacheEventInfo(cacheSessionP, cacheResponseProcessor.GetCacheRequestInfo().GetCacheRequestID(), cacheResponseProcessor.GetCacheRequestInfo().GetTopic(), core.ToNativeError(errorInfo, constants.FailedToCancelCacheRequest))
 	return cacheEventInfo
 }
 
@@ -1041,7 +1041,6 @@ func (receiver *directMessageReceiverImpl) teardownCache() {
 		 * different thread right now, or it's already been done before. */
 		return
 	}
-	receiver.cacheLock.Lock()
 	if running := receiver.cachePollingRunning.Load(); !running {
 		/* We can return early since either the resources and shutdown are being handled by a
 		 * different thread right now, or it's already been done before. */
@@ -1061,6 +1060,7 @@ func (receiver *directMessageReceiverImpl) teardownCache() {
 	 * application.*/
 	/* Release the mutex and then shutdown the PollAndProcessCacheResponseChannel goroutine and
 	 * cacheResponseChan. */
+	receiver.cacheLock.Lock()
 	close(receiver.cacheResponseChan)
 	/* NOTE: Release the mutex so that `ProcessCacheEvent()` can clear the channel.*/
 	receiver.cacheLock.Unlock()
@@ -1091,6 +1091,9 @@ func (receiver *directMessageReceiverImpl) requestCached(cachedMessageSubscripti
 	}
 	/* We don't need to release the mutex on calls to CreateCacheSession because there are no callbacks. */
 	cacheSessionP, errInfo := ccsmp.CreateCacheSession(propsList, receiver.internalReceiver.GetSessionPointer())
+	if receiver.logger.IsDebugEnabled() {
+		receiver.logger.Debug(fmt.Sprintf("Created cache session 0x%x", cacheSessionP))
+	}
 
 	if errInfo != nil {
 		errorString := constants.FailedToCreateCacheSession + constants.WithCacheRequestID + fmt.Sprintf("%d", cacheRequestID)
@@ -1104,7 +1107,7 @@ func (receiver *directMessageReceiverImpl) requestCached(cachedMessageSubscripti
 	}
 
 	/* Run go routine that sends cache request */
-	var cacheEventCallback ccsmp.SolClientCacheEventCallback = func(cacheEventInfo ccsmp.SolClientCacheEventInfo) {
+	var cacheEventCallback ccsmp.SolClientCacheEventCallback = func(cacheEventInfo ccsmp.CacheEventInfo) {
 		receiver.cacheResponseChanCounter.Add(1)
 		receiver.cacheResponseChan <- cacheEventInfo
 	}
@@ -1113,6 +1116,9 @@ func (receiver *directMessageReceiverImpl) requestCached(cachedMessageSubscripti
 		errorString := fmt.Sprintf("%s %s %d and %s %d because %s", constants.FailedToSendCacheRequest, constants.WithCacheRequestID, cacheRequestID, constants.WithCacheSessionPointer, cacheSessionP, constants.InvalidCachedMessageSubscriptionStrategyPassed)
 		receiver.logger.Warning(errorString)
 		return solace.NewError(&solace.IllegalArgumentError{}, errorString, nil)
+	}
+	if receiver.logger.IsDebugEnabled() {
+		receiver.logger.Debug(fmt.Sprintf("Sending cache request on cache session px%x", cacheSessionP))
 	}
 	errInfo = ccsmp.SendCacheRequest(receiver.dispatch,
 		cacheSessionP,
@@ -1139,6 +1145,7 @@ func (receiver *directMessageReceiverImpl) RequestCachedAsync(cachedMessageSubsc
 	/* We don't need to check the channel that is returned here since this functionality is tested through unit
 	 * testing and because we just instantiated the channel ourselves. */
 	if channel, ok := chHolder.GetChannel(); ok {
+		//receiver.cacheLock.Unlock()
 		err := receiver.requestCached(cachedMessageSubscriptionRequest, cacheRequestID, chHolder)
 		if err != nil {
 			/* NOTE: Rely on requestCached to log error. */
@@ -1147,6 +1154,7 @@ func (receiver *directMessageReceiverImpl) RequestCachedAsync(cachedMessageSubsc
 		}
 		return channel, err
 	}
+	//receiver.cacheLock.Unlock()
 	/* NOTE: We should never get to this point since we know we just set the holder, but we need to include error
 	 * handling just in case, so that the program doesn't panic.*/
 	errorString := constants.FailedToRetrieveChannel

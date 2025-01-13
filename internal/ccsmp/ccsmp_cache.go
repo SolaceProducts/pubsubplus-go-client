@@ -70,13 +70,6 @@ var CachedMessageSubscriptionRequestStrategyMappingToCCSMPSubscribeFlags = map[r
 // SolClientCacheSessionPt is assigned a value
 type SolClientCacheSessionPt = C.solClient_opaqueCacheSession_pt
 
-/* TODO: Not sure if we really need this. */
-
-// SolClientCacheSession structure
-type SolClientCacheSession struct {
-	pointer SolClientCacheSessionPt
-}
-
 /*
 	sessionToCacheEventCallbackMap is required as a global var even though cache sessions etc. are
 
@@ -117,13 +110,11 @@ func SendCacheRequest(
 ) *SolClientErrorInfoWrapper {
 
 	cacheToEventCallbackMap.Store(cacheSessionP, eventCallback)
-	/* NOTE: Do we need to add the dispatch callback to the map here, or is that already done by the receiver in calls to Receive() or ReceiveAsync()? */
 
 	topicP := C.CString(topic)
 	errorInfo := handleCcsmpError(func() SolClientReturnCode {
 		return C.CacheSessionSendCacheRequest(
 			C.solClient_uint64_t(dispatchID),
-			// TODO: rework this, we should probably just have a pointer and not a whole object.
 			cacheSessionP,
 			topicP,
 			C.solClient_uint64_t(cacheRequestID), // This is done elsewhere such as in SolClientMessgeSetSequenceNumber
@@ -137,8 +128,12 @@ func SendCacheRequest(
 func DestroyCacheSession(cacheSessionP SolClientCacheSessionPt) *SolClientErrorInfoWrapper {
 	/* NOTE: We remove the cache session pointer from the map before we destroy the cache session
 	 * so that map access using that pointer as an index won't collide with another cache session
-	 * that is created immediately after this one is destroyed.*/
+	 * that is created immediately after this one is destroyed. This should be deleted in the cache
+	 * event callback. We delete again here in case there was a problem in the cache event callback
+	 * so that we don't leak resources. If the entry has already been deleted, the following call
+	 * will not fail, and will effectively be a no-op.*/
 	cacheToEventCallbackMap.Delete(cacheSessionP)
+
 	return handleCcsmpError(func() SolClientReturnCode {
 		return C.CacheSessionDestroy(&cacheSessionP)
 	})
@@ -150,17 +145,14 @@ func CancelCacheRequest(cacheSessionP SolClientCacheSessionPt) *SolClientErrorIn
 	})
 }
 
-// SolClientCacheEventCallback functions should format CCSMP args into Go objects and then pass those objects
-// to a separate function that actually processes them, maybe through a channel with a background go routine
-// polling it?
-type SolClientCacheEventCallback = func(SolClientCacheEventInfo)
-type SolClientCacheEventInfoPt = C.solCache_eventCallbackInfo_pt
+// SolClientCacheEventCallback functions format CCSMP args into Go objects and then pass those objects
+// to a separate function that actually processes them
+type SolClientCacheEventCallback = func(CacheEventInfo)
+type CacheEventInfoPt = C.solCache_eventCallbackInfo_pt
 
 type SolClientCacheEvent = C.solCache_event_t
 
-type SolClientCacheEventInfo struct {
-	/* TODO: Rename this to CacheEventInfo to better distinguish it from CCSMP objects, since it now has more than
-	 * just the original event fields. */
+type CacheEventInfo struct {
 	cacheSessionP  SolClientCacheSessionPt
 	event          SolClientCacheEvent
 	topic          string
@@ -170,16 +162,16 @@ type SolClientCacheEventInfo struct {
 	err            error
 }
 
-func (eventInfo *SolClientCacheEventInfo) String() string {
-	return fmt.Sprintf("SolClientCacheEventInfo:\n\tcacheSesionP: 0x%x\n\tevent: %d\n\ttopic: %s\n\treturnCode: %d\n\tsubCode: %d\n\tcacheRequestID: %d\n\terr: %s", eventInfo.cacheSessionP, eventInfo.event, eventInfo.topic, eventInfo.returnCode, eventInfo.subCode, eventInfo.cacheRequestID, eventInfo.err)
+func (eventInfo *CacheEventInfo) String() string {
+	return fmt.Sprintf("CacheEventInfo:\n\tcacheSessionP: 0x%x\n\tevent: %d\n\ttopic: %s\n\treturnCode: %d\n\tsubCode: %d\n\tcacheRequestID: %d\n\terr: %s", eventInfo.cacheSessionP, eventInfo.event, eventInfo.topic, eventInfo.returnCode, eventInfo.subCode, eventInfo.cacheRequestID, eventInfo.err)
 }
 
 const (
 	SolClientCacheEventRequestCompletedNotice SolClientCacheEvent = 1
 )
 
-func NewConfiguredSolClientCacheEventInfo(cacheSessionP SolClientCacheSessionPt, cacheRequestID message.CacheRequestID, topic string, err error) SolClientCacheEventInfo {
-	return SolClientCacheEventInfo{
+func NewConfiguredCacheEventInfo(cacheSessionP SolClientCacheSessionPt, cacheRequestID message.CacheRequestID, topic string, err error) CacheEventInfo {
+	return CacheEventInfo{
 		cacheSessionP:  cacheSessionP,
 		event:          SolClientCacheEventRequestCompletedNotice,
 		topic:          topic,
@@ -190,12 +182,12 @@ func NewConfiguredSolClientCacheEventInfo(cacheSessionP SolClientCacheSessionPt,
 	}
 }
 
-func (i *SolClientCacheEventInfo) GetCacheSessionPointer() SolClientCacheSessionPt {
+func (i *CacheEventInfo) GetCacheSessionPointer() SolClientCacheSessionPt {
 	return i.cacheSessionP
 }
 
-func SolClientCacheEventInfoFromCoreCacheEventInfo(eventCallbackInfo SolClientCacheEventInfoPt, userP uintptr) SolClientCacheEventInfo {
-	return SolClientCacheEventInfo{
+func CacheEventInfoFromCoreCacheEventInfo(eventCallbackInfo CacheEventInfoPt, userP uintptr) CacheEventInfo {
+	return CacheEventInfo{
 		cacheSessionP:  SolClientCacheSessionPt(userP),
 		event:          SolClientCacheEvent(eventCallbackInfo.cacheEvent),
 		topic:          C.GoString(eventCallbackInfo.topic),
@@ -206,13 +198,18 @@ func SolClientCacheEventInfoFromCoreCacheEventInfo(eventCallbackInfo SolClientCa
 }
 
 //export goCacheEventCallback
-func goCacheEventCallback( /*opaqueSessionP*/ _ SolClientSessionPt, eventCallbackInfo SolClientCacheEventInfoPt, userP unsafe.Pointer) {
+func goCacheEventCallback( /*opaqueSessionP*/ _ SolClientSessionPt, eventCallbackInfo CacheEventInfoPt, userP unsafe.Pointer) {
 	/* NOTE: We don't need to use the session pointer since we can use the user_p(a.k.a. the cache session pointer)
 	 * which is guaranteed to be unique for at least the duration that the cache session pointer is in the global
 	 * map since during receiver termination we destory the cache session only after we remove it from all maps.
 	 */
 	if callback, ok := cacheToEventCallbackMap.Load(SolClientCacheSessionPt(uintptr(userP))); ok {
-		callback.(SolClientCacheEventCallback)(SolClientCacheEventInfoFromCoreCacheEventInfo(eventCallbackInfo, uintptr(userP)))
+		eventInfo := CacheEventInfoFromCoreCacheEventInfo(eventCallbackInfo, uintptr(userP))
+		callback.(SolClientCacheEventCallback)(eventInfo)
+		/* NOTE: We remove the cache session pointer from the map before we destroy the cache session
+		 * so that map access using that pointer as an index won't collide with another cache session
+		 * that is created immediately after this one is destroyed.*/
+		cacheToEventCallbackMap.Delete(eventInfo.cacheSessionP)
 	} else {
 		if logging.Default.IsDebugEnabled() {
 			logging.Default.Debug("Received event callback from core API without an associated cache event callback")
