@@ -70,19 +70,16 @@ var CachedMessageSubscriptionRequestStrategyMappingToCCSMPSubscribeFlags = map[r
 // SolClientCacheSessionPt is assigned a value
 type SolClientCacheSessionPt = C.solClient_opaqueCacheSession_pt
 
-/*
-	sessionToCacheEventCallbackMap is required as a global var even though cache sessions etc. are
-
-scoped to a single receiver. This is required because the event callback that is passed to CCSMP when
-performing an async cache request cannot have a pointer into Go-managed memory by being associated with
-receiver. If it did, and CCSMP the event callback after the Go-managed receiver instance was garbage
-collected, the callback would point to garabage. If we can't have the callback syntactically associated
-with the receiver, we need a different way to make sure that a given event callback is operating on the
-correct receiver, since different receivers could have different associated data that needs to be operated
-on by the event callback. We use a global map which uses the user_pointer specific to the receiver to do this.
-Mapping of individual cache sessions within a receiver is done through a separate mechanism, and is unrelated
-to this one.
-*/
+/* NOTE: sessionToCacheEventCallbackMap is required as a global var even though cache sessions etc. are scoped to a
+ * single receiver. This is required because the event callback that is passed to CCSMP when performing an async cache
+ * request cannot have a pointer into Go-managed memory by being associated with receiver. If it did, and CCSMP the
+ * event callback after the Go-managed receiver instance was garbage collected, the callback would point to garabage.
+ * If we can't have the callback syntactically associated with the receiver, we need a different way to make sure that
+ * a given event callback is operating on the correct receiver, since different receivers could have different
+ * associated data that needs to be operated on by the event callback. We use a global map which uses the user_pointer
+ * specific to the receiver to do this. Mapping of individual cache sessions within a receiver is done through a
+ * separate mechanism, and is unrelated to this one.
+ */
 var cacheToEventCallbackMap sync.Map
 
 func CreateCacheSession(cacheSessionProperties []string, sessionP SolClientSessionPt) (SolClientCacheSessionPt, *SolClientErrorInfoWrapper) {
@@ -163,7 +160,13 @@ type CacheEventInfo struct {
 }
 
 func (eventInfo *CacheEventInfo) String() string {
-	return fmt.Sprintf("CacheEventInfo:\n\tcacheSessionP: 0x%x\n\tevent: %d\n\ttopic: %s\n\treturnCode: %d\n\tsubCode: %d\n\tcacheRequestID: %d\n\terr: %s", eventInfo.cacheSessionP, eventInfo.event, eventInfo.topic, eventInfo.returnCode, eventInfo.subCode, eventInfo.cacheRequestID, eventInfo.err)
+        var errString string
+        if eventInfo.err != nil {
+                errString = eventInfo.err.Error()
+        } else {
+                errString = "nil"
+        }
+	return fmt.Sprintf("CacheEventInfo:\n\tcacheSessionP: 0x%x\n\tevent: %d\n\ttopic: %s\n\treturnCode: %d\n\tsubCode: %d\n\tcacheRequestID: %d\n\terr: %s", eventInfo.cacheSessionP, eventInfo.event, eventInfo.topic, eventInfo.returnCode, eventInfo.subCode, eventInfo.cacheRequestID, errString)
 }
 
 const (

@@ -931,6 +931,10 @@ func (receiver *directMessageReceiverImpl) deleteCacheResponseProcessorFromMapUn
 	delete(receiver.cacheSessionMap, cacheSessionP)
 }
 
+// addCacheSessionToMapIfNotPresent adds a cache session to the map and associates it with a CacheResponseProcessor if
+// it is not already present. If the cache session is already present, this function returns an IllegalStateError.
+// This method is unsafe because it is not thread safe and requires the directMessageReceiverImpl.cacheLock mutex to be
+// be held for thread safety to be guaranteed.
 func (receiver *directMessageReceiverImpl) addCacheSessionToMapIfNotPresent(holder CacheResponseProcessor, cacheSessionP ccsmp.SolClientCacheSessionPt) error {
 	var err error
 	err = nil
@@ -1051,6 +1055,7 @@ func (receiver *directMessageReceiverImpl) teardownCache() {
 	// prevent further cache requests from being submitted because of the state check in
 	// directMessageReceiverImpl.checkStateForCacheRequest().
 
+	receiver.cacheLock.Lock()
 	/* For all cache sessions remaining in the map, issue CCSMP cancellation. Possibly on go routine? check python */
 	receiver.cancelAllPendingCacheRequests()
 	/* For all cache sessions remaining in the map, generate cancellation events for them and put them
@@ -1060,7 +1065,6 @@ func (receiver *directMessageReceiverImpl) teardownCache() {
 	 * application.*/
 	/* Release the mutex and then shutdown the PollAndProcessCacheResponseChannel goroutine and
 	 * cacheResponseChan. */
-	receiver.cacheLock.Lock()
 	close(receiver.cacheResponseChan)
 	/* NOTE: Release the mutex so that `ProcessCacheEvent()` can clear the channel.*/
 	receiver.cacheLock.Unlock()
@@ -1118,7 +1122,7 @@ func (receiver *directMessageReceiverImpl) requestCached(cachedMessageSubscripti
 		return solace.NewError(&solace.IllegalArgumentError{}, errorString, nil)
 	}
 	if receiver.logger.IsDebugEnabled() {
-		receiver.logger.Debug(fmt.Sprintf("Sending cache request on cache session px%x", cacheSessionP))
+		receiver.logger.Debug(fmt.Sprintf("Sending cache request with cache request ID %d on cache session 0x%x", cacheRequestID, cacheSessionP))
 	}
 	errInfo = ccsmp.SendCacheRequest(receiver.dispatch,
 		cacheSessionP,
