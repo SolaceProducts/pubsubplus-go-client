@@ -160,12 +160,12 @@ type CacheEventInfo struct {
 }
 
 func (eventInfo *CacheEventInfo) String() string {
-        var errString string
-        if eventInfo.err != nil {
-                errString = eventInfo.err.Error()
-        } else {
-                errString = "nil"
-        }
+	var errString string
+	if eventInfo.err != nil {
+		errString = eventInfo.err.Error()
+	} else {
+		errString = "nil"
+	}
 	return fmt.Sprintf("CacheEventInfo:\n\tcacheSessionP: 0x%x\n\tevent: %d\n\ttopic: %s\n\treturnCode: %d\n\tsubCode: %d\n\tcacheRequestID: %d\n\terr: %s", eventInfo.cacheSessionP, eventInfo.event, eventInfo.topic, eventInfo.returnCode, eventInfo.subCode, eventInfo.cacheRequestID, errString)
 }
 
@@ -173,7 +173,7 @@ const (
 	SolClientCacheEventRequestCompletedNotice SolClientCacheEvent = 1
 )
 
-func NewConfiguredCacheEventInfo(cacheSessionP SolClientCacheSessionPt, cacheRequestID message.CacheRequestID, topic string, err error) CacheEventInfo {
+func NewCacheEventInfoForFailure(cacheSessionP SolClientCacheSessionPt, cacheRequestID message.CacheRequestID, topic string, err error) CacheEventInfo {
 	return CacheEventInfo{
 		cacheSessionP:  cacheSessionP,
 		event:          SolClientCacheEventRequestCompletedNotice,
@@ -197,6 +197,7 @@ func CacheEventInfoFromCoreCacheEventInfo(eventCallbackInfo CacheEventInfoPt, us
 		returnCode:     SolClientReturnCode(eventCallbackInfo.rc),
 		subCode:        SolClientSubCode(eventCallbackInfo.subCode),
 		cacheRequestID: message.CacheRequestID(eventCallbackInfo.cacheRequestId),
+		err:            nil,
 	}
 }
 

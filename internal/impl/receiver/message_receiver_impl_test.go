@@ -24,6 +24,8 @@ import (
 
 	"solace.dev/go/messaging/internal/ccsmp"
 	"solace.dev/go/messaging/internal/impl/core"
+	"solace.dev/go/messaging/pkg/solace/message"
+	"solace.dev/go/messaging/pkg/solace/resource"
 )
 
 func TestMessageReceiverStartStateChecks(t *testing.T) {
@@ -295,10 +297,24 @@ type mockInternalReceiver struct {
 	newPersistentReceiver      func(props []string, callback core.RxCallback, eventCallback core.PersistentEventCallback) (core.PersistentReceiver, *ccsmp.SolClientErrorInfoWrapper)
 }
 
-// GetSessionPointer needs to be implemented only to satisfy the interface. Retrieving a session pointer would
-// require an actual session, which would go beyond the scope of testing intended for this module.
-func (mock *mockInternalReceiver) GetSessionPointer() ccsmp.SolClientSessionPt {
-	return ccsmp.SolClientOpaquePointerInvalidValue
+func (mock *mockInternalReceiver) CacheManager() core.CacheManager {
+	return mock
+}
+
+func (mock *mockInternalReceiver) Teardown() {
+	/* NOTE: We can't panic here since this is always called as a part of terminate */
+	/* TODO: Refactor later once unit tests for cache are added. */
+	fmt.Printf("not implemented\n")
+}
+
+func (mock *mockInternalReceiver) SendCacheRequest(cachedMessageSubscriptionRequest resource.CachedMessageSubscriptionRequest, cacheRequestID message.CacheRequestID, cacheResponseHandler core.CacheResponseProcessor) error {
+	/* TODO: Refactor later once unit tests for cache are added. */
+	panic("not implemented")
+}
+
+func (mock *mockInternalReceiver) StartAndInitCacheManagerIfNotDoneAlready() {
+	/* TODO: Refactor later once unit tests for cache are added. */
+	panic("not implemented")
 }
 
 func (mock *mockInternalReceiver) Events() core.Events {

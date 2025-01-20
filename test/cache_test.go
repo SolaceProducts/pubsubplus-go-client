@@ -119,7 +119,6 @@ var _ = Describe("Cache Strategy", func() {
 			topic := fmt.Sprintf("MaxMsgs%d/%s/data1", numExpectedCachedMessages, testcontext.Cache().Vpn)
 			cacheName := fmt.Sprintf("MaxMsgs%d/delay=%d,", numExpectedCachedMessages, delay)
 			cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.AsAvailable, cacheName, resource.TopicSubscriptionOf(topic), int32(delay+5000), helpers.ValidMaxCachedMessages, helpers.ValidCachedMessageAge)
-
 			channelOne, err := receiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
 			Expect(channelOne).ToNot(BeNil())
 			Expect(err).To(BeNil())
@@ -675,9 +674,8 @@ var _ = Describe("Cache Strategy", func() {
 				Context("using termination scheme "+terminationCaseName, func() {
 					const numConfiguredCachedMessages int = 3
 					const numExpectedCachedMessages int = 0
-					//const numPublishedDirectMessages int = 1
 					const numLiveMessagesFromCacheProxy = 0
-					const numExpectedLiveMessages int = numLiveMessagesFromCacheProxy // + numPublishedDirectMessages
+					const numExpectedLiveMessages int = numLiveMessagesFromCacheProxy
 					const delay int = 25000
 					var cacheName string
 					var cacheTopic string
@@ -685,7 +683,6 @@ var _ = Describe("Cache Strategy", func() {
 
 					var terminate func()
 					var receivedMsgChan chan message.InboundMessage
-					//var messagePublisher solace.DirectMessagePublisher
 
 					BeforeEach(func() {
 						cacheName = fmt.Sprintf("MaxMsgs%d/delay=%d", numConfiguredCachedMessages, delay)
@@ -707,12 +704,6 @@ var _ = Describe("Cache Strategy", func() {
 						messageReceiver.ReceiveAsync(func(msg message.InboundMessage) {
 							receivedMsgChan <- msg
 						})
-						/*
-						   messagePublisher, err = messagingService.CreateDirectMessagePublisherBuilder().Build()
-						   Expect(err).To(BeNil())
-						   err = messagePublisher.Start()
-						   Expect(err).To(BeNil())
-						*/
 
 						terminate = func() {
 							Expect(messagingService.IsConnected()).To(BeTrue())
@@ -762,7 +753,6 @@ var _ = Describe("Cache Strategy", func() {
 							case resource.CachedOnly:
 								strategyString = "CachedOnly"
 								numExpectedReceivedMessages += numExpectedCachedMessages
-								//numExpectedReceivedMessages += numPublishedDirectMessages
 							}
 							var cacheResponseProcessStrategyString string
 							switch cacheResponseProcessStrategy {
@@ -773,7 +763,6 @@ var _ = Describe("Cache Strategy", func() {
 							default:
 								Fail("Unrecognized CacheResponseProcessStrategy")
 							}
-							//numExpectedSentDirectMessages := numSentCacheRequests + numPublishedDirectMessages
 							numExpectedSentDirectMessages := numSentCacheRequests
 
 							cacheRequestConfig := helpers.GetValidCacheRequestConfig(strategy, cacheName, cacheTopic)
@@ -781,8 +770,6 @@ var _ = Describe("Cache Strategy", func() {
 							directTopic = fmt.Sprintf("T/cache_test/inflight_requests/%s/%s/%s/%d", terminationCaseName, strategyString, cacheResponseProcessStrategyString, cacheRequestID)
 							err := messageReceiver.AddSubscription(resource.TopicSubscriptionOf(directTopic))
 							Expect(err).To(BeNil())
-							//msg, err := messagingService.MessageBuilder().BuildWithStringPayload("trivial payload")
-							//Expect(err).To(BeNil())
 							switch cacheResponseProcessStrategy {
 							case helpers.ProcessCacheResponseThroughChannel:
 								cacheResponseChan, err := messageReceiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
@@ -791,12 +778,6 @@ var _ = Describe("Cache Strategy", func() {
 								Eventually(func() uint64 {
 									return messagingService.Metrics().GetValue(metrics.CacheRequestsSent)
 								}, "10s").Should(BeNumerically("==", 1))
-
-								/*
-								   for i:= 0; i < numPublishedDirectMessages; i++ {
-								           messagePublisher.Publish(msg, resource.TopicOf(directTopic))
-								   }
-								*/
 
 								for i := 0; i < numExpectedReceivedMessages; i++ {
 									var inboundMessage message.InboundMessage
@@ -823,12 +804,6 @@ var _ = Describe("Cache Strategy", func() {
 								Eventually(func() uint64 {
 									return messagingService.Metrics().GetValue(metrics.CacheRequestsSent)
 								}, "10s").Should(BeNumerically("==", 1))
-
-								/*
-								   for i:= 0; i < numPublishedDirectMessages; i++ {
-								           messagePublisher.Publish(msg, resource.TopicOf(directTopic))
-								   }
-								*/
 
 								for i := 0; i < numExpectedReceivedMessages; i++ {
 									var inboundMessage message.InboundMessage
@@ -877,15 +852,13 @@ var _ = Describe("Cache Strategy", func() {
 					const numConfiguredCachedMessages int = 3
 					const numExpectedCachedMessages int = 0
 					const numLiveMessagesFromCacheProxy int = 0
-					//const numPublishedDirectMessages int = 0
-					const numExpectedLiveMessages int = numLiveMessagesFromCacheProxy // + numPublishedDirectMessages
+					const numExpectedLiveMessages int = numLiveMessagesFromCacheProxy
 					var cacheName string
 					var cacheTopic string
 					var directTopic string
 
 					var terminate func()
 					var receivedMsgChan chan message.InboundMessage
-					//var messagePublisher solace.DirectMessagePublisher
 
 					BeforeEach(func() {
 						cacheName = fmt.Sprintf("MaxMsgs%d", numConfiguredCachedMessages)
@@ -907,12 +880,6 @@ var _ = Describe("Cache Strategy", func() {
 						messageReceiver.ReceiveAsync(func(msg message.InboundMessage) {
 							receivedMsgChan <- msg
 						})
-						/*
-						   messagePublisher, err = messagingService.CreateDirectMessagePublisherBuilder().Build()
-						   Expect(err).To(BeNil())
-						   err = messagePublisher.Start()
-						   Expect(err).To(BeNil())
-						*/
 
 						terminate = func() {
 							Expect(messagingService.IsConnected()).To(BeTrue())
@@ -939,7 +906,6 @@ var _ = Describe("Cache Strategy", func() {
 							logging.SetLogLevel(logging.LogLevelDebug)
 							strategyString := ""
 							numSentCacheRequests := 1
-							//numExpectedCacheResponses := numSentCacheRequests
 							var numExpectedSuccessfulCacheRequests int
 							if terminationSeversConnection {
 								// The cache request should not complete, so it's not successful
@@ -950,7 +916,7 @@ var _ = Describe("Cache Strategy", func() {
 							}
 							numExpectedFailedCacheRequests := 0
 							totalMessagesReceived := 0
-							numExpectedReceivedMessages := 0 //numPublishedDirectMessages
+							numExpectedReceivedMessages := 0
 							switch strategy {
 							case resource.AsAvailable:
 								strategyString = "AsAvailable"
@@ -966,22 +932,19 @@ var _ = Describe("Cache Strategy", func() {
 							case resource.CachedOnly:
 								strategyString = "CachedOnly"
 								numExpectedReceivedMessages += numExpectedCachedMessages
-								//numExpectedReceivedMessages += numPublishedDirectMessages
 							}
-							numExpectedSentDirectMessages := numSentCacheRequests // + numPublishedDirectMessages
+							numExpectedSentDirectMessages := numSentCacheRequests
 
 							cacheRequestConfig := helpers.GetValidCacheRequestConfig(strategy, cacheName, cacheTopic)
 							cacheRequestID := message.CacheRequestID(cacheRequestID)
 							directTopic = fmt.Sprintf("T/cache_test/blocked_termination/%s/%s/callback/%d", terminationCaseName, strategyString, cacheRequestID)
 							err := messageReceiver.AddSubscription(resource.TopicSubscriptionOf(directTopic))
 							Expect(err).To(BeNil())
-							//msg, err := messagingService.MessageBuilder().BuildWithStringPayload("trivial payload")
 							Expect(err).To(BeNil())
 
 							/* NOTE: This channel receives the cache response and indicates to the
 							 * test that it is time to call terminate().
 							 */
-							//cacheResponseChan := make(chan solace.CacheResponse)
 							var cacheResponseChan atomic.Int32
 							cacheResponseChan.Store(0)
 							/* NOTE: We need to read all the cache responses because the callbacks will keep getting
@@ -989,38 +952,15 @@ var _ = Describe("Cache Strategy", func() {
 							 * to write to the channel after it has been closed, it will panic. So, we need to close
 							 * the channel only after we know it won't be written to again.
 							 */
-							/*
-														defer func() {
-							                                for i := 0; i < numExpectedCacheResponses; i++ {
-							                                        select {
-							                                        case <- cacheResponseChan:
-							                                                continue
-							                                        case <- time.After(time.Second * 5):
-							                                                continue
-							                                        }
-							                                }
-							                                close(cacheResponseChan)
-														}()
-							*/
 							/* NOTE: We make the signal chan size 0 so that all writers (the API)
 							 * have to wait for the reader (the application) to empty the channel.
 							 * This allows us to simulate blocking behaviour.
 							 */
-							//cacheResponseSignalChan := make(chan bool)
-							/* WARNING: The cacheResponseSignalChan MUST be closed BEFORE the cacheResponseChan is
-							 * cleaned up. Closing the cacheResponseSignalChan will unblock the following callback that
-							 * is given to the API. Since deferred functions are executed in LIFO order, the deferred
-							 * closing of the cacheResponseSignalChan must be instructed AFTER the deferred closing of
-							 * the cacheResponseChan.
-							 */
-							//defer close(cacheResponseSignalChan)
-							var cacheResponseSignalChan atomic.Bool
-							cacheResponseSignalChan.Store(false)
+							var cacheResponseSignal atomic.Bool
+							cacheResponseSignal.Store(false)
 							cacheResponseCallback := func(cacheResponse solace.CacheResponse) {
-								//cacheResponseChan <- cacheResponse
 								cacheResponseChan.Add(1)
-								//<-cacheResponseSignalChan
-								for !cacheResponseSignalChan.Load() {
+								for !cacheResponseSignal.Load() {
 									time.Sleep(time.Millisecond * 500)
 								}
 							}
@@ -1030,14 +970,6 @@ var _ = Describe("Cache Strategy", func() {
 							Eventually(func() uint64 {
 								return messagingService.Metrics().GetValue(metrics.CacheRequestsSent)
 							}, "10s").Should(BeNumerically("==", 1))
-							/*
-														for i := 0; i < numExpectedCacheResponses; i++ {
-															Eventually(cacheResponseChan, "5s").Should(Receive())
-														}
-							                                for i:= 0; i < numPublishedDirectMessages; i++ {
-							                                        messagePublisher.Publish(msg, resource.TopicOf(directTopic))
-							                                }
-							*/
 
 							for i := 0; i < numExpectedReceivedMessages; i++ {
 								var inboundMessage message.InboundMessage
@@ -1053,8 +985,7 @@ var _ = Describe("Cache Strategy", func() {
 							 * application is blocking termination through the provided callback.
 							 */
 							terminate()
-							//cacheResponseSignalChan <- true
-							cacheResponseSignalChan.Store(true)
+							cacheResponseSignal.Store(true)
 							Eventually(func() int32 { return cacheResponseChan.Load() }, "10s").Should(BeNumerically("==", 1))
 
 							Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSent)).To(BeNumerically("==", numSentCacheRequests), fmt.Sprintf("CacheRequestsSent for %s was wrong with ID %d", strategyString, cacheRequestID))

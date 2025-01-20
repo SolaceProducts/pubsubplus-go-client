@@ -71,11 +71,8 @@ type Receiver interface {
 	IncrementDuplicateAckCount()
 	// Creates a new persistent receiver with the given callback
 	NewPersistentReceiver(properties []string, callback RxCallback, eventCallback PersistentEventCallback) (PersistentReceiver, ErrorInfo)
-	/* FFC: The `GetSessionPointer` method seems a litte out of place here. For now it works, but it might be an,
-	 * anti-pattern so we should look into clarifying this and maybe doing this differently in a future iteration.*/
-
-	// Retrieves the sesion pointer
-	GetSessionPointer() ccsmp.SolClientSessionPt
+	// CacheManager() returns the manager that can be used to run cache operations
+	CacheManager() CacheManager
 }
 
 // PersistentReceiver interface
@@ -126,6 +123,13 @@ type FlowEventInfo interface {
 	EventInfo
 }
 
+/* NOTE: This data type could be changed from int32 if necessary, but must match the type of
+ * BasicCacheManager.cacheResponseChanCounter. */
+
+// cacheResponseChannelMaxSize indicates the maximum number of cache responses that can be buffered by the API without
+// being processed by the application.
+const cacheResponseChannelMaxSize int32 = 1024
+
 // Implementation
 type ccsmpBackedReceiver struct {
 	events  *ccsmpBackedEvents
@@ -142,6 +146,23 @@ type ccsmpBackedReceiver struct {
 	subscriptionCorrelationID   SubscriptionCorrelationID
 
 	subscriptionOkEvent, subscriptionErrorEvent uint
+
+	// cacheSessionMap is used to map the cache session pointer to the method for handling the cache response,
+	// as specified by the application on a call to a [ReceiverCacheRequester] interface.
+	cacheSessionMap sync.Map // ([keyType]valueType) [ccsmp.SolClientCacheSessionPt]CacheResponseProcessor
+	//cacheSessionMap map[ccsmp.SolClientCacheSessionPt]CacheResponseProcessor // ([keyType]valueType) [ccsmp.SolClientCacheSessionPt]CacheResponseProcessor
+
+	// cacheResponseChan is used to buffer the cache responses from CCSMP.
+	cacheResponseChan chan ccsmp.CacheEventInfo
+	// cacheResponseChanCounter is used to prevent cache requests from being submitted if the
+	// cacheResponseChan buffer is full.
+	cacheResponseChanCounter int32
+	// cachePollingRunning is used to determine whether or not the goroutine that polls the cacheResponseChan
+	// has been started yet.
+	cachePollingRunning uint32
+
+	// cacheLogger is used for logging
+	cacheLogger logging.LogLevelLogger
 }
 
 func newCcsmpReceiver(session *ccsmp.SolClientSession, events *ccsmpBackedEvents, metrics *ccsmpBackedMetrics) *ccsmpBackedReceiver {
@@ -199,6 +220,11 @@ func (receiver *ccsmpBackedReceiver) Replier() Replier {
 // Send the ReplyPublishable through the ccsmp session
 func (receiver *ccsmpBackedReceiver) SendReply(replyMsg ReplyPublishable) ErrorInfo {
 	return receiver.session.SolClientSessionPublish(replyMsg)
+}
+
+// Return self under a different interface to constrain usage to cache operations
+func (receiver *ccsmpBackedReceiver) CacheManager() CacheManager {
+	return receiver
 }
 
 func (receiver *ccsmpBackedReceiver) Events() Events {
@@ -379,11 +405,6 @@ func (receiver *ccsmpBackedReceiver) NewPersistentReceiver(properties []string, 
 		flow:   flow,
 		parent: receiver,
 	}, nil
-}
-
-// GetSessionPointer returns the opaque pointer to the session associated with the given receiver.
-func (receiver *ccsmpBackedReceiver) GetSessionPointer() ccsmp.SolClientSessionPt {
-	return receiver.session.GetPointer()
 }
 
 // Destroy destroys the flow
