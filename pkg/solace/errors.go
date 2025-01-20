@@ -128,7 +128,7 @@ type MessageReplayError struct {
 // OperationFailedError indicates that a an internal API operation failed, so the operation requested by the
 // application cannot proceed.
 type OperationFailedError struct {
-        solaceError
+	solaceError
 }
 
 // NewError returns a new Solace error with the specified message and wrapped error.

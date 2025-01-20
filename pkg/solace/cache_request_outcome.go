@@ -17,4 +17,4 @@
 package solace
 
 // CacheResponse provides information about the response received from the cache.
-type CacheResponse struct {}
+type CacheResponse struct{}
