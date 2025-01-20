@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2024 Solace Corporation. All rights reserved.
+// Copyright 2021-2025 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -193,8 +193,8 @@ type SolClientSubCode = C.solClient_subCode_t
 // SolClientSubCodeOK is assigned a value
 const SolClientSubCodeOK = C.SOLCLIENT_SUBCODE_OK
 
-// SolClientSubCodeInternalError is assigned a value
-const SolClientSubCodeInternalError = C.SOLCLIENT_SUBCODE_INTERNAL_ERROR
+// SolClientSubCodeCacheRequestCancelled is assigned a value
+const SolClientSubCodeCacheRequestCancelled = C.SOLCLIENT_SUBCODE_CACHE_REQUEST_CANCELLED
 
 // SolClientResponseCode is assigned a value
 type SolClientResponseCode = C.solClient_session_responseCode_t

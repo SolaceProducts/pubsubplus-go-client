@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2024 Solace Corporation. All rights reserved.
+// Copyright 2025 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -173,13 +173,13 @@ const (
 	SolClientCacheEventRequestCompletedNotice SolClientCacheEvent = 1
 )
 
-func NewCacheEventInfoForFailure(cacheSessionP SolClientCacheSessionPt, cacheRequestID message.CacheRequestID, topic string, err error) CacheEventInfo {
+func NewCacheEventInfoForCancellation(cacheSessionP SolClientCacheSessionPt, cacheRequestID message.CacheRequestID, topic string, err error) CacheEventInfo {
 	return CacheEventInfo{
 		cacheSessionP:  cacheSessionP,
 		event:          SolClientCacheEventRequestCompletedNotice,
 		topic:          topic,
 		returnCode:     SolClientReturnCodeFail,
-		subCode:        SolClientSubCodeInternalError,
+		subCode:        SolClientSubCodeCacheRequestCancelled,
 		cacheRequestID: cacheRequestID,
 		err:            err,
 	}

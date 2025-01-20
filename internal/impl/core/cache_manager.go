@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2024 Solace Corporation. All rights reserved.
+// Copyright 2025 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -304,7 +304,7 @@ func (receiver *ccsmpBackedReceiver) generateCacheRequestCancellationNotice(cach
 	if receiver.cacheLogger.IsDebugEnabled() {
 		receiver.cacheLogger.Debug(constants.AttemptingCancellationNoticeGeneration)
 	}
-	cacheEventInfo := ccsmp.NewCacheEventInfoForFailure(cacheSessionP, cacheResponseProcessor.GetCacheRequestInfo().GetCacheRequestID(), cacheResponseProcessor.GetCacheRequestInfo().GetTopic(), ToNativeError(errorInfo, constants.FailedToCancelCacheRequest))
+	cacheEventInfo := ccsmp.NewCacheEventInfoForCancellation(cacheSessionP, cacheResponseProcessor.GetCacheRequestInfo().GetCacheRequestID(), cacheResponseProcessor.GetCacheRequestInfo().GetTopic(), ToNativeError(errorInfo, constants.FailedToCancelCacheRequest))
 	return cacheEventInfo
 }
 
@@ -323,8 +323,7 @@ func (receiver *ccsmpBackedReceiver) cancelAllPendingCacheRequests() {
 				 * have a cache session pointer, so we generate a cache response to notify
 				 * the application that something went wrong and defer destroying the cache
 				 * session to a later point.*/
-				/* FFC: Maybe this should be a different log level? */
-				receiver.cacheLogger.Warning(fmt.Sprintf("%s %s %d and %s %d.", constants.FailedToCancelCacheRequest, constants.WithCacheRequestID, cacheResponseProcessor.GetCacheRequestInfo().GetCacheRequestID(), constants.WithCacheSessionPointer, cacheSessionP))
+				receiver.cacheLogger.Info(fmt.Sprintf("%s %s %d and %s %d.", constants.FailedToCancelCacheRequest, constants.WithCacheRequestID, cacheResponseProcessor.GetCacheRequestInfo().GetCacheRequestID(), constants.WithCacheSessionPointer, cacheSessionP))
 				generatedEvent := receiver.generateCacheRequestCancellationNotice(cacheSessionP, cacheResponseProcessor, errorInfo)
 				/* WARNING: This will block if the next cache response in the channel is associated with a
 				 * cache request that the application elected to process their cache responses through

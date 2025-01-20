@@ -2,7 +2,7 @@
 *
 * @file solCache.h Include file for the Solace Corporation Messaging API for C
 *
-* Copyright 2008-2024 Solace Corporation. All rights reserved.
+* Copyright 2008-2025 Solace Corporation. All rights reserved.
 *
 * This include file provides the public constants and API calls for 
 * applications that interface to the Solace Corporation SolCache.
