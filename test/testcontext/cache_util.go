@@ -18,7 +18,6 @@ package testcontext
 
 import (
 	"fmt"
-	"net/url"
 	"time"
 
 	"solace.dev/go/messaging/test/sempclient/config"
@@ -102,15 +101,24 @@ func ConfigureCacheInstanceIfNotPresent(semp SEMPv2, msgVpnName string, distribu
 	return err
 }
 
+// ConfigureCacheTopicIfNotPresent configures a single given topic for the given cache cluster on the broker. This
+// method assumes that the cache cluster has been sufficiently configured, i.e. exists etc., before it is called.
 func ConfigureCacheTopicIfNotPresent(semp SEMPv2, msgVpnName string, distributedCache DistributedCacheConfig, cacheCluster CacheClusterConfig, cacheTopic string) error {
-	cacheTopic = url.QueryEscape(cacheTopic)
-	inst, httpResponse, err := semp.Monitor().DistributedCacheApi.GetMsgVpnDistributedCacheClusterTopics(semp.MonitorCtx(), msgVpnName, distributedCache.Name, cacheCluster.Name, nil)
+	inst, _, err := semp.Monitor().DistributedCacheApi.GetMsgVpnDistributedCacheClusterTopics(semp.MonitorCtx(), msgVpnName, distributedCache.Name, cacheCluster.Name, nil)
+
+    if err != nil {
+        return err
+    }
+
 	for _, topic_group := range inst.Data {
 		if topic_group.Topic == cacheTopic {
+                /* NOTE: We return nil because we've found the topic to be pre-configured for the cache cluster on the
+                 * broker, and so don't need to reconfigure it. This method intends to configure only one topic at a
+                 * time, so we don't need to worry about other configured topics.
+                 */
 			return nil
 		}
 	}
-	if httpResponse.StatusCode == 400 {
 		_, _, err = semp.Config().DistributedCacheApi.CreateMsgVpnDistributedCacheClusterTopic(semp.ConfigCtx(),
 			config.MsgVpnDistributedCacheClusterTopic{
 				CacheName:   distributedCache.Name,
@@ -125,9 +133,6 @@ func ConfigureCacheTopicIfNotPresent(semp SEMPv2, msgVpnName string, distributed
 		if err != nil {
 			return err
 		}
-	} else {
-		return err
-	}
 	return err
 }
 

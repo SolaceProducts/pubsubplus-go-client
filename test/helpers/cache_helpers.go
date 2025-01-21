@@ -24,43 +24,11 @@ import (
 	. "github.com/onsi/gomega"
 
 	"solace.dev/go/messaging"
-	"solace.dev/go/messaging/pkg/solace"
-	//"solace.dev/go/messaging/pkg/solace/logging"
 	"solace.dev/go/messaging/pkg/solace/config"
 	"solace.dev/go/messaging/pkg/solace/message"
 	"solace.dev/go/messaging/pkg/solace/resource"
 	"solace.dev/go/messaging/test/testcontext"
 )
-
-type CacheHandlerCustomCallback = func(HelpersCacheResponse)
-
-type HelpersCacheResponse struct{}
-
-func NewHelpersCacheResponseFromCacheResponse(cacheResponse solace.CacheResponse) HelpersCacheResponse {
-	return HelpersCacheResponse{}
-}
-
-type HelpersCacheResponseHandler struct {
-	cacheResponses []HelpersCacheResponse
-	customCallback CacheHandlerCustomCallback
-}
-
-func NewHelpersCacheResponseHandler(customCallback CacheHandlerCustomCallback) HelpersCacheResponseHandler {
-	return HelpersCacheResponseHandler{
-		cacheResponses: []HelpersCacheResponse{},
-		customCallback: customCallback,
-	}
-}
-
-func (h *HelpersCacheResponseHandler) Callback(cacheResponse solace.CacheResponse) {
-	helpersCacheResponse := NewHelpersCacheResponseFromCacheResponse(cacheResponse)
-	h.cacheResponses = append(h.cacheResponses, helpersCacheResponse)
-	h.customCallback(helpersCacheResponse)
-}
-
-func (h *HelpersCacheResponseHandler) ResetMetrics() {
-	h.cacheResponses = []HelpersCacheResponse{}
-}
 
 const (
 	ValidCachedMessageAge   int32 = 5
@@ -110,8 +78,6 @@ func SendMsgsToTopic(topic string, numMessages int) {
 	}()
 	err = publisher.Start()
 	Expect(err).To(BeNil())
-	//cacheMessageHandler := NewCachedMessageHandler(nil)
-	//err = receiver.ReceiveAsync(cacheMessageHandler.Callback)
 	receivedMsgs := make(chan message.InboundMessage, numMessages)
 	cacheMessageHandlerCallback := func(msg message.InboundMessage) {
 		receivedMsgs <- msg
