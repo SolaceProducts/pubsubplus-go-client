@@ -220,20 +220,6 @@ func NewCacheEventInfoForCancellation(cacheSession SolClientCacheSession, cacheR
 	}
 }
 
-/* FFC: This seems like an anti-pattern, but I haven't found a way around including it for unit testing yet. */
-/*
-func NewCacheEventInfoForUnitTest() CacheEventInfo {
-	return CacheEventInfo{
-		cacheSessionP:  SolClientOpaquePointerInvalidValue,
-		event:          SolClientCacheEventRequestCompletedNotice,
-		topic:          "unit/test/topic",
-		returnCode:     SolClientReturnCodeFail,
-		cacheRequestID: message.CacheRequestID(0),
-		err:            nil,
-	}
-}
-*/
-
 func (i *CacheEventInfo) GetCacheSessionPointer() SolClientCacheSessionPt {
 	return i.cacheSessionP
 }

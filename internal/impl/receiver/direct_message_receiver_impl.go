@@ -82,9 +82,6 @@ type directMessageReceiverImpl struct {
 
 	terminationHandlerID uint
 
-	// cacheResponseChanCounter is used to prevent cache requests from being submitted if the
-	// cacheResponseChan buffer is full.
-	//cacheResponseChanCounter int32
 	// cachePollingRunning is used to determine whether or not the goroutine that polls the cacheResponseChan
 	// has been started yet.
 	cachePollingRunning uint32
@@ -1025,7 +1022,6 @@ func (receiver *directMessageReceiverImpl) PollAndProcessCacheResponseChannel() 
 	/* poll cacheventinfo channel */
 	for channelIsOpen {
 		cacheEventInfo, channelIsOpen = <-receiver.internalReceiver.CacheRequestor().CacheResponseChan()
-		//atomic.AddInt32(&receiver.cacheResponseChanCounter, -1)
 		if !channelIsOpen {
 			// If channel is closed, we can stop polling. In this case we don't need to handle
 			// the cacheEventInfo since there won't be a menaingful one left on the queue.

@@ -27,9 +27,9 @@ import (
 	"solace.dev/go/messaging/pkg/solace/resource"
 )
 
-// CacheResponseChannelMaxSize indicates the maximum number of cache responses that can be buffered by the API without
+// maxOutstandingCacheRequests indicates the maximum number of cache responses that can be buffered by the API without
 // being processed by the application.
-const CacheResponseChannelMaxSize int = 1024
+const maxOutstandingCacheRequests int = 1024
 
 // ProcessCacheEvent is intended to be run by any agent trying to process a cache response. This can be run from a polling go routine, or during termination to cleanup remaining resources, and possibly by other agents as well.
 func (receiver *ccsmpBackedReceiver) ProcessCacheEvent(cacheEventInfo ccsmp.CacheEventInfo) {
@@ -118,7 +118,6 @@ func (receiver *ccsmpBackedReceiver) CancelAllPendingCacheRequests() {
 				 * cache request that the application elected to process their cache responses through
 				 * a callback and the channel is full, until the application finishes processing the event
 				 * through that callback.*/
-				//atomic.AddInt32(&receiver.cacheResponseChanCounter, 1)
 				receiver.cacheResponseChan <- generatedEvent
 			}
 		}
@@ -128,13 +127,13 @@ func (receiver *ccsmpBackedReceiver) CancelAllPendingCacheRequests() {
 
 func (receiver *ccsmpBackedReceiver) InitCacheRequestorResourcesIfNotDoneAlready() {
 	if receiver.cacheResponseChan == nil {
-		receiver.cacheResponseChan = make(chan ccsmp.CacheEventInfo, CacheResponseChannelMaxSize)
+		receiver.cacheResponseChan = make(chan ccsmp.CacheEventInfo, maxOutstandingCacheRequests)
 	}
 }
 
 func (receiver *ccsmpBackedReceiver) IsCacheRequestorReady() bool {
-	ret := len(receiver.cacheResponseChan) /* atomic.LoadInt32(&receiver.cacheResponseChanCounter) */ >= CacheResponseChannelMaxSize
-	logging.Default.Warning(fmt.Sprintf("Could not perform cache operations because more than %d cache responses are still waiting to be processed by the application.", CacheResponseChannelMaxSize))
+	ret := len(receiver.cacheResponseChan) >= maxOutstandingCacheRequests
+	logging.Default.Warning(fmt.Sprintf("Could not perform cache operations because more than %d cache responses are still waiting to be processed by the application.", maxOutstandingCacheRequests))
 	return ret
 }
 
@@ -181,7 +180,6 @@ func (receiver *ccsmpBackedReceiver) SendCacheRequest(cachedMessageSubscriptionR
 
 	/* Run go routine that sends cache request */
 	var cacheEventCallback ccsmp.SolClientCacheEventCallback = func(cacheEventInfo ccsmp.CacheEventInfo) {
-		//atomic.AddInt32(&receiver.cacheResponseChanCounter, 1)
 		receiver.cacheResponseChan <- cacheEventInfo
 	}
 	cacheStrategy := cachedMessageSubscriptionRequest.GetCachedMessageSubscriptionRequestStrategy()

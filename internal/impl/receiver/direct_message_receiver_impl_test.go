@@ -1239,37 +1239,3 @@ func TestDirectReceiverUnsolicitedTermination(t *testing.T) {
 		t.Error("metrics not incremented on incomplete delivery")
 	}
 }
-//
-//func processCacheResponseSuccessfully(mock *mockInternalReceiver, eventInfo ccsmp.CacheEventInfo) {
-//	panic("not implemented")
-//}
-//
-//func processCacheResponseUnsuccessfully(mock *mockInternalReceiver, eventInfo ccsmp.CacheEventInfo) {
-//	panic("not implemented")
-//}
-//
-//func sendCacheRequestWithSpoofedChannelPush(mock *mockInternalReceiver, _ resource.CachedMessageSubscriptionRequest, _ message.CacheRequestID, _ core.CacheResponseProcessor) {
-//	mock.cacheSessionMap.Store(0, 0)
-//	/* Unblocks internal go routine that is waiting for channel write.
-//	 * This event info will be passed to the processCacheResponseFunc configured by the unit test.
-//	 * This mimics the reception of a cache response. */
-//	mock.CacheResponseChan() <- ccsmp.NewCacheEventInfoForUnitTest()
-//}
-//
-//func createCachedMessageSubscriptionRequest() resource.CachedMessageSubscriptionRequest {
-//	return resource.NewCachedMessageSubscriptionRequest(resource.AsAvailable, "fooCacheInstance", resource.TopicSubscriptionOf("foo"), 5000, 5, 5000)
-//}
-//
-//func TestCacheRequestCleanupSucceedsForRequestCachedAsync(t *testing.T) {
-//	internalReceiver := &mockInternalReceiver{
-//		processCacheResponseFunc: processCacheResponseSuccessfully,
-//	}
-//	basicReceiver := basicMessageReceiver{internalReceiver: internalReceiver, state: messageReceiverStateStarted}
-//	receiver := &directMessageReceiverImpl{basicMessageReceiver: basicReceiver}
-//	receiver.state = messageReceiverStateStarted
-//	/* This will start the internal go routine that calls CacheRequestor::ProcessCacheEvent */
-//	cacheResponseChan, err := receiver.RequestCachedAsync(createCachedMessageSubscriptionRequest(), message.CacheRequestID(0))
-//	if err != nil {
-//		t.Error("RequestCachedAsync failed")
-//	}
-//}
