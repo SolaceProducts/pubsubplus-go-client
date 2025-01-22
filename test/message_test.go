@@ -28,6 +28,7 @@ import (
 	"solace.dev/go/messaging/pkg/solace/config"
 	"solace.dev/go/messaging/pkg/solace/message"
 	"solace.dev/go/messaging/pkg/solace/message/sdt"
+	"solace.dev/go/messaging/pkg/solace/metrics"
 	"solace.dev/go/messaging/pkg/solace/resource"
 	"solace.dev/go/messaging/test/helpers"
 	"solace.dev/go/messaging/test/testcontext"
@@ -1104,12 +1105,16 @@ var _ = Describe("Remote Message Tests", func() {
 
 				publisher.PublishWithProperties(outboundMessage, resource.TopicOf(topic), config.MessagePropertyMap{key: value})
 
+				Eventually(func() uint64 {
+					return messagingService.Metrics().GetValue(metrics.DirectMessagesSent)
+				}, 10*time.Second).Should(BeNumerically("==", uint64(1)))
+
 				select {
 				case inboundMessage := <-inboundMessageChannel:
 					retrieved, ok := getter(inboundMessage)
 					Expect(ok).To(BeTrue())
 					Expect(retrieved).To(BeEquivalentTo(value))
-				case <-time.After(1 * time.Second):
+				case <-time.After(5 * time.Second):
 					Fail("timed out waiting for message to be delivered")
 				}
 			})
