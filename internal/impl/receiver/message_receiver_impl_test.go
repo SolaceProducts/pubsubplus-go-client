@@ -18,6 +18,7 @@ package receiver
 
 import (
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 	"unsafe"
@@ -285,70 +286,64 @@ type result struct {
 }
 
 type mockInternalReceiver struct {
-	events                          func() core.Events
-	replier                         func() core.Replier
-	isRunning                       func() bool
-	registerRxCallback              func(callback core.RxCallback) uintptr
-	unregisterRxCallback            func(ptr uintptr)
-	subscribe                       func(topic string, ptr uintptr) (core.SubscriptionCorrelationID, <-chan core.SubscriptionEvent, core.ErrorInfo)
-	unsubscribe                     func(topic string, ptr uintptr) (core.SubscriptionCorrelationID, <-chan core.SubscriptionEvent, core.ErrorInfo)
-	incrementMetric                 func(metric core.NextGenMetric, amount uint64)
-	incrementDuplicateAckCount      func()
-	newPersistentReceiver           func(props []string, callback core.RxCallback, eventCallback core.PersistentEventCallback) (core.PersistentReceiver, *ccsmp.SolClientErrorInfoWrapper)
-	processCacheResponseFunc        func(*mockInternalReceiver, ccsmp.CacheEventInfo)
-	sendCacheResponseFunc           func(*mockInternalReceiver, resource.CachedMessageSubscriptionRequest, message.CacheRequestID, core.CacheResponseProcessor) error
-	cancelPendingCacheRequestsFunc  func(*mockInternalReceiver)
-	cacheResponseChan               chan ccsmp.CacheEventInfo
-	initCacheRequestorResourcesFunc func(*mockInternalReceiver)
-	isCacheRequestorReadyFunc       func(*mockInternalReceiver) bool
+	events                         func() core.Events
+	replier                        func() core.Replier
+	isRunning                      func() bool
+	registerRxCallback             func(callback core.RxCallback) uintptr
+	unregisterRxCallback           func(ptr uintptr)
+	subscribe                      func(topic string, ptr uintptr) (core.SubscriptionCorrelationID, <-chan core.SubscriptionEvent, core.ErrorInfo)
+	unsubscribe                    func(topic string, ptr uintptr) (core.SubscriptionCorrelationID, <-chan core.SubscriptionEvent, core.ErrorInfo)
+	incrementMetric                func(metric core.NextGenMetric, amount uint64)
+	incrementDuplicateAckCount     func()
+	newPersistentReceiver          func(props []string, callback core.RxCallback, eventCallback core.PersistentEventCallback) (core.PersistentReceiver, *ccsmp.SolClientErrorInfoWrapper)
+	processCacheResponseFunc       func(*mockInternalReceiver, *sync.Map, ccsmp.CacheEventInfo)
+	sendCacheRequestFunc           func(*mockInternalReceiver, core.CacheRequest, ccsmp.SolClientCacheEventCallback) error
+	cancelPendingCacheRequestsFunc func(*mockInternalReceiver, uintptr, core.CacheResponseProcessor) *ccsmp.CacheEventInfo
+	createCacheRequestFunc         func(*mockInternalReceiver, resource.CachedMessageSubscriptionRequest, message.CacheRequestID, core.CacheResponseProcessor) (core.CacheRequest, error)
+	destroyCacheRequestFunc        func(*mockInternalReceiver, core.CacheRequest) error
 }
 
 func (mock *mockInternalReceiver) CacheRequestor() core.CacheRequestor {
 	return mock
 }
 
-func (mock *mockInternalReceiver) SendCacheRequest(cachedMessageSubscriptionRequest resource.CachedMessageSubscriptionRequest, cacheRequestID message.CacheRequestID, cacheResponseHandler core.CacheResponseProcessor) error {
-	if mock.sendCacheResponseFunc != nil {
-		return mock.sendCacheResponseFunc(mock, cachedMessageSubscriptionRequest, cacheRequestID, cacheResponseHandler)
+func (mock *mockInternalReceiver) CreateCacheRequest(cachedMessageSubscriptionRequest resource.CachedMessageSubscriptionRequest, cacheRequestID message.CacheRequestID, cacheResponseHandler core.CacheResponseProcessor) (core.CacheRequest, error) {
+	if mock.createCacheRequestFunc != nil {
+		return mock.createCacheRequestFunc(mock, cachedMessageSubscriptionRequest, cacheRequestID, cacheResponseHandler)
+	}
+	/* If not set, presume no-op is intended. */
+	return nil, nil
+}
+
+func (mock *mockInternalReceiver) DestroyCacheRequest(cacheRequest core.CacheRequest) error {
+	if mock.destroyCacheRequestFunc != nil {
+		return mock.destroyCacheRequestFunc(mock, cacheRequest)
 	}
 	/* If not set, presume no-op is intended. */
 	return nil
 }
 
-func (mock *mockInternalReceiver) ProcessCacheEvent(eventInfo ccsmp.CacheEventInfo) {
+func (mock *mockInternalReceiver) SendCacheRequest(cacheRequest core.CacheRequest, cacheEventCallback ccsmp.SolClientCacheEventCallback) error {
+	if mock.sendCacheRequestFunc != nil {
+		return mock.sendCacheRequestFunc(mock, cacheRequest, cacheEventCallback)
+	}
+	/* If not set, presume no-op is intended. */
+	return nil
+}
+
+func (mock *mockInternalReceiver) ProcessCacheEvent(cacheRequestMap *sync.Map, eventInfo ccsmp.CacheEventInfo) {
 	if mock.processCacheResponseFunc != nil {
-		mock.processCacheResponseFunc(mock, eventInfo)
+		mock.processCacheResponseFunc(mock, cacheRequestMap, eventInfo)
 	}
 	/* If not set, presume no-op is intended. */
 }
 
-func (mock *mockInternalReceiver) CancelAllPendingCacheRequests() {
+func (mock *mockInternalReceiver) CancelAllPendingCacheRequests(cacheRequestIndex uintptr, cacheResponseProcessor core.CacheResponseProcessor) *ccsmp.CacheEventInfo {
 	if mock.cancelPendingCacheRequestsFunc != nil {
-		mock.cancelPendingCacheRequestsFunc(mock)
+		return mock.cancelPendingCacheRequestsFunc(mock, cacheRequestIndex, cacheResponseProcessor)
 	}
 	/* If not set, presume no-op is intended. */
-}
-
-func (mock *mockInternalReceiver) CacheResponseChan() chan ccsmp.CacheEventInfo {
-	return mock.cacheResponseChan
-}
-
-func (mock *mockInternalReceiver) InitCacheRequestorResourcesIfNotDoneAlready() {
-	if mock.initCacheRequestorResourcesFunc != nil {
-		mock.initCacheRequestorResourcesFunc(mock)
-	}
-	/* If not set, presume no-op is intended. */
-}
-
-func (mock *mockInternalReceiver) IsCacheRequestorReady() bool {
-	if mock.isCacheRequestorReadyFunc != nil {
-		mock.isCacheRequestorReadyFunc(mock)
-	}
-	/* If not set, assume no-op.
-	 * Internal starting state is false, but it is more ergonomic for the unit test default to be true
-	 * so devs don't have to run a function that returns true but is otherwise a no-op in every single test.
-	 */
-	return true
+	return nil
 }
 
 func (mock *mockInternalReceiver) Events() core.Events {

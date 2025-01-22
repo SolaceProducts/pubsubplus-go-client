@@ -139,13 +139,6 @@ type ccsmpBackedReceiver struct {
 	subscriptionCorrelationID   SubscriptionCorrelationID
 
 	subscriptionOkEvent, subscriptionErrorEvent uint
-
-	// cacheResponseChan is used to buffer the cache responses from CCSMP.
-	cacheResponseChan chan ccsmp.CacheEventInfo
-	// cacheSessionMap is used to map the cache session pointer to the method for handling the cache response,
-	// as specified by the application on a call to a [ReceiverCacheRequester] interface.
-	cacheSessionMap sync.Map // ([keyType]valueType) [ccsmp.SolClientCacheSession]CacheResponseProcessor
-
 }
 
 func newCcsmpReceiver(session *ccsmp.SolClientSession, events *ccsmpBackedEvents, metrics *ccsmpBackedMetrics) *ccsmpBackedReceiver {

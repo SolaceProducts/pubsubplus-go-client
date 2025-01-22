@@ -562,7 +562,7 @@ var _ = Describe("Cache Strategy", func() {
 				BeforeEach(func() {
 					logging.SetLogLevel(logging.LogLevelDebug)
 					CheckCache() // skips test with message if cache image is not available
-                    helpers.InitAllCacheClustersWithMessages()
+					helpers.InitAllCacheClustersWithMessages()
 					var err error
 					messagingService, err = messaging.NewMessagingServiceBuilder().FromConfigurationProvider(helpers.DefaultCacheConfiguration()).Build()
 					Expect(err).To(BeNil())
@@ -617,7 +617,7 @@ var _ = Describe("Cache Strategy", func() {
 					BeforeEach(func() {
 						logging.SetLogLevel(logging.LogLevelDebug)
 						CheckCache() // skips test with message if cache image is not available
-                        helpers.InitAllCacheClustersWithMessages()
+						helpers.InitAllCacheClustersWithMessages()
 						var err error
 						messagingService, err = messaging.NewMessagingServiceBuilder().FromConfigurationProvider(terminationConfiguration()).Build()
 						Expect(err).To(BeNil())

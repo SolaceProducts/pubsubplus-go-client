@@ -132,6 +132,10 @@ func (session *SolClientSession) CreateCacheSession(cacheSessionProperties []str
 	return NewSolClientCacheSession(cacheSessionP), errorInfo
 }
 
+func (cacheSession *SolClientCacheSession) ConvertPointerToInt() uintptr {
+	return uintptr(cacheSession.pointer)
+}
+
 func (cacheSession *SolClientCacheSession) SendCacheRequest(
 	dispatchID uintptr,
 	topic string,
