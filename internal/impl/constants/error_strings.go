@@ -214,9 +214,6 @@ const FailedToRetrieveChannel = "Failed to retrieve channel"
 // FailedToRetrieveCallback error string
 const FailedToRetrieveCallback = "Failed to retrieve callback"
 
-// FailedToCancelCacheRequest error String
-const FailedToCancelCacheRequest = "Failed to cancel cache request"
-
 // WithCacheSessionPointer error string
 const WithCacheSessionPointer = "with cache session pointer:"
 

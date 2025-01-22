@@ -257,11 +257,6 @@ type SolClientSession struct {
 	pointer SolClientSessionPt
 }
 
-// GetPointer returns the session pointer.
-func (session *SolClientSession) GetPointer() SolClientSessionPt {
-	return session.pointer
-}
-
 // SetMessageCallback sets the message callback to use
 func (session *SolClientSession) SetMessageCallback(callback SolClientMessageCallback) error {
 	if session == nil || session.pointer == SolClientOpaquePointerInvalidValue {

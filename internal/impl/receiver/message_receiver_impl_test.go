@@ -18,6 +18,7 @@ package receiver
 
 import (
 	"fmt"
+	//"sync"
 	"testing"
 	"time"
 	"unsafe"
@@ -295,24 +296,52 @@ type mockInternalReceiver struct {
 	incrementMetric            func(metric core.NextGenMetric, amount uint64)
 	incrementDuplicateAckCount func()
 	newPersistentReceiver      func(props []string, callback core.RxCallback, eventCallback core.PersistentEventCallback) (core.PersistentReceiver, *ccsmp.SolClientErrorInfoWrapper)
+	processCacheResponseFunc   func(*mockInternalReceiver, ccsmp.CacheEventInfo)
+	sendCacheResponseFunc      func(*mockInternalReceiver, resource.CachedMessageSubscriptionRequest, message.CacheRequestID, core.CacheResponseProcessor) error
+	//cacheSessionMap            sync.Map
+	cacheResponseChan          chan ccsmp.CacheEventInfo
 }
 
-func (mock *mockInternalReceiver) CacheManager() core.CacheManager {
+func (mock *mockInternalReceiver) CacheRequestor() core.CacheRequestor {
 	return mock
 }
 
-func (mock *mockInternalReceiver) Teardown() {
-	/* NOTE: We can't panic here since this is always called as a part of terminate */
-	/* TODO: Refactor later once unit tests for cache are added. */
-	fmt.Printf("not implemented\n")
-}
+//func (mock *mockInternalReceiver) Teardown() {
+//	/* NOTE: We can't panic here since this is always called as a part of terminate */
+//	/* TODO: Refactor later once unit tests for cache are added. */
+//	fmt.Printf("not implemented\n")
+//}
 
 func (mock *mockInternalReceiver) SendCacheRequest(cachedMessageSubscriptionRequest resource.CachedMessageSubscriptionRequest, cacheRequestID message.CacheRequestID, cacheResponseHandler core.CacheResponseProcessor) error {
+	if mock.sendCacheResponseFunc != nil {
+		return mock.sendCacheResponseFunc(mock, cachedMessageSubscriptionRequest, cacheRequestID, cacheResponseHandler)
+	}
+	/* If not set, presume no-op is intended. */
+	return nil
+}
+
+func (mock *mockInternalReceiver) ProcessCacheEvent(eventInfo ccsmp.CacheEventInfo) {
+	if mock.processCacheResponseFunc != nil {
+		mock.processCacheResponseFunc(mock, eventInfo)
+	}
+	/* If not set, presume no-op is intended. */
+}
+
+func (mock *mockInternalReceiver) CancelAllPendingCacheRequests() {
 	/* TODO: Refactor later once unit tests for cache are added. */
 	panic("not implemented")
 }
 
-func (mock *mockInternalReceiver) StartAndInitCacheManagerIfNotDoneAlready() {
+func (mock *mockInternalReceiver) CacheResponseChan() chan ccsmp.CacheEventInfo {
+	return mock.cacheResponseChan
+}
+
+func (mock *mockInternalReceiver) InitCacheRequestorResourcesIfNotDoneAlready() {
+	/* TODO: Refactor later once unit tests for cache are added. */
+	panic("not implemented")
+}
+
+func (mock *mockInternalReceiver) IsCacheRequestorReady() bool {
 	/* TODO: Refactor later once unit tests for cache are added. */
 	panic("not implemented")
 }

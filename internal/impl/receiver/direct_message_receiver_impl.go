@@ -53,7 +53,7 @@ const (
 
 type directMessageReceiverImpl struct {
 	basicMessageReceiver
-	core.CacheManager
+	core.CacheRequestor
 
 	logger logging.LogLevelLogger
 
@@ -81,6 +81,13 @@ type directMessageReceiverImpl struct {
 	dispatch uintptr
 
 	terminationHandlerID uint
+
+	// cacheResponseChanCounter is used to prevent cache requests from being submitted if the
+	// cacheResponseChan buffer is full.
+	//cacheResponseChanCounter int32
+	// cachePollingRunning is used to determine whether or not the goroutine that polls the cacheResponseChan
+	// has been started yet.
+	cachePollingRunning uint32
 }
 
 type directInboundMessage struct {
@@ -306,7 +313,7 @@ func (receiver *directMessageReceiverImpl) Terminate(gracePeriod time.Duration) 
 		// is still being processed by the async callback, we will not terminate until that message callback is complete
 		<-receiver.terminationComplete
 	}
-	receiver.internalReceiver.CacheManager().Teardown()
+	receiver.teardownCache()
 	return nil
 }
 
@@ -876,18 +883,66 @@ func (receiver *directMessageReceiverImpl) String() string {
 	return fmt.Sprintf("solace.DirectMessageReceiver at %p", receiver)
 }
 
-func (receiver *directMessageReceiverImpl) RequestCachedAsync(cachedMessageSubscriptionRequest resource.CachedMessageSubscriptionRequest, cacheRequestID apimessage.CacheRequestID) (<-chan solace.CacheResponse, error) {
-	currentState := receiver.getState()
-	if currentState != messageReceiverStateStarted {
+// StartAndInitCacheRequestorIfNotDoneAlready allocates whatever resources are required for managing cache requests.
+// This setup is done only once, and is intended to be done after the first cache request has been submitted to the API
+// by the application but before the cache request is passed from Go to C. This is because the CacheRequestor is not a
+// standalone object, but is rather a trait of the its implementor, which may or may not exclusively conduct cache
+// operations. In the case that the CacheRequestor's implementor does not exclusively implement cache operations, e.g. a
+// direct receiver, unless that implementor is directed by the application to conduct cache operations, the resources
+// required for those operations are not needed. In this case, pre-allocating the resources on receiver start would be
+// a waste of time and memory. Only if the implementor is directed to conduct a cache operation are the relevant
+// resources actually required and so allocated.
+func (receiver *directMessageReceiverImpl) StartAndInitCacheRequestorIfNotDoneAlready() {
+	receiver.internalReceiver.CacheRequestor().InitCacheRequestorResourcesIfNotDoneAlready()
+	if !receiver.isCachePollingRunning() {
+		go receiver.PollAndProcessCacheResponseChannel()
+		if receiver.logger.IsDebugEnabled() {
+			receiver.logger.Debug(constants.StartedCachePolling)
+		}
+	} else {
+		if receiver.logger.IsDebugEnabled() {
+			receiver.logger.Debug(constants.DidntStartCachePolling)
+		}
+	}
+}
+
+// isAvailableForCache returns nil if the receiver is ready to send a cache request, or an error if it is not.
+func (receiver *directMessageReceiverImpl) checkStateForCacheRequest() error {
+	var err error
+	var errorString string = ""
+	if receiver.getState() != messageReceiverStateStarted {
 		errorString := "Could not perform cache operations because more the receiver was not in the 'Started' state."
 		receiver.logger.Warning(errorString)
-		return nil, solace.NewError(&solace.IllegalStateError{}, errorString, nil)
+		return solace.NewError(&solace.IllegalStateError{}, errorString, nil)
+	} else if !receiver.internalReceiver.IsRunning() {
+		/* NOTE: it would be great if we could provide a more detailed error string here, but
+		 * internal.IsRunning() only returns a boolean, so we can't say more than we already have.
+		 */
+		errorString = "Could not perform cache operations because the receiver was not running."
+		err = solace.NewError(&solace.IllegalStateError{}, errorString, nil)
+	} else if receiver.internalReceiver.CacheRequestor().IsCacheRequestorReady() {
+		errorString = "Could not perform cache operations because the cache requestor was not ready."
+		err = solace.NewError(&solace.IllegalStateError{}, errorString, nil)
 	}
+	if errorString != "" {
+		/* Warn log because application tried to conduct operation without properly configuring the object. */
+		receiver.logger.Warning(errorString)
+	}
+	return err
+}
+
+func (receiver *directMessageReceiverImpl) RequestCachedAsync(cachedMessageSubscriptionRequest resource.CachedMessageSubscriptionRequest, cacheRequestID apimessage.CacheRequestID) (<-chan solace.CacheResponse, error) {
+	err := receiver.checkStateForCacheRequest()
+	if err != nil {
+		return nil, err
+	}
+	receiver.StartAndInitCacheRequestorIfNotDoneAlready()
 	chHolder := core.NewCacheResponseChannelHolder(make(chan solace.CacheResponse, 1), core.NewCacheRequestInfo(cacheRequestID, cachedMessageSubscriptionRequest.GetName()))
+	/* TODO: Add unit testing for CacheResponseProcessor */
 	/* We don't need to check the channel that is returned here since this functionality is tested through unit
 	 * testing and because we just instantiated the channel ourselves. */
 	if channel, ok := chHolder.GetChannel(); ok {
-		err := receiver.internalReceiver.CacheManager().SendCacheRequest(cachedMessageSubscriptionRequest, cacheRequestID, chHolder)
+		err = receiver.internalReceiver.CacheRequestor().SendCacheRequest(cachedMessageSubscriptionRequest, cacheRequestID, chHolder)
 		if err != nil {
 			/* NOTE: Rely on requestCached to log error. */
 			close(channel)
@@ -903,21 +958,91 @@ func (receiver *directMessageReceiverImpl) RequestCachedAsync(cachedMessageSubsc
 }
 
 func (receiver *directMessageReceiverImpl) RequestCachedAsyncWithCallback(cachedMessageSubscriptionRequest resource.CachedMessageSubscriptionRequest, cacheRequestID apimessage.CacheRequestID, callback func(solace.CacheResponse)) error {
-	currentState := receiver.getState()
-	if currentState != messageReceiverStateStarted {
-		errorString := "Could not perform cache operations because more the receiver was not in the 'Started' state."
-		receiver.logger.Warning(errorString)
-		return solace.NewError(&solace.IllegalStateError{}, "errorString", nil)
+	err := receiver.checkStateForCacheRequest()
+	if err != nil {
+		return err
 	}
+	receiver.StartAndInitCacheRequestorIfNotDoneAlready()
 	cbHolder := core.NewCacheResponseCallbackHolder(callback, core.NewCacheRequestInfo(cacheRequestID, cachedMessageSubscriptionRequest.GetName()))
 	if _, ok := cbHolder.GetCallback(); ok {
-		return receiver.internalReceiver.CacheManager().SendCacheRequest(cachedMessageSubscriptionRequest, cacheRequestID, cbHolder)
+		return receiver.internalReceiver.CacheRequestor().SendCacheRequest(cachedMessageSubscriptionRequest, cacheRequestID, cbHolder)
 	}
 	/* NOTE: We should never get to this point since we know we just set the holder, but we need to include error
 	 * handling just in case, so that the program doesn't panic.*/
 	errorString := constants.FailedToRetrieveCallback
 	receiver.logger.Error(errorString)
 	return solace.NewError(&solace.OperationFailedError{}, errorString, nil)
+}
+
+const cachePollingRunningTrue uint32 = 1
+const cachePollingRunningFalse uint32 = 0
+
+func (receiver *directMessageReceiverImpl) isCachePollingRunning() bool {
+	return atomic.LoadUint32(&receiver.cachePollingRunning) == cachePollingRunningTrue
+}
+
+func (receiver *directMessageReceiverImpl) setCachePollingRunning(running bool) {
+	if running {
+		atomic.StoreUint32(&receiver.cachePollingRunning, cachePollingRunningTrue)
+	} else {
+		atomic.StoreUint32(&receiver.cachePollingRunning, cachePollingRunningFalse)
+	}
+}
+
+// teardownCache is used to clean up cache-related resources as a part of termination. This method assumes
+// that terminate has already been called and that we don't need to run state checks, since the caller or one
+// of its parents should hold the state for it.
+/* WARNING: If the application has submitted any cache requests with a callback for processing, this function will
+ * block until all the callbacks are processed. */
+func (receiver *directMessageReceiverImpl) teardownCache() {
+	if running := receiver.isCachePollingRunning(); !running {
+		/* We can return early since either the resources and shutdown are being handled by a
+		 * different thread right now, or it's already been done before. */
+		return
+	}
+
+	/* INFO: For all cache sessions remaining in the map, issue CCSMP cancellation.*/
+	receiver.internalReceiver.CacheRequestor().CancelAllPendingCacheRequests()
+	/* INFO: For all cache sessions remaining in the map, generate cancellation events for them and put them
+	 * on the cacheResponseChan. These should get to the chan after the actual CCSMP cancellations. Edit
+	 * ProcessCacheEvent if necessary to ignore events without a corresponding cache session so that if
+	 * any duplicates are generated, they are ignored by ProcessCacheEvent and not passed to the
+	 * application.*/
+	close(receiver.internalReceiver.CacheRequestor().CacheResponseChan())
+	/* NOTE: We don't need to use an atomic or sync lock to check the length on each iteration here, because the
+	 * channel was just closed, so it cannot be written to in between iterations.
+	 */
+	for len(receiver.internalReceiver.CacheRequestor().CacheResponseChan()) > 0 {
+		receiver.internalReceiver.CacheRequestor().ProcessCacheEvent(<-receiver.internalReceiver.CacheRequestor().CacheResponseChan())
+	}
+}
+
+// PollAndProcessCacheResponseChannel is intended to be run as a go routine.
+func (receiver *directMessageReceiverImpl) PollAndProcessCacheResponseChannel() {
+	receiver.setCachePollingRunning(true)
+	var cacheEventInfo ccsmp.CacheEventInfo
+	channelIsOpen := true
+	/* poll cacheventinfo channel */
+	for channelIsOpen {
+		cacheEventInfo, channelIsOpen = <-receiver.internalReceiver.CacheRequestor().CacheResponseChan()
+		//atomic.AddInt32(&receiver.cacheResponseChanCounter, -1)
+		if !channelIsOpen {
+			// If channel is closed, we can stop polling. In this case we don't need to handle
+			// the cacheEventInfo since there won't be a menaingful one left on the queue.
+			// Any function that closes the channel must guarantee this.
+			if receiver.logger.IsDebugEnabled() {
+				receiver.logger.Debug("cacheResponseChan was closed, exiting PollAndProcessCacheResponseChannel loop.")
+			}
+			break
+		}
+		/* We decrement the counter first, since as soon as we pop the CacheEventInfo
+		 * off the channel, CCSMP is able to put another on. If CCSMP is able resume processing the
+		 * cache responses, we should unblock the application by allowing it to submit more cache
+		 * requests ASAP.*/
+		receiver.internalReceiver.CacheRequestor().ProcessCacheEvent(cacheEventInfo)
+	}
+	// Indicate that this function has stopped running.
+	receiver.setCachePollingRunning(false)
 }
 
 type directMessageReceiverBuilderImpl struct {
