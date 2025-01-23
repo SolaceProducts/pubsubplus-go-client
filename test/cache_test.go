@@ -115,21 +115,21 @@ var _ = Describe("Cache Strategy", func() {
 			cacheRequestID := message.CacheRequestID(1)
 			numExpectedCachedMessages := 3
 			/* NOTE: delay will give us time to have concurrent cache requests with the same ID */
-			delay := 15000
+			delay := 2000
 			topic := fmt.Sprintf("MaxMsgs%d/%s/data1", numExpectedCachedMessages, testcontext.Cache().Vpn)
 			cacheName := fmt.Sprintf("MaxMsgs%d/delay=%d,", numExpectedCachedMessages, delay)
-			cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.AsAvailable, cacheName, resource.TopicSubscriptionOf(topic), int32(delay+5000), helpers.ValidMaxCachedMessages, helpers.ValidCachedMessageAge)
+			cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.AsAvailable, cacheName, resource.TopicSubscriptionOf(topic), int32(delay+1000), helpers.ValidMaxCachedMessages, helpers.ValidCachedMessageAge)
 			channelOne, err := receiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
 			Expect(channelOne).ToNot(BeNil())
 			Expect(err).To(BeNil())
-			Eventually(func() uint64 { return messagingService.Metrics().GetValue(metrics.CacheRequestsSent) }, "5s").Should(BeNumerically("==", 1))
+			Eventually(func() uint64 { return messagingService.Metrics().GetValue(metrics.CacheRequestsSent) }).Should(BeNumerically("==", 1))
 			Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsFailed)).To(BeNumerically("==", 0))
 			Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSucceeded)).To(BeNumerically("==", 0))
 
 			channelTwo, err := receiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
 			Expect(channelTwo).ToNot(BeNil())
 			Expect(err).To(BeNil())
-			Eventually(func() uint64 { return messagingService.Metrics().GetValue(metrics.CacheRequestsSent) }, "5s").Should(BeNumerically("==", 2))
+			Eventually(func() uint64 { return messagingService.Metrics().GetValue(metrics.CacheRequestsSent) }).Should(BeNumerically("==", 2))
 			Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsFailed)).To(BeNumerically("==", 0))
 			Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSucceeded)).To(BeNumerically("==", 0))
 
@@ -141,10 +141,10 @@ var _ = Describe("Cache Strategy", func() {
 
 			/* NOTE: Assert that the cache response was received. */
 			var cacheResponse1 solace.CacheResponse
-			Eventually(channelOne, delay+5000).Should(Receive(&cacheResponse1))
+			Eventually(channelOne, delay+1000).Should(Receive(&cacheResponse1))
 			Expect(cacheResponse1).ToNot(BeNil())
 			var cacheResponse2 solace.CacheResponse
-			Eventually(channelTwo, delay+5000).Should(Receive(&cacheResponse2))
+			Eventually(channelTwo, delay+1000).Should(Receive(&cacheResponse2))
 			Expect(cacheResponse2).ToNot(BeNil())
 			Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSent)).To(BeNumerically("==", 2))
 			Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsFailed)).To(BeNumerically("==", 0))
