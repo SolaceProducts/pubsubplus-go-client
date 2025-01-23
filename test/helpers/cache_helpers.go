@@ -158,6 +158,7 @@ func GetValidCacheRequestConfig(strategy resource.CachedMessageSubscriptionStrat
 	return resource.NewCachedMessageSubscriptionRequest(strategy, cacheName, resource.TopicSubscriptionOf(topic), ValidCacheAccessTimeout, ValidMaxCachedMessages, ValidCachedMessageAge)
 }
 
+// GetInvalidCacheRequestConfig returns a [resource.CachedMessageSubscriptionRequest] with an invalid timeout of less than 3000.
 func GetInvalidCacheRequestConfig(strategy resource.CachedMessageSubscriptionStrategy, cacheName string, topic string) resource.CachedMessageSubscriptionRequest {
 	return resource.NewCachedMessageSubscriptionRequest(strategy, cacheName, resource.TopicSubscriptionOf(topic), InvalidCacheAccessTimeout, ValidMaxCachedMessages, ValidCachedMessageAge)
 }
