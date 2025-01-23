@@ -65,10 +65,9 @@ func (receiver *ccsmpBackedReceiver) ProcessCacheEvent(cacheRequestMap *sync.Map
 	}
 }
 
-// CancelAllPendingCacheRequests will cancel all pending cache requests and potentially block until all cancellations
-// are pushed to the cacheResponse channel.
-func (receiver *ccsmpBackedReceiver) CancelAllPendingCacheRequests(cacheRequestIndex uintptr, cacheResponseProcessor CacheResponseProcessor) *ccsmp.CacheEventInfo {
-	//func (receiver *ccsmpBackedReceiver) CancelAllPendingCacheRequests(cacheSession ccsmp.SolClientCacheSession, cacheResponseProcessor CacheResponseProcessor) *ccsmp.CacheEventInfo {
+// CancelPendingCacheRequests will cancel all pending cache requests for a given cache session and potentially block
+// until all cancellations are pushed to the cacheResponse channel.
+func (receiver *ccsmpBackedReceiver) CancelPendingCacheRequests(cacheRequestIndex uintptr, cacheResponseProcessor CacheResponseProcessor) *ccsmp.CacheEventInfo {
 	var generatedEvent ccsmp.CacheEventInfo
 	cacheSession := GetCacheSessionFromCacheRequestIndex(cacheRequestIndex)
 	errorInfo := cacheSession.CancelCacheRequest()
@@ -200,8 +199,7 @@ type CacheRequestor interface {
 	//ProcessCacheEvent
 	ProcessCacheEvent(*sync.Map, ccsmp.CacheEventInfo)
 
-	CancelAllPendingCacheRequests(uintptr, CacheResponseProcessor) *ccsmp.CacheEventInfo
-	//CancelAllPendingCacheRequests(ccsmp.SolClientCacheSession, CacheResponseProcessor) *ccsmp.CacheEventInfo
+	CancelPendingCacheRequests(uintptr, CacheResponseProcessor) *ccsmp.CacheEventInfo
 }
 
 // SendCacheRequest sends a creates a cache session and sends a cache request on that session. This method

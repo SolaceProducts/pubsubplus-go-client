@@ -16,9 +16,10 @@
 
 // Package ccsmp contains all the code required to wrap ccsmp in golang with cgo.
 // Ideally, no cgo code should be required when using this package.
+
+// Prototypes for C API internal interfaces available only to wrapper APIs.
 package ccsmp
 
-/* Prototypes for C API internal interfaces available only to wrapper APIs. */
 /*
 #cgo CFLAGS: -DSOLCLIENT_PSPLUS_GO
 #include <stdlib.h>

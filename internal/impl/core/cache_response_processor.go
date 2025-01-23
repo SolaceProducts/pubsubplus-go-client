@@ -17,7 +17,6 @@
 package core
 
 import (
-	"solace.dev/go/messaging/internal/impl/constants"
 	"solace.dev/go/messaging/internal/impl/logging"
 	"solace.dev/go/messaging/pkg/solace"
 	apimessage "solace.dev/go/messaging/pkg/solace/message"
@@ -123,7 +122,7 @@ func (chHolder CacheResponseChannelHolder) ProcessCacheResponse(cacheResponse so
 		close(channel)
 	} else {
 		/* This is an error log because it is the API's responsiblity to create and manage the channel. */
-		logging.Default.Error("The API failed to retrieve the configured channel that was intended for the application" + constants.NoCacheChannelAvailable)
+		logging.Default.Error("The API failed to retrieve the configured channel that was intended for the application because no cache channel was available.")
 	}
 }
 

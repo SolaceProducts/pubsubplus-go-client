@@ -19,9 +19,9 @@
  * around C functions, Go types representing C data types, and of those
  * must be limited to any relating directly to cache operations in C.
  */
+// Prototypes for C API internal interfaces available only to wrapper APIs.
 
 package ccsmp
-/* Prototypes for C API internal interfaces available only to wrapper APIs. */
 /*
 #cgo CFLAGS: -DSOLCLIENT_PSPLUS_GO
 #include <stdlib.h>

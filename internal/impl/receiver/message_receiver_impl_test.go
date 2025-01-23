@@ -338,7 +338,7 @@ func (mock *mockInternalReceiver) ProcessCacheEvent(cacheRequestMap *sync.Map, e
 	/* If not set, presume no-op is intended. */
 }
 
-func (mock *mockInternalReceiver) CancelAllPendingCacheRequests(cacheRequestIndex uintptr, cacheResponseProcessor core.CacheResponseProcessor) *ccsmp.CacheEventInfo {
+func (mock *mockInternalReceiver) CancelPendingCacheRequests(cacheRequestIndex uintptr, cacheResponseProcessor core.CacheResponseProcessor) *ccsmp.CacheEventInfo {
 	if mock.cancelPendingCacheRequestsFunc != nil {
 		return mock.cancelPendingCacheRequestsFunc(mock, cacheRequestIndex, cacheResponseProcessor)
 	}
