@@ -73,8 +73,6 @@ func (receiver *ccsmpBackedReceiver) CancelPendingCacheRequests(cacheRequestInde
 	errorInfo := cacheSession.CancelCacheRequest()
 	if errorInfo != nil {
 		if errorInfo.ReturnCode != ccsmp.SolClientReturnCodeOk {
-			/* FFC: might need to add additional checking for subcodes or error strings specific to a CCSMP
-			 * trying to cancel cache requests on an invalid cache session. */
 			/* There was a failure in cancelling the cache request, but we still
 			 * have a cache session pointer, so we generate a cache response to notify
 			 * the application that something went wrong and defer destroying the cache
