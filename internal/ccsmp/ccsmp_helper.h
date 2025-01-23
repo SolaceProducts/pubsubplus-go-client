@@ -145,6 +145,7 @@ solClient_returnCode_t
                         CacheSessionCancelRequests(
                         solClient_opaqueCacheSession_pt opaqueCacheSession_p);
 
+/* NOTE: This function prototype is available only to wrapper APIs and is not for use by the application. */
 solClient_returnCode_t
                         solClient_cacheSession_sendCacheRequestWithDispatch(
                         solClient_opaqueCacheSession_pt             opaqueCacheSession_p,
