@@ -14,14 +14,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/* NOTE: The purpose of this module is to isolate interop between C and
- * PSPGo. Contributions to this module should be limited to Go wrappers
- * around C functions, Go types representing C data types, and of those
- * must be limited to any relating directly to cache operations in C.
- */
-// Prototypes for C API internal interfaces available only to wrapper APIs.
-
+// Package ccsmp isolates interop between C and
+// PSPGo. Contributions to this module should be limited to Go wrappers
+// around C functions, Go types representing C data types.
 package ccsmp
+// This module specifically must be limited to any functions or data types relating directly to cache operations in C.
+
 /*
 #cgo CFLAGS: -DSOLCLIENT_PSPLUS_GO
 #include <stdlib.h>
@@ -44,6 +42,7 @@ solClient_rxMsgCallback_returnCode_t flowMessageReceiveCallback ( solClient_opaq
 solClient_rxMsgCallback_returnCode_t defaultFlowMessageReceiveCallback ( solClient_opaqueFlow_pt opaqueFlow_p, solClient_opaqueMsg_pt msg_p, void *user_p );
 void flowEventCallback ( solClient_opaqueFlow_pt opaqueFlow_p, solClient_flow_eventCallbackInfo_pt eventInfo_p, void *user_p );
 
+// Prototypes for C API internal interfaces available only to wrapper APIs.
 solClient_returnCode_t _solClient_version_set(solClient_version_info_pt version_p);
 */
 import "C"

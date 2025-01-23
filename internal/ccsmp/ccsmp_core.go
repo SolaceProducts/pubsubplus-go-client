@@ -17,7 +17,6 @@
 // Package ccsmp contains all the code required to wrap ccsmp in golang with cgo.
 // Ideally, no cgo code should be required when using this package.
 
-// Prototypes for C API internal interfaces available only to wrapper APIs.
 package ccsmp
 
 /*
@@ -42,6 +41,7 @@ solClient_rxMsgCallback_returnCode_t flowMessageReceiveCallback ( solClient_opaq
 solClient_rxMsgCallback_returnCode_t defaultFlowMessageReceiveCallback ( solClient_opaqueFlow_pt opaqueFlow_p, solClient_opaqueMsg_pt msg_p, void *user_p );
 void flowEventCallback ( solClient_opaqueFlow_pt opaqueFlow_p, solClient_flow_eventCallbackInfo_pt eventInfo_p, void *user_p );
 
+// Prototypes for C API internal interfaces available only to wrapper APIs.
 solClient_returnCode_t _solClient_version_set(solClient_version_info_pt version_p);
 */
 import "C"

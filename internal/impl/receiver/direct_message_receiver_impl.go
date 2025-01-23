@@ -1088,7 +1088,7 @@ func (receiver *directMessageReceiverImpl) teardownCache() {
 
 	/* INFO: For all cache sessions remaining in the map, issue CCSMP cancellation.*/
 	receiver.cacheRequestMap.Range(func(key, value interface{}) bool {
-		generatedEvent := receiver.internalReceiver.CacheRequestor().CancelPendingCacheRequests(key.(uintptr), value.(core.CacheResponseProcessor))
+		generatedEvent := receiver.internalReceiver.CacheRequestor().CancelPendingCacheRequests(key.(core.CacheRequestMapIndex), value.(core.CacheResponseProcessor))
 		/* NOTE: If generatedEvent is nil, that means CCSMP was able to cancel the request and push its own event
 		 * to the buffer. If it is not nil, CCSMP was unable to cancel the cache request, an event was generated,
 		 * and that event now needs to be pushed to the buffer.*/

@@ -298,7 +298,7 @@ type mockInternalReceiver struct {
 	newPersistentReceiver          func(props []string, callback core.RxCallback, eventCallback core.PersistentEventCallback) (core.PersistentReceiver, *ccsmp.SolClientErrorInfoWrapper)
 	processCacheResponseFunc       func(*mockInternalReceiver, *sync.Map, ccsmp.CacheEventInfo)
 	sendCacheRequestFunc           func(*mockInternalReceiver, core.CacheRequest, ccsmp.SolClientCacheEventCallback) error
-	cancelPendingCacheRequestsFunc func(*mockInternalReceiver, uintptr, core.CacheResponseProcessor) *ccsmp.CacheEventInfo
+	cancelPendingCacheRequestsFunc func(*mockInternalReceiver, core.CacheRequestMapIndex, core.CacheResponseProcessor) *ccsmp.CacheEventInfo
 	createCacheRequestFunc         func(*mockInternalReceiver, resource.CachedMessageSubscriptionRequest, message.CacheRequestID, core.CacheResponseProcessor) (core.CacheRequest, error)
 	destroyCacheRequestFunc        func(*mockInternalReceiver, core.CacheRequest) error
 }
@@ -338,7 +338,7 @@ func (mock *mockInternalReceiver) ProcessCacheEvent(cacheRequestMap *sync.Map, e
 	/* If not set, presume no-op is intended. */
 }
 
-func (mock *mockInternalReceiver) CancelPendingCacheRequests(cacheRequestIndex uintptr, cacheResponseProcessor core.CacheResponseProcessor) *ccsmp.CacheEventInfo {
+func (mock *mockInternalReceiver) CancelPendingCacheRequests(cacheRequestIndex core.CacheRequestMapIndex, cacheResponseProcessor core.CacheResponseProcessor) *ccsmp.CacheEventInfo {
 	if mock.cancelPendingCacheRequestsFunc != nil {
 		return mock.cancelPendingCacheRequestsFunc(mock, cacheRequestIndex, cacheResponseProcessor)
 	}
