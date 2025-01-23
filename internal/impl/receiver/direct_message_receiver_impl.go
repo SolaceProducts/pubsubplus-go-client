@@ -1004,12 +1004,12 @@ func (receiver *directMessageReceiverImpl) RequestCachedAsync(cachedMessageSubsc
 	err = receiver.internalReceiver.CacheRequestor().SendCacheRequest(cacheRequest, cacheEventCallback)
 	if err != nil {
 		close(applicationChannel)
-        receiver.cacheRequestMap.Delete(cacheRequest.Index())
+		receiver.cacheRequestMap.Delete(cacheRequest.Index())
 		_ = receiver.internalReceiver.CacheRequestor().DestroyCacheRequest(cacheRequest)
-        /* NOTE: We drop the inner error here, because the application would expect a send error from a function
-         * intended to send a cache request, not an error regarding leaked resources. Both errors are logged, so the
-         * application developer can investigate the logs in the event of a resource-related problem.
-         */
+		/* NOTE: We drop the inner error here, because the application would expect a send error from a function
+		 * intended to send a cache request, not an error regarding leaked resources. Both errors are logged, so the
+		 * application developer can investigate the logs in the event of a resource-related problem.
+		 */
 		return nil, err
 	}
 
@@ -1039,12 +1039,12 @@ func (receiver *directMessageReceiverImpl) RequestCachedAsyncWithCallback(cached
 	}
 	err = receiver.internalReceiver.CacheRequestor().SendCacheRequest(cacheRequest, cacheEventCallback)
 	if err != nil {
-        receiver.cacheRequestMap.Delete(cacheRequest.Index())
-        _ = receiver.internalReceiver.CacheRequestor().DestroyCacheRequest(cacheRequest)
-        /* NOTE: We drop the inner error here, because the application would expect a send error from a function
-         * intended to send a cache request, not an error regarding leaked resources. Both errors are logged, so the
-         * application developer can investigate the logs in the event of a resource-related problem.
-         */
+		receiver.cacheRequestMap.Delete(cacheRequest.Index())
+		_ = receiver.internalReceiver.CacheRequestor().DestroyCacheRequest(cacheRequest)
+		/* NOTE: We drop the inner error here, because the application would expect a send error from a function
+		 * intended to send a cache request, not an error regarding leaked resources. Both errors are logged, so the
+		 * application developer can investigate the logs in the event of a resource-related problem.
+		 */
 		return err
 	}
 	return err
@@ -1073,8 +1073,8 @@ func (receiver *directMessageReceiverImpl) setCachePollingRunning(running bool) 
 func (receiver *directMessageReceiverImpl) teardownCache() {
 	if running := receiver.isCachePollingRunning(); !running {
 		/* We can return early since either the resources and shutdown are being handled by a
-		 * different thread right now, or it's already been done before, or because resources
-         * were never allocated to begin with. */
+				 * different thread right now, or it's already been done before, or because resources
+		         * were never allocated to begin with. */
 		return
 	}
 
