@@ -140,8 +140,8 @@ func (cacheSession *SolClientCacheSession) SendCacheRequest(
 	dispatchID uintptr,
 	topic string,
 	cacheRequestID message.CacheRequestID,
-	cacheRequestFlags C.solClient_cacheRequestFlags_t, // There may be a custom type for this? TBD
-	subscribeFlags C.solClient_subscribeFlags_t, // There may be a custom type for this? TBD
+	cacheRequestFlags C.solClient_cacheRequestFlags_t,
+	subscribeFlags C.solClient_subscribeFlags_t,
 	eventCallback SolClientCacheEventCallback,
 ) *SolClientErrorInfoWrapper {
 
