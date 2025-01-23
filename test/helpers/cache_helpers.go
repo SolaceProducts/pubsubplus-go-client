@@ -37,7 +37,7 @@ const (
 )
 
 const (
-	InvalidCacheAccessTimoeout int32 = 1000
+	InvalidCacheAccessTimeout int32 = 1000
 )
 
 func DefaultCacheConfiguration() config.ServicePropertyMap {
@@ -159,7 +159,7 @@ func GetValidCacheRequestConfig(strategy resource.CachedMessageSubscriptionStrat
 }
 
 func GetInvalidCacheRequestConfig(strategy resource.CachedMessageSubscriptionStrategy, cacheName string, topic string) resource.CachedMessageSubscriptionRequest {
-	return resource.NewCachedMessageSubscriptionRequest(strategy, cacheName, resource.TopicSubscriptionOf(topic), InvalidCacheAccessTimoeout, ValidMaxCachedMessages, ValidCachedMessageAge)
+	return resource.NewCachedMessageSubscriptionRequest(strategy, cacheName, resource.TopicSubscriptionOf(topic), InvalidCacheAccessTimeout, ValidMaxCachedMessages, ValidCachedMessageAge)
 }
 
 type CacheResponseProcessStrategy = int
