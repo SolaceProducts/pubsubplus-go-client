@@ -57,7 +57,6 @@ const (
 
 type directMessageReceiverImpl struct {
 	basicMessageReceiver
-	//core.CacheRequestor
 
 	logger logging.LogLevelLogger
 
@@ -94,7 +93,9 @@ type directMessageReceiverImpl struct {
 	// cacheRequestMap is used to map the cache session pointer to the method for handling the cache response,
 	// as specified by the application on a call to a [ReceiverCacheRequester] interface.
 	cacheRequestMap sync.Map // ([keyType]valueType) [CacheRequestMapIndex]CacheResponseProcessor
-
+    // cacheResourceLock is used to prevent concurrent attempts at initializing the cacheResponseChan. Concurrent
+    // initialization of this channel could overwrite written to that channel, leading to undefined behaviour.
+    cacheResourceLock sync.Mutex
 }
 
 type directInboundMessage struct {
@@ -900,9 +901,11 @@ func (receiver *directMessageReceiverImpl) String() string {
 // a waste of time and memory. Only if the implementor is directed to conduct a cache operation are the relevant
 // resources actually required and so allocated.
 func (receiver *directMessageReceiverImpl) StartAndInitCacheRequestorIfNotDoneAlready() {
+        receiver.cacheResourceLock.Lock()
 	if receiver.cacheResponseChan == nil {
 		receiver.cacheResponseChan = make(chan core.CoreCacheEventInfo, MaxOutstandingCacheRequests)
 	}
+    receiver.cacheResourceLock.Unlock()
 	if !receiver.isCachePollingRunning() {
 		go receiver.PollAndProcessCacheResponseChannel()
 		if receiver.logger.IsDebugEnabled() {
@@ -944,12 +947,16 @@ func (receiver *directMessageReceiverImpl) checkStateForCacheRequest() error {
 // addCacheSessionToMapIfNotPresent adds a cache session to the map and associates it with a CacheResponseProcessor if
 // it is not already present. If the cache session is already present, this function returns an IllegalStateError.
 func (receiver *directMessageReceiverImpl) addCacheSessionToMapIfNotPresent(holder core.CacheResponseProcessor, cacheRequestMapIndex core.CacheRequestMapIndex) error {
-	/* FFC: There is a race condition in the function where we read one state of the map, and then
+	/* NOTE: There is a race condition in the function where we read one state of the map, and then
 	 * update the state after the map has been mutated. This is because the lock is managed by the map accessor
 	 * functions. This should not happen, since it would require duplicate pointers in CCSMP. The alternative is
 	 * code duplication that IMO is not worth it to avoid a race condition that would only occur because of a bug
 	 * in CCSMP. This sort of bug would have other obvious impacts on the application anyways, so we don't need
 	 * to rely on this path as the only one to notify the application of such a problem.
+     *
+     * While this race condition does exist, it can only be expoloited in a situation where CCSMP is giving the Go
+     * API duplicate cache session pointers. We rely on CCSMP's guarantee of unique cache session pointers to avoid
+     * the negative consequences of this race condition.
 	 */
 	var err error
 	err = nil
