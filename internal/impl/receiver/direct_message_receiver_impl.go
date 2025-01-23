@@ -906,11 +906,11 @@ func (receiver *directMessageReceiverImpl) StartAndInitCacheRequestorIfNotDoneAl
 	if !receiver.isCachePollingRunning() {
 		go receiver.PollAndProcessCacheResponseChannel()
 		if receiver.logger.IsDebugEnabled() {
-			receiver.logger.Debug(constants.StartedCachePolling)
+			receiver.logger.Debug("Started go routine for polling cache response channel.")
 		}
 	} else {
 		if receiver.logger.IsDebugEnabled() {
-			receiver.logger.Debug(constants.DidntStartCachePolling)
+			receiver.logger.Debug("Didn't start go routine for polling cache response channel again because it is already running.")
 		}
 	}
 }
@@ -959,7 +959,7 @@ func (receiver *directMessageReceiverImpl) addCacheSessionToMapIfNotPresent(hold
 		 * prevent the API from indexing the cache session which is necessary for tracking cache request lifecycles.
 		 */
 		err = solace.NewError(&solace.IllegalStateError{},
-			fmt.Sprintf("%s [0x%x] %s", constants.ApplicationTriedToCreateCacheRequest, cacheRequestMapIndex, constants.AnotherCacheSessionAlreadyExists), nil)
+			fmt.Sprintf("The application API to create a new cache request using cache session pointer [0x%x] but another cache request's cache session under that pointer already exists.", cacheRequestMapIndex), nil)
 		return err
 	}
 	/* No pre-existing cache session found, we can index the current one and continue. */
@@ -1010,7 +1010,7 @@ func (receiver *directMessageReceiverImpl) RequestCachedAsync(cachedMessageSubsc
 	}
 	/* NOTE: We should never get to this point since we know we just set the holder, but we need to include error
 	 * handling just in case, so that the program doesn't panic.*/
-	errorString := constants.FailedToRetrieveChannel
+	errorString := "Failed to retrieve channel"
 	receiver.logger.Error(errorString)
 	return nil, solace.NewError(&solace.OperationFailedError{}, errorString, nil)
 }
@@ -1054,7 +1054,7 @@ func (receiver *directMessageReceiverImpl) RequestCachedAsyncWithCallback(cached
 	}
 	/* NOTE: We should never get to this point since we know we just set the holder, but we need to include error
 	 * handling just in case, so that the program doesn't panic.*/
-	errorString := constants.FailedToRetrieveCallback
+	errorString := "Failed to retrieve callback"
 	receiver.logger.Error(errorString)
 	return solace.NewError(&solace.OperationFailedError{}, errorString, nil)
 }

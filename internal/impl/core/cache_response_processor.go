@@ -81,7 +81,7 @@ func (cbHolder CacheResponseCallbackHolder) ProcessCacheResponse(cacheResponse s
 	if callback, found := cbHolder.GetCallback(); found {
 		callback(cacheResponse)
 	} else {
-		logging.Default.Error(constants.UnableToPassCacheResponseToApplication + constants.NoCacheCallbackAvailable)
+		logging.Default.Error("Unable to pass cache response to application because the application did not provide a callback that could be used to process the cache response.")
 	}
 }
 
@@ -123,7 +123,7 @@ func (chHolder CacheResponseChannelHolder) ProcessCacheResponse(cacheResponse so
 		close(channel)
 	} else {
 		/* This is an error log because it is the API's responsiblity to create and manage the channel. */
-		logging.Default.Error(constants.UnableToPassCacheResponseToApplication + constants.NoCacheChannelAvailable)
+		logging.Default.Error("The API failed to retrieve the configured channel that was intended for the application" + constants.NoCacheChannelAvailable)
 	}
 }
 

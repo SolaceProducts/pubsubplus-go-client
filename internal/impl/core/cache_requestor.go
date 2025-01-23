@@ -47,7 +47,7 @@ func (receiver *ccsmpBackedReceiver) ProcessCacheEvent(cacheRequestMap *sync.Map
 			 * but no matching entry in the table since it was already removed by the original entry. This
 			 * is not a bug, and the application doesn't need to be concerned about this, so we log it as
 			 * debug. */
-			logging.Default.Debug(constants.UnableToProcessCacheResponse + constants.InvalidCacheSession)
+			logging.Default.Debug("Unable to process cache response because: The cache session associated with the given cache request/response was invalid")
 		}
 	} else {
 		cacheResponseHolder := foundCacheResponseHolder.(CacheResponseProcessor)
@@ -82,7 +82,7 @@ func (receiver *ccsmpBackedReceiver) CancelAllPendingCacheRequests(cacheRequestI
 			 * session to a later point.*/
 			logging.Default.Info(fmt.Sprintf("Failed to cancel cache request %s %d and %s %s.", constants.WithCacheRequestID, cacheResponseProcessor.GetCacheRequestInfo().GetCacheRequestID(), constants.WithCacheSessionPointer, cacheSession.String()))
 			if logging.Default.IsDebugEnabled() {
-				logging.Default.Debug(constants.AttemptingCancellationNoticeGeneration)
+				logging.Default.Debug("Attempting to generate a cache request cancellation event now.")
 			}
 
 			generatedEvent = ccsmp.NewCacheEventInfoForCancellation(cacheSession, cacheResponseProcessor.GetCacheRequestInfo().GetCacheRequestID(), cacheResponseProcessor.GetCacheRequestInfo().GetTopic(), ToNativeError(errorInfo, "Failed to cancel cache request."))
@@ -157,7 +157,7 @@ func (receiver *ccsmpBackedReceiver) CreateCacheRequest(cachedMessageSubscriptio
 	cacheSession, errInfo := receiver.session.CreateCacheSession(propsList)
 
 	if errInfo != nil {
-		errorString := constants.FailedToCreateCacheSession + constants.WithCacheRequestID + fmt.Sprintf("%d", cacheRequestID)
+            errorString := fmt.Sprintf("Failed to create cache session %s %d",constants.WithCacheRequestID, cacheRequestID)
 		logging.Default.Warning(errorString)
 		return nil, ToNativeError(errInfo, errorString)
 	}
@@ -213,7 +213,7 @@ func (receiver *ccsmpBackedReceiver) SendCacheRequest(cacheRequest CacheRequest,
 	cacheSession := cacheRequest.CacheSession()
 	cacheStrategy := cacheRequest.RequestConfig().GetCachedMessageSubscriptionRequestStrategy()
 	if cacheStrategy == nil {
-		errorString := fmt.Sprintf("%s %s %d and %s %s because %s", constants.FailedToSendCacheRequest, constants.WithCacheRequestID, cacheRequest.ID(), constants.WithCacheSessionPointer, cacheSession.String(), constants.InvalidCachedMessageSubscriptionStrategyPassed)
+		errorString := fmt.Sprintf("%s %s %d and %s %s because an invalid CachedMessageSubscriptionStrategy was passed", constants.FailedToSendCacheRequest, constants.WithCacheRequestID, cacheRequest.ID(), constants.WithCacheSessionPointer, cacheSession.String())
 		logging.Default.Warning(errorString)
 		return solace.NewError(&solace.IllegalArgumentError{}, errorString, nil)
 	}
