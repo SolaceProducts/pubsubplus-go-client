@@ -18,6 +18,7 @@
 // PSPGo. Contributions to this module should be limited to Go wrappers
 // around C functions, Go types representing C data types.
 package ccsmp
+
 // This module specifically must be limited to any functions or data types relating directly to cache operations in C.
 
 /*

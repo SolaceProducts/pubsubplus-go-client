@@ -95,10 +95,18 @@ type CacheRequestMapIndex = ccsmp.SolClientCacheSessionPt
 type CoreCacheEventInfo = ccsmp.CacheEventInfo
 
 type CacheRequest interface {
+	// RequestConfig returns the [resource.CachedMessageSubscriptionRequest] that was configured by the application
+	// for this cache request.
 	RequestConfig() resource.CachedMessageSubscriptionRequest
+	// ID returns the [CacheRequestID] that was specified for this cache request by the application.
 	ID() apimessage.CacheRequestID
+	// Processor returns the method through which the application decided to handle the cache response that will result
+	// from this cache request.
 	Processor() CacheResponseProcessor
+	// CacheSession returns the [SolClientCacheSession] that was created to service this cache request.
 	CacheSession() ccsmp.SolClientCacheSession
+	// Index returns the [CacheRequestMapIndex] used to associate this cache request with its processor in the
+	// receiver's internal map.
 	Index() CacheRequestMapIndex
 }
 
@@ -155,7 +163,7 @@ func (receiver *ccsmpBackedReceiver) CreateCacheRequest(cachedMessageSubscriptio
 	cacheSession, errInfo := receiver.session.CreateCacheSession(propsList)
 
 	if errInfo != nil {
-            errorString := fmt.Sprintf("Failed to create cache session %s %d",constants.WithCacheRequestID, cacheRequestID)
+		errorString := fmt.Sprintf("Failed to create cache session %s %d", constants.WithCacheRequestID, cacheRequestID)
 		logging.Default.Warning(errorString)
 		return nil, ToNativeError(errInfo, errorString)
 	}
@@ -185,19 +193,21 @@ func (receiver *ccsmpBackedReceiver) DestroyCacheRequest(cacheRequest CacheReque
 
 // CacheRequestor interface
 type CacheRequestor interface {
-	// CreateCacheRequest
+	// CreateCacheRequest creates a cache session and a CacheRequest object which contains the new session along with
+	// whatever information is required to send the cache request.
 	CreateCacheRequest(resource.CachedMessageSubscriptionRequest, apimessage.CacheRequestID, CacheResponseProcessor) (CacheRequest, error)
 	// DestroyCacheRequest is used to clean up a cache request object when SendCacheRequestFails
 	DestroyCacheRequest(CacheRequest) error
-	// SendCacheRequest
+	// SendCacheRequest sends the given cache request object, and configures CCSMP to use the given callback to handle
+	// the resulting cache event/response
 	SendCacheRequest(CacheRequest, ccsmp.SolClientCacheEventCallback) error
-	//SendCacheRequest(cachedMessageSubscriptionRequest resource.CachedMessageSubscriptionRequest, cacheRequestID apimessage.CacheRequestID, cacheResponseHandler CacheResponseProcessor) error
-	// StartAndInitCacheRequestorIfNotDoneAlready
-	//StartAndInitCacheRequestorIfNotDoneAlready()
-
-	//ProcessCacheEvent
+	// ProcessCacheEvent creates a cache response from the cache event that was asynchronously returned by CCSMP, and
+	// gives this response to the application for post-processing using the method configured by the application during
+	// the call to RequestCachedAsync or RequestCachedAsyncWithCallback.
 	ProcessCacheEvent(*sync.Map, ccsmp.CacheEventInfo)
 
+	// CancelPendingCacheRequests Cancels all the cache requests for the cache session associated with the given
+	// CacheRequestMapIndex
 	CancelPendingCacheRequests(CacheRequestMapIndex, CacheResponseProcessor) *ccsmp.CacheEventInfo
 }
 
