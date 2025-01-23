@@ -29,7 +29,7 @@ import (
 )
 
 // ProcessCacheEvent is intended to be run by any agent trying to process a cache response. This can be run from a polling go routine, or during termination to cleanup remaining resources, and possibly by other agents as well.
-func (receiver *ccsmpBackedReceiver) ProcessCacheEvent(cacheRequestMap *sync.Map, cacheEventInfo ccsmp.CacheEventInfo) {
+func (receiver *ccsmpBackedReceiver) ProcessCacheEvent(cacheRequestMap *sync.Map, cacheEventInfo CoreCacheEventInfo) {
 	if logging.Default.IsDebugEnabled() {
 		logging.Default.Debug(fmt.Sprintf("ProcessCacheEvent::cacheEventInfo is:\n%s\n", cacheEventInfo.String()))
 	}
@@ -67,8 +67,8 @@ func (receiver *ccsmpBackedReceiver) ProcessCacheEvent(cacheRequestMap *sync.Map
 
 // CancelPendingCacheRequests will cancel all pending cache requests for a given cache session and potentially block
 // until all cancellations are pushed to the cacheResponse channel.
-func (receiver *ccsmpBackedReceiver) CancelPendingCacheRequests(cacheRequestIndex CacheRequestMapIndex, cacheResponseProcessor CacheResponseProcessor) *ccsmp.CacheEventInfo {
-	var generatedEvent ccsmp.CacheEventInfo
+func (receiver *ccsmpBackedReceiver) CancelPendingCacheRequests(cacheRequestIndex CacheRequestMapIndex, cacheResponseProcessor CacheResponseProcessor) *CoreCacheEventInfo {
+	var generatedEvent CoreCacheEventInfo
 	cacheSession := GetCacheSessionFromCacheRequestIndex(cacheRequestIndex)
 	errorInfo := cacheSession.CancelCacheRequest()
 	if errorInfo != nil {
@@ -92,6 +92,8 @@ func (receiver *ccsmpBackedReceiver) CancelPendingCacheRequests(cacheRequestInde
 // receiver.
 type CacheRequestMapIndex = ccsmp.SolClientCacheSessionPt
 
+// CoreCacheEventInfo is a type alias for the Go representation of the cache event info returned to the API from CCSMP
+// in response to a cache request concluding.
 type CoreCacheEventInfo = ccsmp.CacheEventInfo
 
 type CacheRequest interface {
@@ -204,11 +206,11 @@ type CacheRequestor interface {
 	// ProcessCacheEvent creates a cache response from the cache event that was asynchronously returned by CCSMP, and
 	// gives this response to the application for post-processing using the method configured by the application during
 	// the call to RequestCachedAsync or RequestCachedAsyncWithCallback.
-	ProcessCacheEvent(*sync.Map, ccsmp.CacheEventInfo)
+	ProcessCacheEvent(*sync.Map, CoreCacheEventInfo)
 
 	// CancelPendingCacheRequests Cancels all the cache requests for the cache session associated with the given
 	// CacheRequestMapIndex
-	CancelPendingCacheRequests(CacheRequestMapIndex, CacheResponseProcessor) *ccsmp.CacheEventInfo
+	CancelPendingCacheRequests(CacheRequestMapIndex, CacheResponseProcessor) *CoreCacheEventInfo
 }
 
 // SendCacheRequest sends a creates a cache session and sends a cache request on that session. This method

@@ -296,9 +296,9 @@ type mockInternalReceiver struct {
 	incrementMetric                func(metric core.NextGenMetric, amount uint64)
 	incrementDuplicateAckCount     func()
 	newPersistentReceiver          func(props []string, callback core.RxCallback, eventCallback core.PersistentEventCallback) (core.PersistentReceiver, *ccsmp.SolClientErrorInfoWrapper)
-	processCacheResponseFunc       func(*mockInternalReceiver, *sync.Map, ccsmp.CacheEventInfo)
+	processCacheResponseFunc       func(*mockInternalReceiver, *sync.Map, core.CoreCacheEventInfo)
 	sendCacheRequestFunc           func(*mockInternalReceiver, core.CacheRequest, ccsmp.SolClientCacheEventCallback) error
-	cancelPendingCacheRequestsFunc func(*mockInternalReceiver, core.CacheRequestMapIndex, core.CacheResponseProcessor) *ccsmp.CacheEventInfo
+	cancelPendingCacheRequestsFunc func(*mockInternalReceiver, core.CacheRequestMapIndex, core.CacheResponseProcessor) *core.CoreCacheEventInfo
 	createCacheRequestFunc         func(*mockInternalReceiver, resource.CachedMessageSubscriptionRequest, message.CacheRequestID, core.CacheResponseProcessor) (core.CacheRequest, error)
 	destroyCacheRequestFunc        func(*mockInternalReceiver, core.CacheRequest) error
 }
@@ -331,14 +331,14 @@ func (mock *mockInternalReceiver) SendCacheRequest(cacheRequest core.CacheReques
 	return nil
 }
 
-func (mock *mockInternalReceiver) ProcessCacheEvent(cacheRequestMap *sync.Map, eventInfo ccsmp.CacheEventInfo) {
+func (mock *mockInternalReceiver) ProcessCacheEvent(cacheRequestMap *sync.Map, eventInfo core.CoreCacheEventInfo) {
 	if mock.processCacheResponseFunc != nil {
 		mock.processCacheResponseFunc(mock, cacheRequestMap, eventInfo)
 	}
 	/* If not set, presume no-op is intended. */
 }
 
-func (mock *mockInternalReceiver) CancelPendingCacheRequests(cacheRequestIndex core.CacheRequestMapIndex, cacheResponseProcessor core.CacheResponseProcessor) *ccsmp.CacheEventInfo {
+func (mock *mockInternalReceiver) CancelPendingCacheRequests(cacheRequestIndex core.CacheRequestMapIndex, cacheResponseProcessor core.CacheResponseProcessor) *core.CoreCacheEventInfo {
 	if mock.cancelPendingCacheRequestsFunc != nil {
 		return mock.cancelPendingCacheRequestsFunc(mock, cacheRequestIndex, cacheResponseProcessor)
 	}

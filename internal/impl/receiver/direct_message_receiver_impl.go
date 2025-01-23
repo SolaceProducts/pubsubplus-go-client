@@ -90,7 +90,7 @@ type directMessageReceiverImpl struct {
 	// has been started yet.
 	cachePollingRunning uint32
 	// cacheResponseChan is used to buffer the cache responses from CCSMP.
-	cacheResponseChan chan ccsmp.CacheEventInfo
+	cacheResponseChan chan core.CoreCacheEventInfo
 	// cacheRequestMap is used to map the cache session pointer to the method for handling the cache response,
 	// as specified by the application on a call to a [ReceiverCacheRequester] interface.
 	cacheRequestMap sync.Map // ([keyType]valueType) [CacheRequestMapIndex]CacheResponseProcessor
@@ -901,7 +901,7 @@ func (receiver *directMessageReceiverImpl) String() string {
 // resources actually required and so allocated.
 func (receiver *directMessageReceiverImpl) StartAndInitCacheRequestorIfNotDoneAlready() {
 	if receiver.cacheResponseChan == nil {
-		receiver.cacheResponseChan = make(chan ccsmp.CacheEventInfo, MaxOutstandingCacheRequests)
+		receiver.cacheResponseChan = make(chan core.CoreCacheEventInfo, MaxOutstandingCacheRequests)
 	}
 	if !receiver.isCachePollingRunning() {
 		go receiver.PollAndProcessCacheResponseChannel()
@@ -975,7 +975,7 @@ func (receiver *directMessageReceiverImpl) RequestCachedAsync(cachedMessageSubsc
 	receiver.StartAndInitCacheRequestorIfNotDoneAlready()
 	chHolder := core.NewCacheResponseChannelHolder(make(chan solace.CacheResponse, 1), core.NewCacheRequestInfo(cacheRequestID, cachedMessageSubscriptionRequest.GetName()))
 
-	var cacheEventCallback ccsmp.SolClientCacheEventCallback = func(cacheEventInfo ccsmp.CacheEventInfo) {
+	var cacheEventCallback ccsmp.SolClientCacheEventCallback = func(cacheEventInfo core.CoreCacheEventInfo) {
 		receiver.cacheResponseChan <- cacheEventInfo
 	}
 
@@ -1024,7 +1024,7 @@ func (receiver *directMessageReceiverImpl) RequestCachedAsyncWithCallback(cached
 	receiver.StartAndInitCacheRequestorIfNotDoneAlready()
 	cbHolder := core.NewCacheResponseCallbackHolder(callback, core.NewCacheRequestInfo(cacheRequestID, cachedMessageSubscriptionRequest.GetName()))
 
-	var cacheEventCallback ccsmp.SolClientCacheEventCallback = func(cacheEventInfo ccsmp.CacheEventInfo) {
+	var cacheEventCallback ccsmp.SolClientCacheEventCallback = func(cacheEventInfo core.CoreCacheEventInfo) {
 		receiver.cacheResponseChan <- cacheEventInfo
 	}
 
@@ -1119,7 +1119,7 @@ func (receiver *directMessageReceiverImpl) teardownCache() {
 // PollAndProcessCacheResponseChannel is intended to be run as a go routine.
 func (receiver *directMessageReceiverImpl) PollAndProcessCacheResponseChannel() {
 	receiver.setCachePollingRunning(true)
-	var cacheEventInfo ccsmp.CacheEventInfo
+	var cacheEventInfo core.CoreCacheEventInfo
 	channelIsOpen := true
 	/* poll cacheventinfo channel */
 	for channelIsOpen {
