@@ -93,9 +93,9 @@ type directMessageReceiverImpl struct {
 	// cacheRequestMap is used to map the cache session pointer to the method for handling the cache response,
 	// as specified by the application on a call to a [ReceiverCacheRequester] interface.
 	cacheRequestMap sync.Map // ([keyType]valueType) [CacheRequestMapIndex]CacheResponseProcessor
-    // cacheResourceLock is used to prevent concurrent attempts at initializing the cacheResponseChan. Concurrent
-    // initialization of this channel could overwrite written to that channel, leading to undefined behaviour.
-    cacheResourceLock sync.Mutex
+	// cacheResourceLock is used to prevent concurrent attempts at initializing the cacheResponseChan. Concurrent
+	// initialization of this channel could overwrite written to that channel, leading to undefined behaviour.
+	cacheResourceLock sync.Mutex
 }
 
 type directInboundMessage struct {
@@ -901,11 +901,11 @@ func (receiver *directMessageReceiverImpl) String() string {
 // a waste of time and memory. Only if the implementor is directed to conduct a cache operation are the relevant
 // resources actually required and so allocated.
 func (receiver *directMessageReceiverImpl) StartAndInitCacheRequestorIfNotDoneAlready() {
-        receiver.cacheResourceLock.Lock()
+	receiver.cacheResourceLock.Lock()
 	if receiver.cacheResponseChan == nil {
 		receiver.cacheResponseChan = make(chan core.CoreCacheEventInfo, MaxOutstandingCacheRequests)
 	}
-    receiver.cacheResourceLock.Unlock()
+	receiver.cacheResourceLock.Unlock()
 	if !receiver.isCachePollingRunning() {
 		go receiver.PollAndProcessCacheResponseChannel()
 		if receiver.logger.IsDebugEnabled() {
@@ -948,16 +948,16 @@ func (receiver *directMessageReceiverImpl) checkStateForCacheRequest() error {
 // it is not already present. If the cache session is already present, this function returns an IllegalStateError.
 func (receiver *directMessageReceiverImpl) addCacheSessionToMapIfNotPresent(holder core.CacheResponseProcessor, cacheRequestMapIndex core.CacheRequestMapIndex) error {
 	/* NOTE: There is a race condition in the function where we read one state of the map, and then
-	 * update the state after the map has been mutated. This is because the lock is managed by the map accessor
-	 * functions. This should not happen, since it would require duplicate pointers in CCSMP. The alternative is
-	 * code duplication that IMO is not worth it to avoid a race condition that would only occur because of a bug
-	 * in CCSMP. This sort of bug would have other obvious impacts on the application anyways, so we don't need
-	 * to rely on this path as the only one to notify the application of such a problem.
-     *
-     * While this race condition does exist, it can only be expoloited in a situation where CCSMP is giving the Go
-     * API duplicate cache session pointers. We rely on CCSMP's guarantee of unique cache session pointers to avoid
-     * the negative consequences of this race condition.
-	 */
+		 * update the state after the map has been mutated. This is because the lock is managed by the map accessor
+		 * functions. This should not happen, since it would require duplicate pointers in CCSMP. The alternative is
+		 * code duplication that IMO is not worth it to avoid a race condition that would only occur because of a bug
+		 * in CCSMP. This sort of bug would have other obvious impacts on the application anyways, so we don't need
+		 * to rely on this path as the only one to notify the application of such a problem.
+	     *
+	     * While this race condition does exist, it can only be expoloited in a situation where CCSMP is giving the Go
+	     * API duplicate cache session pointers. We rely on CCSMP's guarantee of unique cache session pointers to avoid
+	     * the negative consequences of this race condition.
+	*/
 	var err error
 	err = nil
 	if _, found := receiver.cacheRequestMap.Load(cacheRequestMapIndex); found {
@@ -980,10 +980,10 @@ func (receiver *directMessageReceiverImpl) RequestCachedAsync(cachedMessageSubsc
 		return nil, err
 	}
 	receiver.StartAndInitCacheRequestorIfNotDoneAlready()
-    applicationChannel := make(chan solace.CacheResponse, 1)
-    var applicationCallback = func(cacheResponse solace.CacheResponse) {
-        applicationChannel <- cacheResponse
-    }
+	applicationChannel := make(chan solace.CacheResponse, 1)
+	var applicationCallback = func(cacheResponse solace.CacheResponse) {
+		applicationChannel <- cacheResponse
+	}
 	cacheResponseProcessor := core.NewCacheResponseProcessor(applicationCallback, core.NewCacheRequestInfo(cacheRequestID, cachedMessageSubscriptionRequest.GetName()))
 
 	var cacheEventCallback = func(cacheEventInfo core.CoreCacheEventInfo) {
@@ -993,30 +993,30 @@ func (receiver *directMessageReceiverImpl) RequestCachedAsync(cachedMessageSubsc
 	/* TODO: Add unit testing for CacheResponseProcessor */
 	/* We don't need to check the channel that is returned here since this functionality is tested through unit
 	 * testing and because we just instantiated the channel ourselves. */
-		cacheRequest, err := receiver.internalReceiver.CacheRequestor().CreateCacheRequest(cachedMessageSubscriptionRequest, cacheRequestID, cacheResponseProcessor)
-		if err != nil {
-			close(applicationChannel)
-			return nil, err
-		}
-		/* store cache session in table with channel */
-		if err = receiver.addCacheSessionToMapIfNotPresent(cacheRequest.Processor(), cacheRequest.Index()); err != nil {
-			return nil, err
-		}
-		err = receiver.internalReceiver.CacheRequestor().SendCacheRequest(cacheRequest, cacheEventCallback)
-		if err != nil {
-			close(applicationChannel)
-			if innerErr := receiver.internalReceiver.CacheRequestor().DestroyCacheRequest(cacheRequest); innerErr != nil {
-				/* NOTE: In this case the error of failing to send the cache request is superceded by the error of not
-				 * being able to destroy/free the cache session resources, since leaked resources are of greater
-				 * concern to the application than a failed network operation. Both error cases will still be logged
-				 * though, so no information is entirely lost.*/
+	cacheRequest, err := receiver.internalReceiver.CacheRequestor().CreateCacheRequest(cachedMessageSubscriptionRequest, cacheRequestID, cacheResponseProcessor)
+	if err != nil {
+		close(applicationChannel)
+		return nil, err
+	}
+	/* store cache session in table with channel */
+	if err = receiver.addCacheSessionToMapIfNotPresent(cacheRequest.Processor(), cacheRequest.Index()); err != nil {
+		return nil, err
+	}
+	err = receiver.internalReceiver.CacheRequestor().SendCacheRequest(cacheRequest, cacheEventCallback)
+	if err != nil {
+		close(applicationChannel)
+		if innerErr := receiver.internalReceiver.CacheRequestor().DestroyCacheRequest(cacheRequest); innerErr != nil {
+			/* NOTE: In this case the error of failing to send the cache request is superceded by the error of not
+			 * being able to destroy/free the cache session resources, since leaked resources are of greater
+			 * concern to the application than a failed network operation. Both error cases will still be logged
+			 * though, so no information is entirely lost.*/
 
-				return nil, innerErr
-			}
-			return nil, err
+			return nil, innerErr
 		}
+		return nil, err
+	}
 
-		return applicationChannel, err
+	return applicationChannel, err
 }
 
 func (receiver *directMessageReceiverImpl) RequestCachedAsyncWithCallback(cachedMessageSubscriptionRequest resource.CachedMessageSubscriptionRequest, cacheRequestID apimessage.CacheRequestID, callback func(solace.CacheResponse)) error {
@@ -1028,31 +1028,31 @@ func (receiver *directMessageReceiverImpl) RequestCachedAsyncWithCallback(cached
 	receiver.StartAndInitCacheRequestorIfNotDoneAlready()
 	cacheResponseProcessor := core.NewCacheResponseProcessor(callback, core.NewCacheRequestInfo(cacheRequestID, cachedMessageSubscriptionRequest.GetName()))
 
-	var cacheEventCallback ccsmp.SolClientCacheEventCallback = func(cacheEventInfo core.CoreCacheEventInfo) {
+	var cacheEventCallback = func(cacheEventInfo core.CoreCacheEventInfo) {
 		receiver.cacheResponseChan <- cacheEventInfo
 	}
 
-		cacheRequest, err := receiver.internalReceiver.CacheRequestor().CreateCacheRequest(cachedMessageSubscriptionRequest, cacheRequestID, cacheResponseProcessor)
-		if err != nil {
-			return err
-		}
-		/* store cache session in table with channel */
-		if err = receiver.addCacheSessionToMapIfNotPresent(cacheRequest.Processor(), cacheRequest.Index()); err != nil {
-			return err
-		}
-		err = receiver.internalReceiver.CacheRequestor().SendCacheRequest(cacheRequest, cacheEventCallback)
-		if err != nil {
-			if innerErr := receiver.internalReceiver.CacheRequestor().DestroyCacheRequest(cacheRequest); innerErr != nil {
-				/* NOTE: In this case the error of failing to send the cache request is superceded by the error of not
-				 * being able to destroy/free the cache session resources, since leaked resources are of greater
-				 * concern to the application than a failed network operation. Both error cases will still be logged
-				 * though, so no information is entirely lost.*/
+	cacheRequest, err := receiver.internalReceiver.CacheRequestor().CreateCacheRequest(cachedMessageSubscriptionRequest, cacheRequestID, cacheResponseProcessor)
+	if err != nil {
+		return err
+	}
+	/* store cache session in table with channel */
+	if err = receiver.addCacheSessionToMapIfNotPresent(cacheRequest.Processor(), cacheRequest.Index()); err != nil {
+		return err
+	}
+	err = receiver.internalReceiver.CacheRequestor().SendCacheRequest(cacheRequest, cacheEventCallback)
+	if err != nil {
+		if innerErr := receiver.internalReceiver.CacheRequestor().DestroyCacheRequest(cacheRequest); innerErr != nil {
+			/* NOTE: In this case the error of failing to send the cache request is superceded by the error of not
+			 * being able to destroy/free the cache session resources, since leaked resources are of greater
+			 * concern to the application than a failed network operation. Both error cases will still be logged
+			 * though, so no information is entirely lost.*/
 
-				return innerErr
-			}
-			return err
+			return innerErr
 		}
 		return err
+	}
+	return err
 }
 
 const cachePollingRunningTrue uint32 = 1

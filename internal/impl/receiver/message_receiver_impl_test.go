@@ -297,7 +297,7 @@ type mockInternalReceiver struct {
 	incrementDuplicateAckCount     func()
 	newPersistentReceiver          func(props []string, callback core.RxCallback, eventCallback core.PersistentEventCallback) (core.PersistentReceiver, *ccsmp.SolClientErrorInfoWrapper)
 	processCacheResponseFunc       func(*mockInternalReceiver, *sync.Map, core.CoreCacheEventInfo)
-	sendCacheRequestFunc           func(*mockInternalReceiver, core.CacheRequest, ccsmp.SolClientCacheEventCallback) error
+	sendCacheRequestFunc           func(*mockInternalReceiver, core.CacheRequest, core.CoreCacheEventCallback) error
 	cancelPendingCacheRequestsFunc func(*mockInternalReceiver, core.CacheRequestMapIndex, core.CacheResponseProcessor) *core.CoreCacheEventInfo
 	createCacheRequestFunc         func(*mockInternalReceiver, resource.CachedMessageSubscriptionRequest, message.CacheRequestID, core.CacheResponseProcessor) (core.CacheRequest, error)
 	destroyCacheRequestFunc        func(*mockInternalReceiver, core.CacheRequest) error
@@ -323,7 +323,7 @@ func (mock *mockInternalReceiver) DestroyCacheRequest(cacheRequest core.CacheReq
 	return nil
 }
 
-func (mock *mockInternalReceiver) SendCacheRequest(cacheRequest core.CacheRequest, cacheEventCallback ccsmp.SolClientCacheEventCallback) error {
+func (mock *mockInternalReceiver) SendCacheRequest(cacheRequest core.CacheRequest, cacheEventCallback core.CoreCacheEventCallback) error {
 	if mock.sendCacheRequestFunc != nil {
 		return mock.sendCacheRequestFunc(mock, cacheRequest, cacheEventCallback)
 	}

@@ -96,6 +96,10 @@ type CacheRequestMapIndex = ccsmp.SolClientCacheSessionPt
 // in response to a cache request concluding.
 type CoreCacheEventInfo = ccsmp.CacheEventInfo
 
+// CoreCacheEventCallback is a type alias for the callback that CCSMP will call on the context thread to pass the
+// cache event info corresponding to a cache response to the Go API.
+type CoreCacheEventCallback = ccsmp.SolClientCacheEventCallback
+
 type CacheRequest interface {
 	// RequestConfig returns the [resource.CachedMessageSubscriptionRequest] that was configured by the application
 	// for this cache request.
@@ -202,7 +206,7 @@ type CacheRequestor interface {
 	DestroyCacheRequest(CacheRequest) error
 	// SendCacheRequest sends the given cache request object, and configures CCSMP to use the given callback to handle
 	// the resulting cache event/response
-	SendCacheRequest(CacheRequest, ccsmp.SolClientCacheEventCallback) error
+	SendCacheRequest(CacheRequest, CoreCacheEventCallback) error
 	// ProcessCacheEvent creates a cache response from the cache event that was asynchronously returned by CCSMP, and
 	// gives this response to the application for post-processing using the method configured by the application during
 	// the call to RequestCachedAsync or RequestCachedAsyncWithCallback.
@@ -216,7 +220,7 @@ type CacheRequestor interface {
 // SendCacheRequest sends a creates a cache session and sends a cache request on that session. This method
 // assumes the receiver is in the proper state (running). The caller must guarantee this state before
 // attempting to send a cache request. Failing to do so will result in undefined behaviour.
-func (receiver *ccsmpBackedReceiver) SendCacheRequest(cacheRequest CacheRequest, cacheEventCallback ccsmp.SolClientCacheEventCallback) error {
+func (receiver *ccsmpBackedReceiver) SendCacheRequest(cacheRequest CacheRequest, cacheEventCallback CoreCacheEventCallback) error {
 	var err error
 
 	cacheSession := cacheRequest.CacheSession()

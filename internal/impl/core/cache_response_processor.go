@@ -24,8 +24,8 @@ import (
 // CacheResponseProcessor provides an interface through which the information necessary to process a cache response
 // that is passed from CCSMP can be acquired.
 type CacheResponseProcessor interface {
-        // GetCallback returns the configured cache response processing method.
-        GetCallback() func(solace.CacheResponse)
+	// GetCallback returns the configured cache response processing method.
+	GetCallback() func(solace.CacheResponse)
 
 	// ProcessCacheResponse processes the cache response according to the implementation
 	ProcessCacheResponse(solace.CacheResponse)
@@ -54,11 +54,11 @@ func NewCacheResponseProcessor(callback func(solace.CacheResponse), cacheRequest
 }
 
 func (crp cacheResponseProcessor) GetCallback() func(solace.CacheResponse) {
-        return crp.callback
+	return crp.callback
 }
 
 func (crp cacheResponseProcessor) ProcessCacheResponse(cacheResponse solace.CacheResponse) {
-		crp.callback(cacheResponse)
+	crp.callback(cacheResponse)
 }
 
 func (crp cacheResponseProcessor) GetCacheRequestInfo() *CacheRequestInfo {
