@@ -34,7 +34,7 @@ func (receiver *ccsmpBackedReceiver) ProcessCacheEvent(cacheRequestMap *sync.Map
 		logging.Default.Debug(fmt.Sprintf("ProcessCacheEvent::cacheEventInfo is:\n%s\n", cacheEventInfo.String()))
 	}
 	cacheSessionP := cacheEventInfo.GetCacheSessionPointer()
-	cacheSession := ccsmp.NewSolClientCacheSession(cacheSessionP)
+	cacheSession := ccsmp.WrapSolClientCacheSessionPt(cacheSessionP)
 	cacheRequestIndex := GetCacheRequestMapIndexFromCacheSession(cacheSession)
 	foundCacheResponseHolder, found := cacheRequestMap.Load(cacheRequestIndex)
 	if !found {
@@ -113,7 +113,7 @@ type CacheRequestImpl struct {
 }
 
 func GetCacheSessionFromCacheRequestIndex(cacheRequestMapIndex CacheRequestMapIndex) ccsmp.SolClientCacheSession {
-	return ccsmp.NewSolClientCacheSession(ccsmp.SolClientCacheSessionPt(cacheRequestMapIndex))
+	return ccsmp.WrapSolClientCacheSessionPt(ccsmp.SolClientCacheSessionPt(cacheRequestMapIndex))
 }
 
 func GetCacheRequestMapIndexFromCacheSession(cacheSession ccsmp.SolClientCacheSession) CacheRequestMapIndex {

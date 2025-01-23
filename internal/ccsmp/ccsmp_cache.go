@@ -69,7 +69,7 @@ func (cacheSession *SolClientCacheSession) String() string {
 	return fmt.Sprintf("SolClientCacheSession::cache session pointer 0x%x", cacheSession.pointer)
 }
 
-func NewSolClientCacheSession(cacheSessionP SolClientCacheSessionPt) SolClientCacheSession {
+func WrapSolClientCacheSessionPt(cacheSessionP SolClientCacheSessionPt) SolClientCacheSession {
 	return SolClientCacheSession{pointer: cacheSessionP}
 }
 
@@ -129,7 +129,7 @@ func (session *SolClientSession) CreateCacheSession(cacheSessionProperties []str
 			&cacheSessionP,
 		)
 	})
-	return NewSolClientCacheSession(cacheSessionP), errorInfo
+	return WrapSolClientCacheSessionPt(cacheSessionP), errorInfo
 }
 
 func (cacheSession *SolClientCacheSession) ConvertPointerToInt() uintptr {
