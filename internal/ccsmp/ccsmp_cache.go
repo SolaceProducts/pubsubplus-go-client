@@ -21,7 +21,7 @@
  */
 
 package ccsmp
-
+/* Prototypes for C API internal interfaces available only to wrapper APIs. */
 /*
 #cgo CFLAGS: -DSOLCLIENT_PSPLUS_GO
 #include <stdlib.h>
