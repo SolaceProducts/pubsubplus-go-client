@@ -125,12 +125,6 @@ type MessageReplayError struct {
 	solaceError
 }
 
-// OperationFailedError indicates that a an internal API operation failed, so the operation requested by the
-// application cannot proceed.
-type OperationFailedError struct {
-	solaceError
-}
-
 // NewError returns a new Solace error with the specified message and wrapped error.
 func NewError(err Error, message string, wrapped error) Error {
 	err.setErrorInfo(message, wrapped)
