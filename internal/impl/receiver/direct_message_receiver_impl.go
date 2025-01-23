@@ -973,19 +973,22 @@ func (receiver *directMessageReceiverImpl) RequestCachedAsync(cachedMessageSubsc
 		return nil, err
 	}
 	receiver.StartAndInitCacheRequestorIfNotDoneAlready()
-	chHolder := core.NewCacheResponseChannelHolder(make(chan solace.CacheResponse, 1), core.NewCacheRequestInfo(cacheRequestID, cachedMessageSubscriptionRequest.GetName()))
+    applicationChannel := make(chan solace.CacheResponse, 1)
+    var applicationCallback = func(cacheResponse solace.CacheResponse) {
+        applicationChannel <- cacheResponse
+    }
+	cacheResponseProcessor := core.NewCacheResponseProcessor(applicationCallback, core.NewCacheRequestInfo(cacheRequestID, cachedMessageSubscriptionRequest.GetName()))
 
-	var cacheEventCallback ccsmp.SolClientCacheEventCallback = func(cacheEventInfo core.CoreCacheEventInfo) {
+	var cacheEventCallback = func(cacheEventInfo core.CoreCacheEventInfo) {
 		receiver.cacheResponseChan <- cacheEventInfo
 	}
 
 	/* TODO: Add unit testing for CacheResponseProcessor */
 	/* We don't need to check the channel that is returned here since this functionality is tested through unit
 	 * testing and because we just instantiated the channel ourselves. */
-	if channel, ok := chHolder.GetChannel(); ok {
-		cacheRequest, err := receiver.internalReceiver.CacheRequestor().CreateCacheRequest(cachedMessageSubscriptionRequest, cacheRequestID, chHolder)
+		cacheRequest, err := receiver.internalReceiver.CacheRequestor().CreateCacheRequest(cachedMessageSubscriptionRequest, cacheRequestID, cacheResponseProcessor)
 		if err != nil {
-			close(channel)
+			close(applicationChannel)
 			return nil, err
 		}
 		/* store cache session in table with channel */
@@ -994,8 +997,8 @@ func (receiver *directMessageReceiverImpl) RequestCachedAsync(cachedMessageSubsc
 		}
 		err = receiver.internalReceiver.CacheRequestor().SendCacheRequest(cacheRequest, cacheEventCallback)
 		if err != nil {
-			close(channel)
-			if innerErr := receiver.internalReceiver.CacheRequestor().DestroyCacheRequest(cacheRequest); err != nil {
+			close(applicationChannel)
+			if innerErr := receiver.internalReceiver.CacheRequestor().DestroyCacheRequest(cacheRequest); innerErr != nil {
 				/* NOTE: In this case the error of failing to send the cache request is superceded by the error of not
 				 * being able to destroy/free the cache session resources, since leaked resources are of greater
 				 * concern to the application than a failed network operation. Both error cases will still be logged
@@ -1006,13 +1009,7 @@ func (receiver *directMessageReceiverImpl) RequestCachedAsync(cachedMessageSubsc
 			return nil, err
 		}
 
-		return channel, err
-	}
-	/* NOTE: We should never get to this point since we know we just set the holder, but we need to include error
-	 * handling just in case, so that the program doesn't panic.*/
-	errorString := "Failed to retrieve channel"
-	receiver.logger.Error(errorString)
-	return nil, solace.NewError(&solace.OperationFailedError{}, errorString, nil)
+		return applicationChannel, err
 }
 
 func (receiver *directMessageReceiverImpl) RequestCachedAsyncWithCallback(cachedMessageSubscriptionRequest resource.CachedMessageSubscriptionRequest, cacheRequestID apimessage.CacheRequestID, callback func(solace.CacheResponse)) error {
@@ -1022,14 +1019,13 @@ func (receiver *directMessageReceiverImpl) RequestCachedAsyncWithCallback(cached
 	}
 
 	receiver.StartAndInitCacheRequestorIfNotDoneAlready()
-	cbHolder := core.NewCacheResponseCallbackHolder(callback, core.NewCacheRequestInfo(cacheRequestID, cachedMessageSubscriptionRequest.GetName()))
+	cacheResponseProcessor := core.NewCacheResponseProcessor(callback, core.NewCacheRequestInfo(cacheRequestID, cachedMessageSubscriptionRequest.GetName()))
 
 	var cacheEventCallback ccsmp.SolClientCacheEventCallback = func(cacheEventInfo core.CoreCacheEventInfo) {
 		receiver.cacheResponseChan <- cacheEventInfo
 	}
 
-	if _, ok := cbHolder.GetCallback(); ok {
-		cacheRequest, err := receiver.internalReceiver.CacheRequestor().CreateCacheRequest(cachedMessageSubscriptionRequest, cacheRequestID, cbHolder)
+		cacheRequest, err := receiver.internalReceiver.CacheRequestor().CreateCacheRequest(cachedMessageSubscriptionRequest, cacheRequestID, cacheResponseProcessor)
 		if err != nil {
 			return err
 		}
@@ -1039,7 +1035,7 @@ func (receiver *directMessageReceiverImpl) RequestCachedAsyncWithCallback(cached
 		}
 		err = receiver.internalReceiver.CacheRequestor().SendCacheRequest(cacheRequest, cacheEventCallback)
 		if err != nil {
-			if innerErr := receiver.internalReceiver.CacheRequestor().DestroyCacheRequest(cacheRequest); err != nil {
+			if innerErr := receiver.internalReceiver.CacheRequestor().DestroyCacheRequest(cacheRequest); innerErr != nil {
 				/* NOTE: In this case the error of failing to send the cache request is superceded by the error of not
 				 * being able to destroy/free the cache session resources, since leaked resources are of greater
 				 * concern to the application than a failed network operation. Both error cases will still be logged
@@ -1050,13 +1046,6 @@ func (receiver *directMessageReceiverImpl) RequestCachedAsyncWithCallback(cached
 			return err
 		}
 		return err
-
-	}
-	/* NOTE: We should never get to this point since we know we just set the holder, but we need to include error
-	 * handling just in case, so that the program doesn't panic.*/
-	errorString := "Failed to retrieve callback"
-	receiver.logger.Error(errorString)
-	return solace.NewError(&solace.OperationFailedError{}, errorString, nil)
 }
 
 const cachePollingRunningTrue uint32 = 1
