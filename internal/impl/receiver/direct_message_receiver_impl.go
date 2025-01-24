@@ -39,7 +39,7 @@ import (
 
 // MaxOutstandingCacheRequests indicates the maximum number of cache responses that can be buffered by the API without
 // being processed by the application.
-const MaxOutstandingCacheRequests int = 1024
+const MaxOutstandingCacheRequests int64 = 1024
 
 type receiverBackpressureStrategy byte
 
@@ -96,6 +96,16 @@ type directMessageReceiverImpl struct {
 	// cacheResourceLock is used to prevent concurrent attempts at initializing the cacheResponseChan. Concurrent
 	// initialization of this channel could overwrite written to that channel, leading to undefined behaviour.
 	cacheResourceLock sync.Mutex
+
+	/* NOTE: We need to use an atomic instead of just reading the channel len because the channel
+	 * will not grow until it receives a response, which would race with the application's next call to submit a cache
+	 * response.
+	 */
+	// numOutstandingCacheRequests is used to track how many outstanding cache requests the application has submitted.
+	// This tracking allows the receiver to prevent the application from submitting more cache requests than the
+	// configured number of responses that can be handled by the cacheResponseChan. This prevention is done in
+	// [checkStateForCacheRequest].
+	numOutstandingCacheRequests int64
 }
 
 type directInboundMessage struct {
@@ -901,7 +911,6 @@ func (receiver *directMessageReceiverImpl) String() string {
 // a waste of time and memory. Only if the implementor is directed to conduct a cache operation are the relevant
 // resources actually required and so allocated.
 func (receiver *directMessageReceiverImpl) StartAndInitCacheRequestorIfNotDoneAlready() {
-	receiver.cacheResourceLock.Lock()
 	if receiver.cacheResponseChan == nil {
 		receiver.cacheResponseChan = make(chan core.CoreCacheEventInfo, MaxOutstandingCacheRequests)
 	}
@@ -915,7 +924,6 @@ func (receiver *directMessageReceiverImpl) StartAndInitCacheRequestorIfNotDoneAl
 			receiver.logger.Debug("Didn't start go routine for polling cache response channel again because it is already running.")
 		}
 	}
-	receiver.cacheResourceLock.Unlock()
 }
 
 // isAvailableForCache returns nil if the receiver is ready to send a cache request, or an error if it is not.
@@ -932,7 +940,7 @@ func (receiver *directMessageReceiverImpl) checkStateForCacheRequest() error {
 		 */
 		errorString = "Could not perform cache operations because the receiver was not running."
 		err = solace.NewError(&solace.IllegalStateError{}, errorString, nil)
-	} else if len(receiver.cacheResponseChan) >= MaxOutstandingCacheRequests {
+	} else if atomic.LoadInt64(&receiver.numOutstandingCacheRequests) >= MaxOutstandingCacheRequests {
 		errorString := fmt.Sprintf("Could not perform cache operations because more than %d cache responses are still waiting to be processed by the application.", MaxOutstandingCacheRequests)
 		logging.Default.Warning(errorString)
 		err = solace.NewError(&solace.IllegalStateError{}, errorString, nil)
@@ -975,11 +983,22 @@ func (receiver *directMessageReceiverImpl) addCacheSessionToMapIfNotPresent(hold
 }
 
 func (receiver *directMessageReceiverImpl) RequestCachedAsync(cachedMessageSubscriptionRequest resource.CachedMessageSubscriptionRequest, cacheRequestID apimessage.CacheRequestID) (<-chan solace.CacheResponse, error) {
+	/* NOTE: We need to hold the lock around the state check and resource alloc because we need to guard against
+	 * two race conditions:
+	 * 1. Multiple threads submitting cache requests and simlutaneously initializing the cacheResponseChan, thus
+	 *    potentially overwriting any data written to that channel.
+	 * 2. Multiple threads submitting cache requests when the receiver is approaching MaxOutstandingCacheRequests
+	 *    outstanding requests, where the threads would race between checking the numOutstandingCacheRequests
+	 *    counter and incrementing this counter.*/
+	receiver.cacheResourceLock.Lock()
 	err := receiver.checkStateForCacheRequest()
 	if err != nil {
+		receiver.cacheResourceLock.Unlock()
 		return nil, err
 	}
+	atomic.AddInt64(&receiver.numOutstandingCacheRequests, 1)
 	receiver.StartAndInitCacheRequestorIfNotDoneAlready()
+	receiver.cacheResourceLock.Unlock()
 	applicationChannel := make(chan solace.CacheResponse, 1)
 	var applicationCallback = func(cacheResponse solace.CacheResponse) {
 		applicationChannel <- cacheResponse
@@ -994,15 +1013,18 @@ func (receiver *directMessageReceiverImpl) RequestCachedAsync(cachedMessageSubsc
 	 * testing and because we just instantiated the channel ourselves. */
 	cacheRequest, err := receiver.internalReceiver.CacheRequestor().CreateCacheRequest(cachedMessageSubscriptionRequest, cacheRequestID, cacheResponseProcessor)
 	if err != nil {
+		atomic.AddInt64(&receiver.numOutstandingCacheRequests, -1)
 		close(applicationChannel)
 		return nil, err
 	}
 	/* store cache session in table with channel */
 	if err = receiver.addCacheSessionToMapIfNotPresent(cacheRequest.Processor(), cacheRequest.Index()); err != nil {
+		atomic.AddInt64(&receiver.numOutstandingCacheRequests, -1)
 		return nil, err
 	}
 	err = receiver.internalReceiver.CacheRequestor().SendCacheRequest(cacheRequest, cacheEventCallback)
 	if err != nil {
+		atomic.AddInt64(&receiver.numOutstandingCacheRequests, -1)
 		close(applicationChannel)
 		receiver.cacheRequestMap.Delete(cacheRequest.Index())
 		_ = receiver.internalReceiver.CacheRequestor().DestroyCacheRequest(cacheRequest)
@@ -1017,12 +1039,16 @@ func (receiver *directMessageReceiverImpl) RequestCachedAsync(cachedMessageSubsc
 }
 
 func (receiver *directMessageReceiverImpl) RequestCachedAsyncWithCallback(cachedMessageSubscriptionRequest resource.CachedMessageSubscriptionRequest, cacheRequestID apimessage.CacheRequestID, callback func(solace.CacheResponse)) error {
+	receiver.cacheResourceLock.Lock()
 	err := receiver.checkStateForCacheRequest()
 	if err != nil {
+		receiver.cacheResourceLock.Unlock()
 		return err
 	}
-
+	atomic.AddInt64(&receiver.numOutstandingCacheRequests, 1)
 	receiver.StartAndInitCacheRequestorIfNotDoneAlready()
+	receiver.cacheResourceLock.Unlock()
+
 	cacheResponseProcessor := core.NewCacheResponseProcessor(callback, core.NewCacheRequestInfo(cacheRequestID, cachedMessageSubscriptionRequest.GetName()))
 
 	var cacheEventCallback = func(cacheEventInfo core.CoreCacheEventInfo) {
@@ -1031,14 +1057,17 @@ func (receiver *directMessageReceiverImpl) RequestCachedAsyncWithCallback(cached
 
 	cacheRequest, err := receiver.internalReceiver.CacheRequestor().CreateCacheRequest(cachedMessageSubscriptionRequest, cacheRequestID, cacheResponseProcessor)
 	if err != nil {
+		atomic.AddInt64(&receiver.numOutstandingCacheRequests, -1)
 		return err
 	}
 	/* store cache session in table with channel */
 	if err = receiver.addCacheSessionToMapIfNotPresent(cacheRequest.Processor(), cacheRequest.Index()); err != nil {
+		atomic.AddInt64(&receiver.numOutstandingCacheRequests, -1)
 		return err
 	}
 	err = receiver.internalReceiver.CacheRequestor().SendCacheRequest(cacheRequest, cacheEventCallback)
 	if err != nil {
+		atomic.AddInt64(&receiver.numOutstandingCacheRequests, -1)
 		receiver.cacheRequestMap.Delete(cacheRequest.Index())
 		_ = receiver.internalReceiver.CacheRequestor().DestroyCacheRequest(cacheRequest)
 		/* NOTE: We drop the inner error here, because the application would expect a send error from a function
@@ -1110,6 +1139,9 @@ func (receiver *directMessageReceiverImpl) PollAndProcessCacheResponseChannel() 
 	/* poll cacheventinfo channel */
 	for channelIsOpen {
 		cacheEventInfo, channelIsOpen = <-receiver.cacheResponseChan
+		/* NOTE: Decrement the counter after popping an element from the channel so the application can submit more
+		 * requests.*/
+		atomic.AddInt64(&receiver.numOutstandingCacheRequests, -1)
 		if !channelIsOpen {
 			// If channel is closed, we can stop polling. In this case we don't need to handle
 			// the cacheEventInfo since there won't be a menaingful one left on the queue.

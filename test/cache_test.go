@@ -180,7 +180,6 @@ var _ = Describe("Cache Strategy", func() {
 		It("a direct receiver that tries to submit more than the maximum number of cache requests should get an IllegalStateError", func() {
 			maxCacheRequests := 1024
 			/* NOTE: First we will fill the internal buffer, then we will try one more and assert an error */
-			i := 0
 			numExpectedCachedMessages := 3
 			topic := fmt.Sprintf("MaxMsgs%d/%s/data1", numExpectedCachedMessages, testcontext.Cache().Vpn)
 			cacheName := fmt.Sprintf("MaxMsgs%d", numExpectedCachedMessages)
@@ -189,7 +188,7 @@ var _ = Describe("Cache Strategy", func() {
 			callback := func(cacheResponse solace.CacheResponse) {
 				cacheResponseSignalChan <- cacheResponse
 			}
-			for ; i <= maxCacheRequests; i++ {
+			for i := 0; i <= maxCacheRequests; i++ {
 				cacheRequestID := message.CacheRequestID(i)
 				err := receiver.RequestCachedAsyncWithCallback(cacheRequestConfig, cacheRequestID, callback)
 				Expect(err).To(BeNil())
