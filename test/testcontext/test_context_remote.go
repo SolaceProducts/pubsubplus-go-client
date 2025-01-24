@@ -58,7 +58,7 @@ func (context *remoteTestContext) Setup() error {
 		context.toxi.setupWithPreExistingProxy()
 	}
 
-	if context.config.Cache.Image != "" {
+	if context.config.Cache != nil && context.config.Cache.Image != "" {
 		context.cacheEnabled = true
 		fmt.Println("Waiting for Cache setup")
 		err = context.setupCache()
@@ -67,7 +67,7 @@ func (context *remoteTestContext) Setup() error {
 			return err
 		}
 	}
-	if context.config.CacheProxy.Image != "" {
+	if context.config.CacheProxy != nil && context.config.CacheProxy.Image != "" {
 		fmt.Println("Cache Proxy has been enabled, but currently no verification of cache proxy is available.")
 		context.cacheProxyEnabled = true
 	}
