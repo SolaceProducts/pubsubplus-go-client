@@ -1125,7 +1125,6 @@ func (receiver *directMessageReceiverImpl) PollAndProcessCacheResponseChannel() 
 		 * requests ASAP.*/
 		receiver.internalReceiver.CacheRequestor().ProcessCacheEvent(&receiver.cacheRequestMap, cacheEventInfo)
 	}
-	receiver.logger.Debug("Application has finished processing cache responses, exiting go routine now.")
 	// Indicate that this function has stopped running.
 	receiver.setCachePollingRunning(false)
 }
