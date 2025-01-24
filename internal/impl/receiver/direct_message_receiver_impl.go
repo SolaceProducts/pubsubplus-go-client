@@ -905,7 +905,6 @@ func (receiver *directMessageReceiverImpl) StartAndInitCacheRequestorIfNotDoneAl
 	if receiver.cacheResponseChan == nil {
 		receiver.cacheResponseChan = make(chan core.CoreCacheEventInfo, MaxOutstandingCacheRequests)
 	}
-	receiver.cacheResourceLock.Unlock()
 	if !receiver.isCachePollingRunning() {
 		go receiver.PollAndProcessCacheResponseChannel()
 		if receiver.logger.IsDebugEnabled() {
@@ -916,6 +915,7 @@ func (receiver *directMessageReceiverImpl) StartAndInitCacheRequestorIfNotDoneAl
 			receiver.logger.Debug("Didn't start go routine for polling cache response channel again because it is already running.")
 		}
 	}
+	receiver.cacheResourceLock.Unlock()
 }
 
 // isAvailableForCache returns nil if the receiver is ready to send a cache request, or an error if it is not.
@@ -1100,12 +1100,6 @@ func (receiver *directMessageReceiverImpl) teardownCache() {
 	 * any duplicates are generated, they are ignored by ProcessCacheEvent and not passed to the
 	 * application.*/
 	close(receiver.cacheResponseChan)
-	/* NOTE: We don't need to use an atomic or sync lock to check the length on each iteration here, because the
-	 * channel was just closed, so it cannot be written to in between iterations.
-	 */
-	for len(receiver.cacheResponseChan) > 0 {
-		receiver.internalReceiver.CacheRequestor().ProcessCacheEvent(&receiver.cacheRequestMap, <-receiver.cacheResponseChan)
-	}
 }
 
 // PollAndProcessCacheResponseChannel is intended to be run as a go routine.
@@ -1131,6 +1125,7 @@ func (receiver *directMessageReceiverImpl) PollAndProcessCacheResponseChannel() 
 		 * requests ASAP.*/
 		receiver.internalReceiver.CacheRequestor().ProcessCacheEvent(&receiver.cacheRequestMap, cacheEventInfo)
 	}
+	receiver.logger.Debug("Application has finished processing cache responses, exiting go routine now.")
 	// Indicate that this function has stopped running.
 	receiver.setCachePollingRunning(false)
 }

@@ -424,6 +424,8 @@ var _ = Describe("Cache Strategy", func() {
 					terminateFunction: func(messagingService solace.MessagingService,
 						messageReceiver solace.DirectMessageReceiver) {
 						Expect(messageReceiver.Terminate(0)).To(BeNil())
+						Expect(messageReceiver.IsRunning()).To(BeFalse())
+						Expect(messageReceiver.IsTerminated()).To(BeTrue())
 						Expect(messagingService.IsConnected()).To(BeTrue())
 					},
 					configuration: func() config.ServicePropertyMap {
@@ -442,7 +444,7 @@ var _ = Describe("Cache Strategy", func() {
 						messageReceiver solace.DirectMessageReceiver) {
 						gracePeriod := time.Second * 5
 						Expect(messageReceiver.Terminate(gracePeriod)).To(BeNil())
-						Eventually(messageReceiver.IsRunning(), gracePeriod+(time.Second*1)).Should(BeFalse())
+						Expect(messageReceiver.IsRunning()).To(BeFalse())
 						Expect(messageReceiver.IsTerminated()).To(BeTrue())
 						Expect(messagingService.IsConnected()).To(BeTrue())
 					},
@@ -857,7 +859,6 @@ var _ = Describe("Cache Strategy", func() {
 					const numExpectedLiveMessages int = numLiveMessagesFromCacheProxy
 					var cacheName string
 					var cacheTopic string
-					var directTopic string
 
 					var terminate func()
 					var receivedMsgChan chan message.InboundMessage
@@ -917,6 +918,7 @@ var _ = Describe("Cache Strategy", func() {
 								numExpectedSuccessfulCacheRequests = numSentCacheRequests
 							}
 							numExpectedFailedCacheRequests := 0
+							numExpectedCacheResponses := numSentCacheRequests
 							totalMessagesReceived := 0
 							numExpectedReceivedMessages := 0
 							switch strategy {
@@ -939,10 +941,6 @@ var _ = Describe("Cache Strategy", func() {
 
 							cacheRequestConfig := helpers.GetValidCacheRequestConfig(strategy, cacheName, cacheTopic)
 							cacheRequestID := message.CacheRequestID(cacheRequestID)
-							directTopic = fmt.Sprintf("T/cache_test/blocked_termination/%s/%s/callback/%d", terminationCaseName, strategyString, cacheRequestID)
-							err := messageReceiver.AddSubscription(resource.TopicSubscriptionOf(directTopic))
-							Expect(err).To(BeNil())
-							Expect(err).To(BeNil())
 
 							/* NOTE: This channel receives the cache response and indicates to the
 							 * test that it is time to call terminate().
@@ -966,7 +964,7 @@ var _ = Describe("Cache Strategy", func() {
 									time.Sleep(time.Millisecond * 500)
 								}
 							}
-							err = messageReceiver.RequestCachedAsyncWithCallback(cacheRequestConfig, cacheRequestID, cacheResponseCallback)
+							err := messageReceiver.RequestCachedAsyncWithCallback(cacheRequestConfig, cacheRequestID, cacheResponseCallback)
 							Expect(err).To(BeNil())
 
 							Eventually(func() uint64 {
@@ -976,7 +974,7 @@ var _ = Describe("Cache Strategy", func() {
 							for i := 0; i < numExpectedReceivedMessages; i++ {
 								var inboundMessage message.InboundMessage
 								Eventually(receivedMsgChan, "10s").Should(Receive(&inboundMessage))
-								Expect(inboundMessage.GetDestinationName()).To(BeEquivalentTo(directTopic))
+								Expect(inboundMessage.GetDestinationName()).To(BeEquivalentTo(cacheTopic))
 								totalMessagesReceived++
 							}
 
@@ -988,7 +986,7 @@ var _ = Describe("Cache Strategy", func() {
 							 */
 							terminate()
 							cacheResponseSignal.Store(true)
-							Eventually(func() int32 { return cacheResponseChan.Load() }, "10s").Should(BeNumerically("==", 1))
+							Eventually(func() int32 { return cacheResponseChan.Load() }, "10s").Should(BeNumerically("==", numExpectedCacheResponses))
 
 							Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSent)).To(BeNumerically("==", numSentCacheRequests), fmt.Sprintf("CacheRequestsSent for %s was wrong with ID %d", strategyString, cacheRequestID))
 							Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSucceeded)).To(BeNumerically("==", numExpectedSuccessfulCacheRequests), fmt.Sprintf("CacheRequestsSucceeded for %s was wrong", strategyString))
