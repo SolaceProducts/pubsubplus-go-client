@@ -381,6 +381,14 @@ func (receiver *directMessageReceiverImpl) unsolicitedTermination(eventInfo core
 			eventInfo.GetError(),
 		})
 	}
+	/* NOTE: We cleanup cache resources after sending the termination notification so that the application will know
+	 * that it potentially has cache responses that it needs to process as a part of termination. teardownCache() will
+	 * potentially block until all cache responses are processed, depending on the cache request configuration. We
+	 * don't want to delay the notification until after a potentially blocking operation because then the application
+	 * might not know to process the cache responses and this thread would block forever without the application
+	 * knowing.
+	 */
+	receiver.teardownCache()
 }
 
 func (receiver *directMessageReceiverImpl) cleanupSubscriptions() {

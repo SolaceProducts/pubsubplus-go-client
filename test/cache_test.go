@@ -53,6 +53,12 @@ var _ = Describe("Cache Strategy", func() {
 	Describe("When the cache is available and configured", func() {
 		var messagingService solace.MessagingService
 		var receiver solace.DirectMessageReceiver
+		/* NOTE: deferredOperation is used for conducting operations after termination, such as closing a channel
+		 * that is may be used during termination but that is declared within a single test case because its use is
+		 * specific to that test case. If the closing of this channel were handled within the test case using a `defer`,
+		 * when termination tried to access the channel in `AfterEach`, it would panic.
+		 */
+		var deferredOperation func()
 		BeforeEach(func() {
 			logging.SetLogLevel(logging.LogLevelDebug)
 			CheckCache() // skips test with message if cache image is not available
@@ -66,20 +72,24 @@ var _ = Describe("Cache Strategy", func() {
 			Expect(err).To(BeNil())
 			err = receiver.Start()
 			Expect(err).To(BeNil())
+			deferredOperation = nil
 		})
 		AfterEach(func() {
 			var err error
-			if messagingService.IsConnected() {
-				err = messagingService.Disconnect()
-				Expect(err).To(BeNil())
-			}
-			Expect(messagingService.IsConnected()).To(BeFalse())
 			if receiver.IsRunning() {
 				err = receiver.Terminate(0)
 				Expect(err).To(BeNil())
 			}
 			Expect(receiver.IsRunning()).To(BeFalse())
 			Expect(receiver.IsTerminated()).To(BeTrue())
+			if messagingService.IsConnected() {
+				err = messagingService.Disconnect()
+				Expect(err).To(BeNil())
+			}
+			Expect(messagingService.IsConnected()).To(BeFalse())
+			if deferredOperation != nil {
+				deferredOperation()
+			}
 		})
 		It("a direct receiver should get an error when trying to send an invalid cache request", func() {
 			/* NOTE: This test also asserts that the receiver can terminate after a failed attempt to send a cache
@@ -106,6 +116,8 @@ var _ = Describe("Cache Strategy", func() {
 			Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSucceeded)).To(BeNumerically("==", numExpectedCacheRequestsSucceeded))
 		})
 		It("a direct receiver should be able to submit multiple concurrent cache requests with the same cache request ID without error", func() {
+			err := receiver.ReceiveAsync(func(_ message.InboundMessage) {})
+			Expect(err).To(BeNil())
 			/* NOTE: We don't need to run this test for both channel and callback types because we're only really
 			 * testing the call to submit a cache request with duplicate cache request IDs. The method of
 			 * processing the cache response should not be affected by duplicate cache request IDs since the ID is
@@ -151,6 +163,8 @@ var _ = Describe("Cache Strategy", func() {
 			Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSucceeded)).To(BeNumerically("==", 2))
 		})
 		It("a direct receiver should be able to submit multiple consecutive cache requests with the same cache request ID without error", func() {
+			err := receiver.ReceiveAsync(func(message.InboundMessage) {})
+			Expect(err).To(BeNil())
 			cacheRequestID := message.CacheRequestID(1)
 			numExpectedCachedMessages := 3
 			topic := fmt.Sprintf("MaxMsgs%d/%s/data1", numExpectedCachedMessages, testcontext.Cache().Vpn)
@@ -178,6 +192,8 @@ var _ = Describe("Cache Strategy", func() {
 			Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSucceeded)).To(BeNumerically("==", 2))
 		})
 		It("a direct receiver that tries to submit more than the maximum number of cache requests should get an IllegalStateError", func() {
+			err := receiver.ReceiveAsync(func(message.InboundMessage) {})
+			Expect(err).To(BeNil())
 			maxCacheRequests := 1024
 			/* NOTE: First we will fill the internal buffer, then we will try one more and assert an error */
 			numExpectedCachedMessages := 3
@@ -203,7 +219,7 @@ var _ = Describe("Cache Strategy", func() {
 			Eventually(func() uint64 { return messagingService.Metrics().GetValue(metrics.CacheRequestsSent) }).Should(BeNumerically("==", maxCacheRequests+1))
 			Eventually(func() uint64 { return messagingService.Metrics().GetValue(metrics.CacheRequestsSucceeded) }).Should(BeNumerically("==", maxCacheRequests+1))
 
-			err := receiver.RequestCachedAsyncWithCallback(cacheRequestConfig, message.CacheRequestID(maxCacheRequests+1), callback)
+			err = receiver.RequestCachedAsyncWithCallback(cacheRequestConfig, message.CacheRequestID(maxCacheRequests+1), callback)
 			Expect(err).To(BeAssignableToTypeOf(&solace.IllegalStateError{}))
 
 			channel, err := receiver.RequestCachedAsync(cacheRequestConfig, message.CacheRequestID(maxCacheRequests+1))
@@ -261,7 +277,7 @@ var _ = Describe("Cache Strategy", func() {
 					}
 				case helpers.ProcessCacheResponseThroughCallback:
 					cacheResponseSignalChan := make(chan solace.CacheResponse, 1)
-					defer close(cacheResponseSignalChan)
+					deferredOperation = func() { close(cacheResponseSignalChan) }
 					cacheResponseCallback := func(cacheResponse solace.CacheResponse) {
 						cacheResponseSignalChan <- cacheResponse
 					}
