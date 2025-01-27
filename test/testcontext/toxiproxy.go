@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2024 Solace Corporation. All rights reserved.
+// Copyright 2021-2025 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,10 +23,15 @@ import (
 )
 
 const (
-	smfProxyName           = "smf"
-	compressedSmfProxyName = "compressedSmf"
-	secureSmfProxyName     = "secureSmf"
+	smfProxyName                   = "smf"
+	compressedSmfProxyName         = "compressedSmf"
+	secureSmfProxyName             = "secureSmf"
+	proxyAlreadyExistsErrorMessage = "HTTP 409: proxy already exists"
 )
+
+var proxiesToSetup []string = []string{smfProxyName,
+	compressedSmfProxyName,
+	secureSmfProxyName}
 
 // ToxiProxy interface
 type ToxiProxy interface {
@@ -70,6 +75,7 @@ func (toxiProxy *toxiProxyImpl) setup() error {
 		fmt.Sprintf(":%d", toxiProxy.config.PlaintextPort),
 		fmt.Sprintf("%s:%d", toxiProxy.config.Upstream, 55555),
 	)
+
 	if err != nil {
 		return err
 	}
@@ -90,6 +96,29 @@ func (toxiProxy *toxiProxyImpl) setup() error {
 		return err
 	}
 	return nil
+}
+
+// setupWithPreExistingProxy checks for existing proxy endpoints on the proxy client.
+// If any proxy endpoints that we need to configure are found, they are replaced.
+// Any proxy endpoints that we do not need to configure are not mutated.
+func (toxiProxy *toxiProxyImpl) setupWithPreExistingProxy() error {
+	proxyMap, err := toxiProxy.client.Proxies()
+	if err != nil {
+		return err
+	}
+	for _, foundProxy := range proxyMap {
+		for _, neededProxy := range proxiesToSetup {
+			if foundProxy.Name == neededProxy {
+				if err = foundProxy.Delete(); err != nil {
+					return nil
+				}
+			}
+		}
+	}
+	if err = toxiProxy.setup(); err != nil {
+		return err
+	}
+	return err
 }
 
 func (toxiProxy *toxiProxyImpl) teardown() error {

@@ -2,7 +2,7 @@
 *
 * @file solCache.h Include file for the Solace Corporation Messaging API for C
 *
-* Copyright 2008-2024 Solace Corporation. All rights reserved.
+* Copyright 2008-2025 Solace Corporation. All rights reserved.
 *
 * This include file provides the public constants and API calls for 
 * applications that interface to the Solace Corporation SolCache.
@@ -66,7 +66,12 @@ typedef enum solCache_event {
     SOLCACHE_EVENT_REQUEST_COMPLETED_NOTICE     /** Cache Request has finished. The event returnCode and subCode provide status information */
 } solCache_event_t;
 
-typedef void *solClient_opaqueCacheSession_pt;  /**< An opaque pointer to a cache session. */
+#if defined(SOLCLIENT_PSPLUS_GO)
+#include <stdint.h>
+typedef uintptr_t solClient_opaqueCacheSession_pt;  /**< An opaque pointer to a cache session. */
+#else
+typedef void   *solClient_opaqueCacheSession_pt;  /**< An opaque pointer to a cache session. */
+#endif
 
 /**
  *

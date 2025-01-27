@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2024 Solace Corporation. All rights reserved.
+// Copyright 2021-2025 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -77,12 +77,12 @@ func OAuth() *OAuthConfig {
 
 // Cache returns the Cache config
 func Cache() *CacheConfig {
-    return instance.Cache()
+	return instance.Cache()
 }
 
 // CacheProxy returns the CacheProxy config
 func CacheProxy() *CacheProxyConfig {
-    return instance.CacheProxy()
+	return instance.CacheProxy()
 }
 
 // function to wait for semp serivces
@@ -93,13 +93,13 @@ func WaitForSEMPReachable() error {
 // CacheEnabled returns `true` if the infrastructure required for running cache tests is available. Returns `false`
 // otherwise.
 func CacheEnabled() bool {
-        return instance.CacheEnabled()
+	return instance.CacheEnabled()
 }
 
 // CacheProxyEnabled returns `true` if the infrastructure required for running cache proxy tests is
 // available. Returns `false` otherwise.
 func CacheProxyEnabled() bool {
-        return instance.CacheProxyEnabled()
+	return instance.CacheProxyEnabled()
 }
 
 // testContext represents a test context
@@ -122,27 +122,27 @@ type testContext interface {
 	ToxiProxy() ToxiProxy
 	// OAuth returns the OAuth config
 	OAuth() *OAuthConfig
-    // Cache returns the Cache config
-    Cache() *CacheConfig
-    // CacheProxy returns the CacheProxyConfig
-    CacheProxy() *CacheProxyConfig
+	// Cache returns the Cache config
+	Cache() *CacheConfig
+	// CacheProxy returns the CacheProxyConfig
+	CacheProxy() *CacheProxyConfig
 	// waits for semp service to be reachable
 	WaitForSEMPReachable() error
-    // CacheEnabled returns `true` if the infrastructure required for running cache tests is available. Returns `false`
-    // otherwise.
-    CacheEnabled() bool
-    // CacheProxyEnabled returns `true` if the infrastructure required for running cache proxy tests is available.
-    // Returns `false` otherwise
-    CacheProxyEnabled() bool
+	// CacheEnabled returns `true` if the infrastructure required for running cache tests is available. Returns `false`
+	// otherwise.
+	CacheEnabled() bool
+	// CacheProxyEnabled returns `true` if the infrastructure required for running cache proxy tests is available.
+	// Returns `false` otherwise
+	CacheProxyEnabled() bool
 }
 
 type testContextCommon struct {
-	config          *TestConfig
-	semp            *sempV2Impl
-	toxi            *toxiProxyImpl
-	kerberosEnabled bool
-    cacheEnabled bool
-    cacheProxyEnabled bool
+	config            *TestConfig
+	semp              *sempV2Impl
+	toxi              *toxiProxyImpl
+	kerberosEnabled   bool
+	cacheEnabled      bool
+	cacheProxyEnabled bool
 }
 
 // GetConnectionDetails impl
@@ -173,19 +173,19 @@ func (context *testContextCommon) Kerberos() bool {
 }
 
 func (context *testContextCommon) Cache() *CacheConfig {
-    return context.config.Cache
+	return context.config.Cache
 }
 
 func (context *testContextCommon) CacheEnabled() bool {
-    return context.cacheEnabled
+	return context.cacheEnabled
 }
 
 func (context *testContextCommon) CacheProxy() *CacheProxyConfig {
-    return context.config.CacheProxy
+	return context.config.CacheProxy
 }
 
 func (context *testContextCommon) CacheProxyEnabled() bool {
-    return context.cacheProxyEnabled
+	return context.cacheProxyEnabled
 }
 
 // loads the configs based on the given path

@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2024 Solace Corporation. All rights reserved.
+// Copyright 2021-2025 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 #define CCSMP_HELPER_H
 
 #include "solclient/solClient.h"
+#include "solclient/solCache.h"
 
 // Reexport error info fields as they need to be copied.
 // Since only a single error info struct will be returned,
@@ -119,6 +120,42 @@ solClient_returnCode_t  SessionEndpointDeprovisionWithFlags(
                         solClient_propertyArray_pt  endpointProps,
                         solClient_uint32_t  flags,
                         solClient_uint64_t          correlationTag);
+
+solClient_returnCode_t  SessionCreateCacheSession(
+                        solClient_propertyArray_pt cacheSessionProps_p,
+                        solClient_opaqueSession_pt opaqueSession_p,
+                        solClient_opaqueCacheSession_pt * opaqueCacheSession_p);
+
+
+solClient_returnCode_t  CacheSessionSendCacheRequest(
+                        solClient_uint64_t dispatchId,
+                        solClient_opaqueCacheSession_pt opaqueCacheSession_p,
+                        const char * topic_p,
+                        solClient_uint64_t cacheRequestId,
+                        solClient_cacheRequestFlags_t cacheFlags,
+                        solClient_subscribeFlags_t subscribeFlags);
+
+
+solClient_returnCode_t
+                        CacheSessionDestroy(
+                        solClient_opaqueCacheSession_pt * opaqueCacheSession_p);
+
+
+solClient_returnCode_t
+                        CacheSessionCancelRequests(
+                        solClient_opaqueCacheSession_pt opaqueCacheSession_p);
+
+/* NOTE: This function prototype is available only to wrapper APIs and is not for use by the application. */
+solClient_returnCode_t
+                        solClient_cacheSession_sendCacheRequestWithDispatch(
+                        solClient_opaqueCacheSession_pt             opaqueCacheSession_p,
+                        const char                                * topic_p,
+                        solClient_uint64_t                          cacheRequestId,
+                        solCache_eventCallbackFunc_t                callback_p,
+                        void                                      * user_p,
+                        solClient_cacheRequestFlags_t               cacheFlags,
+                        solClient_subscribeFlags_t                  subscribeFlags,
+                        solClient_session_rxMsgDispatchFuncInfo_t * dispatchInfo_p);
 
 /**
  * Definition of solclientgo correlation prefix

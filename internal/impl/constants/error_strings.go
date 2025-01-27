@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2024 Solace Corporation. All rights reserved.
+// Copyright 2021-2025 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -198,3 +198,15 @@ const UnableToDeprovisionParentServiceNotStarted = "cannot deprovision endpoint 
 
 // CouldNotConfirmProvisionDeprovisionServiceUnavailable error string
 const CouldNotConfirmProvisionDeprovisionServiceUnavailable = "could not confirm provision/deprovision, the messaging service was terminated"
+
+// WithCacheRequestID error string
+const WithCacheRequestID = "with cache request ID:"
+
+// FailedToSendCacheRequest error string
+const FailedToSendCacheRequest = "Failed to send cache request"
+
+// WithCacheSessionPointer error string
+const WithCacheSessionPointer = "with cache session pointer:"
+
+// FailedToDestroyCacheSession error string
+const FailedToDestroyCacheSession = "Failed to destroy cache session"

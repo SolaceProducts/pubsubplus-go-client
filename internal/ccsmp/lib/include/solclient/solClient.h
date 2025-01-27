@@ -2,7 +2,7 @@
 *
 * @file solClient.h include file for the Solace Corporation Messaging API for C
 *
-* Copyright 2007-2024 Solace Corporation. All rights reserved.
+* Copyright 2007-2025 Solace Corporation. All rights reserved.
 *
 * This include file provides the public constants and API calls for clients
 * connecting to a Solace messaging broker.
@@ -391,7 +391,7 @@ extern "C"
      
      @section feature-limitations Feature Limitations
 
-     File descriptor limits in non-Linux operating systems restrict the
+     File descriptor limits in operating systems other than Linux and MacOS restrict the
      number of files that can be managed per process to 1024. These
      limitations are due to the use of select(2) to poll devices so the Messaging 
      API for C may not manage any single file descriptor which has a numerical 
@@ -410,9 +410,9 @@ extern "C"
      function pointers in ::solClient_context_createRegisterFdFuncInfo_t) is not
      limited in the Messaging API for C, but the application might have its own limitations.  
 
-     In all non-Linux and non-Windows systems, an application that provides its file descriptors to the 
+     In all systems other than Linux, MacOS, and Windows, an application that provides its file descriptors to the 
      C API to manage (by calling solClient_context_registerForFdEvents()), may not 
-     provide a file decsriptor with a numerical value greater than or equal to 1024.
+     provide a file descriptor with a numerical value greater than or equal to 1024.
      
      @section certificate-validation OpenSSL Certificate Validation
 
@@ -2704,9 +2704,9 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
 */
   typedef enum solClient_stats_rx
   {
-    SOLCLIENT_STATS_RX_DIRECT_BYTES                    = 0,  /**< The number of bytes received. */
+    SOLCLIENT_STATS_RX_DIRECT_BYTES                    = 0,  /**< The number of bytes received in Direct messages. */
     SOLCLIENT_STATS_RX_BYTES                           = SOLCLIENT_STATS_RX_DIRECT_BYTES, /**< Deprecated name, ::SOLCLIENT_STATS_RX_DIRECT_BYTES is preferred */
-    SOLCLIENT_STATS_RX_DIRECT_MSGS                     = 1,  /**< The number of messages received. */
+    SOLCLIENT_STATS_RX_DIRECT_MSGS                     = 1,  /**< The number of Direct messages received. */
     SOLCLIENT_STATS_RX_MSGS                            = SOLCLIENT_STATS_RX_DIRECT_MSGS,  /**< Deprecated name, ::SOLCLIENT_STATS_RX_DIRECT_MSGS is preferred. */
     SOLCLIENT_STATS_RX_READS                           = 2,  /**< The number of non-empty reads. */
     SOLCLIENT_STATS_RX_DISCARD_IND                     = 3,  /**< The number of receive messages with discard indication set. */
@@ -4219,6 +4219,7 @@ solClient_session_isCapable(
 *     or waiting for an open publisher window (only when using ::SOLCLIENT_DELIVERY_MODE_PERSISTENT or 
 *     ::SOLCLIENT_DELIVERY_MODE_NONPERSISTENT with blocking send operation).
 * @li ::SOLCLIENT_SUBCODE_COMMUNICATION_ERROR - The underlying connection failed.
+* @li ::SOLCLIENT_SUBCODE_MESSAGE_TOO_LARGE
 * @see ::solClient_subCode for a description of all subcodes.
 */
   solClient_dllExport solClient_returnCode_t

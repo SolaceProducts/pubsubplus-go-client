@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2024 Solace Corporation. All rights reserved.
+// Copyright 2021-2025 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -288,15 +288,17 @@ func NewCachedMessageSubscriptionRequest(cachedMessageSubscriptionStrategy Cache
 	var cachedMsgSubStrategy *CachedMessageSubscriptionStrategy = nil
 	switch cachedMessageSubscriptionStrategy {
 	case AsAvailable:
+		fallthrough
 	case CachedFirst:
+		fallthrough
 	case CachedOnly:
+		fallthrough
 	case LiveCancelsCached:
 		// these are valid
 		cachedMsgSubStrategy = &cachedMessageSubscriptionStrategy
 	default:
 		cachedMsgSubStrategy = nil
 	}
-
 	// return back a valid cache message subscription request if everything checks out
 	return &cachedMessageSubscriptionRequest{
 		cacheName:                         cacheName,

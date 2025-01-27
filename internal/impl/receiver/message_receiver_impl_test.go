@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2024 Solace Corporation. All rights reserved.
+// Copyright 2021-2025 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,12 +18,15 @@ package receiver
 
 import (
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 	"unsafe"
 
 	"solace.dev/go/messaging/internal/ccsmp"
 	"solace.dev/go/messaging/internal/impl/core"
+	"solace.dev/go/messaging/pkg/solace/message"
+	"solace.dev/go/messaging/pkg/solace/resource"
 )
 
 func TestMessageReceiverStartStateChecks(t *testing.T) {
@@ -283,16 +286,64 @@ type result struct {
 }
 
 type mockInternalReceiver struct {
-	events                     func() core.Events
-	replier                    func() core.Replier
-	isRunning                  func() bool
-	registerRxCallback         func(callback core.RxCallback) uintptr
-	unregisterRxCallback       func(ptr uintptr)
-	subscribe                  func(topic string, ptr uintptr) (core.SubscriptionCorrelationID, <-chan core.SubscriptionEvent, core.ErrorInfo)
-	unsubscribe                func(topic string, ptr uintptr) (core.SubscriptionCorrelationID, <-chan core.SubscriptionEvent, core.ErrorInfo)
-	incrementMetric            func(metric core.NextGenMetric, amount uint64)
-	incrementDuplicateAckCount func()
-	newPersistentReceiver      func(props []string, callback core.RxCallback, eventCallback core.PersistentEventCallback) (core.PersistentReceiver, *ccsmp.SolClientErrorInfoWrapper)
+	events                         func() core.Events
+	replier                        func() core.Replier
+	isRunning                      func() bool
+	registerRxCallback             func(callback core.RxCallback) uintptr
+	unregisterRxCallback           func(ptr uintptr)
+	subscribe                      func(topic string, ptr uintptr) (core.SubscriptionCorrelationID, <-chan core.SubscriptionEvent, core.ErrorInfo)
+	unsubscribe                    func(topic string, ptr uintptr) (core.SubscriptionCorrelationID, <-chan core.SubscriptionEvent, core.ErrorInfo)
+	incrementMetric                func(metric core.NextGenMetric, amount uint64)
+	incrementDuplicateAckCount     func()
+	newPersistentReceiver          func(props []string, callback core.RxCallback, eventCallback core.PersistentEventCallback) (core.PersistentReceiver, *ccsmp.SolClientErrorInfoWrapper)
+	processCacheResponseFunc       func(*mockInternalReceiver, *sync.Map, core.CoreCacheEventInfo)
+	sendCacheRequestFunc           func(*mockInternalReceiver, core.CacheRequest, core.CoreCacheEventCallback) error
+	cancelPendingCacheRequestsFunc func(*mockInternalReceiver, core.CacheRequestMapIndex, core.CacheResponseProcessor) *core.CoreCacheEventInfo
+	createCacheRequestFunc         func(*mockInternalReceiver, resource.CachedMessageSubscriptionRequest, message.CacheRequestID, core.CacheResponseProcessor) (core.CacheRequest, error)
+	destroyCacheRequestFunc        func(*mockInternalReceiver, core.CacheRequest) error
+}
+
+func (mock *mockInternalReceiver) CacheRequestor() core.CacheRequestor {
+	return mock
+}
+
+func (mock *mockInternalReceiver) CreateCacheRequest(cachedMessageSubscriptionRequest resource.CachedMessageSubscriptionRequest, cacheRequestID message.CacheRequestID, cacheResponseHandler core.CacheResponseProcessor) (core.CacheRequest, error) {
+	if mock.createCacheRequestFunc != nil {
+		return mock.createCacheRequestFunc(mock, cachedMessageSubscriptionRequest, cacheRequestID, cacheResponseHandler)
+	}
+	/* If not set, presume no-op is intended. */
+	return nil, nil
+}
+
+func (mock *mockInternalReceiver) DestroyCacheRequest(cacheRequest core.CacheRequest) error {
+	if mock.destroyCacheRequestFunc != nil {
+		return mock.destroyCacheRequestFunc(mock, cacheRequest)
+	}
+	/* If not set, presume no-op is intended. */
+	return nil
+}
+
+func (mock *mockInternalReceiver) SendCacheRequest(cacheRequest core.CacheRequest, cacheEventCallback core.CoreCacheEventCallback) error {
+	if mock.sendCacheRequestFunc != nil {
+		return mock.sendCacheRequestFunc(mock, cacheRequest, cacheEventCallback)
+	}
+	/* If not set, presume no-op is intended. */
+	return nil
+}
+
+func (mock *mockInternalReceiver) ProcessCacheEvent(cacheRequestMap *sync.Map, eventInfo core.CoreCacheEventInfo) {
+	if mock.processCacheResponseFunc != nil {
+		mock.processCacheResponseFunc(mock, cacheRequestMap, eventInfo)
+	}
+	/* If not set, presume no-op is intended. */
+}
+
+func (mock *mockInternalReceiver) CancelPendingCacheRequests(cacheRequestIndex core.CacheRequestMapIndex, cacheResponseProcessor core.CacheResponseProcessor) *core.CoreCacheEventInfo {
+	if mock.cancelPendingCacheRequestsFunc != nil {
+		return mock.cancelPendingCacheRequestsFunc(mock, cacheRequestIndex, cacheResponseProcessor)
+	}
+	/* If not set, presume no-op is intended. */
+	return nil
 }
 
 func (mock *mockInternalReceiver) Events() core.Events {
