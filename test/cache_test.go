@@ -309,6 +309,156 @@ var _ = Describe("Cache Strategy", func() {
 			Entry("test cache RR for valid LiveCancelsCached with channel", resource.LiveCancelsCached, helpers.ProcessCacheResponseThroughChannel),
 			Entry("test cache RR for valid LivCancelsCached  with callback", resource.LiveCancelsCached, helpers.ProcessCacheResponseThroughCallback),
 		)
+		DescribeTable("asynchronous cache request with live data",
+			func(strategy resource.CachedMessageSubscriptionStrategy, cacheResponseProcessStrategy helpers.CacheResponseProcessStrategy) {
+				logging.SetLogLevel(logging.LogLevelDebug)
+				strategyString := ""
+				numExpectedCachedMessages := 3
+				numExpectedLiveMessages := 1
+				numSentCacheRequests := 1
+				numExpectedCacheResponses := numSentCacheRequests
+				numExpectedSentMessages := 0
+				numExpectedReceivedMessages := numExpectedSentMessages
+				switch strategy {
+				case resource.AsAvailable:
+					strategyString = "AsAvailable"
+					numExpectedReceivedMessages += numExpectedCachedMessages
+					numExpectedReceivedMessages += numExpectedLiveMessages
+				case resource.LiveCancelsCached:
+					strategyString = "LiveCancelsCached"
+					numExpectedReceivedMessages += numExpectedLiveMessages
+				case resource.CachedFirst:
+					strategyString = "CachedFirst"
+					numExpectedReceivedMessages += numExpectedCachedMessages
+					numExpectedReceivedMessages += numExpectedLiveMessages
+				case resource.CachedOnly:
+					strategyString = "CachedOnly"
+					numExpectedReceivedMessages += numExpectedCachedMessages
+				}
+				numExpectedSentDirectMessages := numSentCacheRequests + numExpectedSentMessages
+				topic := fmt.Sprintf("MaxMsgs%d/%s/data1", numExpectedCachedMessages, testcontext.Cache().Vpn)
+				cacheName := fmt.Sprintf("MaxMsgs%d/delay=2000,msgs=%d", numExpectedCachedMessages, numExpectedLiveMessages)
+				cacheRequestConfig := helpers.GetValidCacheRequestConfig(strategy, cacheName, topic)
+				cacheRequestID := message.CacheRequestID(1)
+				receivedMsgChan := make(chan message.InboundMessage, 3)
+				defer close(receivedMsgChan)
+				receiver.ReceiveAsync(func(msg message.InboundMessage) {
+					receivedMsgChan <- msg
+				})
+
+				var waitForCacheResponses func()
+				var waitForLiveMessage = func() {
+					var msg message.InboundMessage
+					Eventually(receivedMsgChan).Should(Receive(&msg))
+					Expect(msg).ToNot(BeNil())
+					Expect(msg.GetDestinationName()).To(Equal(topic))
+					id, ok := msg.GetCacheRequestID()
+					Expect(ok).To(BeFalse())
+					Expect(id).To(BeNumerically("==", 0))
+					/* EBP-21: Assert that this message is a live message. */
+				}
+				var waitForCachedMessages = func() {
+					var msg message.InboundMessage
+					for i := 0; i < numExpectedCachedMessages; i++ {
+						Eventually(receivedMsgChan, "10s").Should(Receive(&msg))
+						Expect(msg).ToNot(BeNil())
+						Expect(msg.GetDestinationName()).To(Equal(topic))
+						id, ok := msg.GetCacheRequestID()
+						Expect(ok).To(BeTrue())
+						Expect(id).To(BeNumerically("==", cacheRequestID))
+						/* EBP-21: Assert that this message is a cached message. */
+					}
+				}
+				switch cacheResponseProcessStrategy {
+				case helpers.ProcessCacheResponseThroughChannel:
+					cacheResponseChan, err := receiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
+					Expect(err).To(BeNil())
+					waitForCacheResponses = func() {
+						var cacheResponse solace.CacheResponse
+						for i := 0; i < numExpectedCacheResponses; i++ {
+							Eventually(cacheResponseChan, "2s").Should(Receive(&cacheResponse))
+							Expect(cacheResponse).ToNot(BeNil())
+							/* EBP-25: Assert that this cache response has the same cache request ID as the
+							 * submitted cache request.*/
+							/* EBP-26: Assert that this cache response has CachRequestOutcome.Ok. */
+							/* EBP-28: Assert that the error in this cache response is nil. */
+						}
+					}
+					Eventually(func() uint64 { return messagingService.Metrics().GetValue(metrics.CacheRequestsSent) }, "10s").Should(BeNumerically("==", numSentCacheRequests))
+				case helpers.ProcessCacheResponseThroughCallback:
+					cacheResponseSignalChan := make(chan solace.CacheResponse, 1)
+					deferredOperation = func() { close(cacheResponseSignalChan) }
+					cacheResponseCallback := func(cacheResponse solace.CacheResponse) {
+						cacheResponseSignalChan <- cacheResponse
+					}
+					err := receiver.RequestCachedAsyncWithCallback(cacheRequestConfig, cacheRequestID, cacheResponseCallback)
+					Expect(err).To(BeNil())
+					waitForCacheResponses = func() {
+						var cacheResponse solace.CacheResponse
+						for i := 0; i < numExpectedCacheResponses; i++ {
+							Eventually(cacheResponseSignalChan, "10s").Should(Receive(&cacheResponse))
+							Expect(cacheResponse).ToNot(BeNil())
+							/* EBP-25: Assert that this cache response has the same cache request ID as the
+							 * submitted cache request.*/
+							/* EBP-26: Assert that this cache response has CachRequestOutcome.Ok. */
+							/* EBP-28: Assert that the error in this cache response is nil. */
+						}
+					}
+					Eventually(func() uint64 { return messagingService.Metrics().GetValue(metrics.CacheRequestsSent) }, "10s").Should(BeNumerically("==", numSentCacheRequests))
+				default:
+					Fail(fmt.Sprintf("Got unexpected CacheResponseProcessStrategy %d", cacheResponseProcessStrategy))
+				}
+				switch strategy {
+				case resource.AsAvailable:
+					waitForLiveMessage()
+					Consistently(receivedMsgChan, "500ms").ShouldNot(Receive())
+					waitForCacheResponses()
+					waitForCachedMessages()
+				case resource.LiveCancelsCached:
+					waitForLiveMessage()
+					waitForCacheResponses()
+					/* NOTE: We only need to poll for 1ms, because if the API were going to give us cached
+					 * messages, they would already be on the queue by the time we go to this assertion.
+					 */
+					Consistently(receivedMsgChan, "1ms").ShouldNot(Receive())
+				case resource.CachedFirst:
+					/* NOTE: we wait for 1500 ms since the delay is 2000 ms, and we want to allow a bit of room
+					 * in the waiter so that we don't wait to long. Waiting past the delay would race with the
+					 * reception of the cache response, coinciding with receivedMsgChan receiving
+					 * cached data messages. This coincidence would cause the `Consistently` assertion to fail.
+					 */
+					Consistently(receivedMsgChan, "1500ms").ShouldNot(Receive())
+					waitForCacheResponses()
+					waitForCachedMessages()
+					waitForLiveMessage()
+				case resource.CachedOnly:
+					Consistently(receivedMsgChan, "1500ms").ShouldNot(Receive())
+					waitForCacheResponses()
+					waitForCachedMessages()
+					/* NOTE: We don't bother polling to confirm that no more data messages are being received,
+					 * because the only other message that could be expected is the live message pulished by
+					 * the proxy before the cache request reached the cache instance. That data message would
+					 * have reached the API before any of the other messages, so if the previous assertions
+					 * didn't fail, we know we didn't get the live message.
+					 */
+				default:
+					Fail(fmt.Sprintf("Got unexpected CacheResponseProcessStrategy %d", cacheResponseProcessStrategy))
+				}
+				Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSent)).To(BeNumerically("==", numSentCacheRequests), fmt.Sprintf("CacheRequestsSent for %s was wrong", strategyString))
+				Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSucceeded)).To(BeNumerically("==", numSentCacheRequests), fmt.Sprintf("CacheRequestsSucceeded for %s was wrong", strategyString))
+				Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsFailed)).To(BeNumerically("==", 0), fmt.Sprintf("CacheRequestsFailed for %s was wrong", strategyString))
+				Expect(messagingService.Metrics().GetValue(metrics.DirectMessagesSent)).To(BeNumerically("==", numExpectedSentDirectMessages), fmt.Sprintf("DirectMessagesSent for %s was wrong", strategyString))
+			},
+			Entry("test cache RR for valid AsAvailable with channel", resource.AsAvailable, helpers.ProcessCacheResponseThroughChannel),
+			Entry("test cache RR for valid AsAvailable with callback", resource.AsAvailable, helpers.ProcessCacheResponseThroughCallback),
+			Entry("test cache RR for valid CachedFirst with channel", resource.CachedFirst, helpers.ProcessCacheResponseThroughChannel),
+			Entry("test cache RR for valid CachedFirst with callback", resource.CachedFirst, helpers.ProcessCacheResponseThroughCallback),
+			Entry("test cache RR for valid CachedOnly with channel", resource.CachedOnly, helpers.ProcessCacheResponseThroughChannel),
+			Entry("test cache RR for valid CachedOnly with callback", resource.CachedOnly, helpers.ProcessCacheResponseThroughCallback),
+			Entry("test cache RR for valid LiveCancelsCached with channel", resource.LiveCancelsCached, helpers.ProcessCacheResponseThroughChannel),
+			Entry("test cache RR for valid LivCancelsCached  with callback", resource.LiveCancelsCached, helpers.ProcessCacheResponseThroughCallback),
+		)
+
 		Describe("Lifecycle tests", func() {
 			var messagingService solace.MessagingService
 			var messageReceiver solace.DirectMessageReceiver
