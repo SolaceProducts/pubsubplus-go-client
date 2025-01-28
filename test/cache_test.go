@@ -370,7 +370,6 @@ var _ = Describe("Cache Strategy", func() {
 				err = receiver.AddSubscription(resource.TopicSubscriptionOf(directTopic))
 				receivedMsgChan := make(chan message.InboundMessage, numExpectedReceivedMessages)
 				err = receiver.ReceiveAsync(func(msg message.InboundMessage) {
-					fmt.Printf("in ReceiveAsync callback, received msg: \n%s\n", msg.String())
 					receivedMsgChan <- msg
 				})
 				Expect(err).To(BeNil())
@@ -380,11 +379,14 @@ var _ = Describe("Cache Strategy", func() {
 				err = messagePublisher.Publish(outboundMessage, resource.TopicOf(directTopic))
 				Expect(err).To(BeNil())
 				var msg message.InboundMessage
-				/* EBP-21: Assert that thie message does not have a cache request ID and that it is a live message */
+				/* EBP-21: Assert that this message is a live message */
 				Eventually(receivedMsgChan).Should(Receive(&msg))
 				Expect(msg).ToNot(BeNil())
-				Consistently(receivedMsgChan, "500ms").ShouldNot(Receive())
+				id, ok := msg.GetCacheRequestID()
+				Expect(ok).To(BeFalse())
+				Expect(id).To(BeNumerically("==", 0))
 				Expect(msg.GetDestinationName()).To(Equal(directTopic))
+				Consistently(receivedMsgChan, "500ms").ShouldNot(Receive())
 				msg = nil
 				var cacheResponse solace.CacheResponse
 				Eventually(channel, "2s").Should(Receive(&cacheResponse))
@@ -396,8 +398,24 @@ var _ = Describe("Cache Strategy", func() {
 					Eventually(receivedMsgChan).Should(Receive(&msg))
 					Expect(msg).ToNot(BeNil())
 					Expect(msg.GetDestinationName()).To(Equal(cacheTopic))
+					id, ok = msg.GetCacheRequestID()
+					Expect(ok).To(BeTrue())
+					Expect(id).To(BeNumerically("==", cacheRequestID))
 					msg = nil
 				}
+				/* NOTE: We expect to get the live data message on the cache topic after the cached messges since we're
+				 * using CachedFirst, but expect to get the live message on the direct topic before the cached messages
+				 * because CachedFirst should not apply to messages not sent on the cacheTopic and the proxy delay
+				 * should prevent the cache instance from receiving the cache request for long enough to receive the
+				 * direct message.
+				 */
+				Eventually(receivedMsgChan).Should(Receive(&msg))
+				Expect(msg).ToNot(BeNil())
+				id, ok = msg.GetCacheRequestID()
+				Expect(ok).To(BeFalse())
+				Expect(id).To(BeNumerically("==", 0))
+				Expect(msg.GetDestinationName()).To(Equal(cacheTopic))
+				/* EBP-21: Assert that this message is a live message. */
 			})
 		})
 		Describe("Lifecycle tests", func() {
