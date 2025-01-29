@@ -57,11 +57,11 @@ func (receiver *ccsmpBackedReceiver) ProcessCacheEvent(cacheRequestMap *sync.Map
 	/* Lifecycle management of cache sessions */
 	/* NOTE: In the event of a duplicate event in the cacheRequestMap channel, the following deletion
 	 * will not panic. */
-	cacheRequestMap.Delete(cacheSession)
+	cacheRequestMap.Delete(cacheRequestIndex)
 	if errorInfo := cacheSession.DestroyCacheSession(); errorInfo != nil {
 		/* NOTE: If we can't destroy the cache session, there is no follow up action that can be taken, so
 		 * there is no point in returning an error. We just log it and move on. */
-		logging.Default.Error(fmt.Sprintf("%s %s and %s. ErrorInfo is: [%s]", constants.FailedToDestroyCacheSession, constants.WithCacheSessionPointer, constants.WithCacheRequestID, errorInfo.GetMessageAsString()))
+		logging.Default.Error(fmt.Sprintf("%s %s %s and %s 0x%x. ErrorInfo is: [%s]", constants.FailedToDestroyCacheSession, constants.WithCacheSessionPointer, cacheSession.String(), constants.WithCacheRequestID, cacheRequestIndex, errorInfo.GetMessageAsString()))
 	}
 }
 
