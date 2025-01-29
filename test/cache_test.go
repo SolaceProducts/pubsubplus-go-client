@@ -415,7 +415,7 @@ var _ = Describe("Cache Strategy", func() {
 				Expect(ok).To(BeFalse())
 				Expect(id).To(BeNumerically("==", 0))
 				Expect(msg.GetDestinationName()).To(Equal(cacheTopic))
-				/* EBP-21: Assert that this message is a live message. */
+				/* EBP-21: Assert that this message is a direct message. */
 			})
 		})
 		Describe("Lifecycle tests", func() {
