@@ -384,7 +384,6 @@ var _ = Describe("Cache Strategy", func() {
 							/* EBP-28: Assert that the error in this cache response is nil. */
 						}
 					}
-					Eventually(func() uint64 { return messagingService.Metrics().GetValue(metrics.CacheRequestsSent) }, "10s").Should(BeNumerically("==", numSentCacheRequests))
 				case helpers.ProcessCacheResponseThroughCallback:
 					cacheResponseSignalChan := make(chan solace.CacheResponse, 1)
 					deferredOperation = func() { close(cacheResponseSignalChan) }
@@ -404,10 +403,10 @@ var _ = Describe("Cache Strategy", func() {
 							/* EBP-28: Assert that the error in this cache response is nil. */
 						}
 					}
-					Eventually(func() uint64 { return messagingService.Metrics().GetValue(metrics.CacheRequestsSent) }, "10s").Should(BeNumerically("==", numSentCacheRequests))
 				default:
 					Fail(fmt.Sprintf("Got unexpected CacheResponseProcessStrategy %d", cacheResponseProcessStrategy))
 				}
+				Eventually(func() uint64 { return messagingService.Metrics().GetValue(metrics.CacheRequestsSent) }, "10s").Should(BeNumerically("==", numSentCacheRequests))
 				switch strategy {
 				case resource.AsAvailable:
 					waitForLiveMessage()
