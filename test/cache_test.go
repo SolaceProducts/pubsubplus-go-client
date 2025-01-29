@@ -230,6 +230,41 @@ var _ = Describe("Cache Strategy", func() {
 				<-cacheResponseSignalChan
 			}
 		})
+		DescribeTable("wildcard request are rejected with error of not live data flow on live data queue",
+			func(cacheRequestStrategy resource.CachedMessageSubscriptionStrategy, cacheResponseProcessStrategy helpers.CacheResponseProcessStrategy) {
+				numExpectedCachedMessages := 3
+				cacheRequestID := message.CacheRequestID(1)
+				cacheName := fmt.Sprintf("MaxMsgs%d", numExpectedCachedMessages)
+				topic := fmt.Sprintf("%s/%s/>", cacheName, testcontext.Cache().Vpn)
+				var cacheRequestConfig resource.CachedMessageSubscriptionRequest
+				switch cacheRequestStrategy {
+				case resource.LiveCancelsCached:
+					cacheRequestConfig = helpers.GetValidLiveCancelsCachedRequestConfig(cacheName, topic)
+				case resource.CachedFirst:
+					cacheRequestConfig = helpers.GetValidCachedFirstCacheRequestConfig(cacheName, topic)
+				default:
+					Fail("Got unexpected cacheRequestStrategy %s")
+				}
+				switch cacheResponseProcessStrategy {
+				case helpers.ProcessCacheResponseThroughChannel:
+					channel, err := receiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
+					Expect(err).To(BeAssignableToTypeOf(&solace.InvalidConfigurationError{}))
+					Expect(channel).To(BeNil())
+				case helpers.ProcessCacheResponseThroughCallback:
+					err := receiver.RequestCachedAsyncWithCallback(cacheRequestConfig, cacheRequestID, func(solace.CacheResponse) {})
+					Expect(err).To(BeAssignableToTypeOf(&solace.InvalidConfigurationError{}))
+				default:
+					Fail("Got unexpected cacheResponseProcessStrategy %d", cacheResponseProcessStrategy)
+				}
+				Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSucceeded)).To(BeNumerically("==", 0))
+				Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSent)).To(BeNumerically("==", 0))
+				Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsFailed)).To(BeNumerically("==", 0))
+			},
+			Entry("with cache response strategy channel", resource.CachedFirst, helpers.ProcessCacheResponseThroughChannel),
+			Entry("with cache response strategy channel", resource.LiveCancelsCached, helpers.ProcessCacheResponseThroughChannel),
+			Entry("with cache response strategy callback", resource.LiveCancelsCached, helpers.ProcessCacheResponseThroughCallback),
+			Entry("with cache response strategy callback", resource.CachedFirst, helpers.ProcessCacheResponseThroughCallback),
+		)
 		DescribeTable("a direct receiver should be able to submit a valid cache request, receive a response, and terminate",
 			func(strategy resource.CachedMessageSubscriptionStrategy, cacheResponseProcessStrategy helpers.CacheResponseProcessStrategy) {
 				logging.SetLogLevel(logging.LogLevelDebug)
