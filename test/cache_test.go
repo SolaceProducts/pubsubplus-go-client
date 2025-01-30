@@ -230,6 +230,41 @@ var _ = Describe("Cache Strategy", func() {
 				<-cacheResponseSignalChan
 			}
 		})
+		DescribeTable("wildcard request are rejected with error of not live data flow on live data queue",
+			func(cacheRequestStrategy resource.CachedMessageSubscriptionStrategy, cacheResponseProcessStrategy helpers.CacheResponseProcessStrategy) {
+				numExpectedCachedMessages := 3
+				cacheRequestID := message.CacheRequestID(1)
+				cacheName := fmt.Sprintf("MaxMsgs%d", numExpectedCachedMessages)
+				topic := fmt.Sprintf("%s/%s/>", cacheName, testcontext.Cache().Vpn)
+				var cacheRequestConfig resource.CachedMessageSubscriptionRequest
+				switch cacheRequestStrategy {
+				case resource.LiveCancelsCached:
+					cacheRequestConfig = helpers.GetValidLiveCancelsCachedRequestConfig(cacheName, topic)
+				case resource.CachedFirst:
+					cacheRequestConfig = helpers.GetValidCachedFirstCacheRequestConfig(cacheName, topic)
+				default:
+					Fail("Got unexpected cacheRequestStrategy %s")
+				}
+				switch cacheResponseProcessStrategy {
+				case helpers.ProcessCacheResponseThroughChannel:
+					channel, err := receiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
+					Expect(err).To(BeAssignableToTypeOf(&solace.InvalidConfigurationError{}))
+					Expect(channel).To(BeNil())
+				case helpers.ProcessCacheResponseThroughCallback:
+					err := receiver.RequestCachedAsyncWithCallback(cacheRequestConfig, cacheRequestID, func(solace.CacheResponse) {})
+					Expect(err).To(BeAssignableToTypeOf(&solace.InvalidConfigurationError{}))
+				default:
+					Fail("Got unexpected cacheResponseProcessStrategy %d", cacheResponseProcessStrategy)
+				}
+				Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSucceeded)).To(BeNumerically("==", 0))
+				Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSent)).To(BeNumerically("==", 0))
+				Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsFailed)).To(BeNumerically("==", 0))
+			},
+			Entry("with cache response strategy channel", resource.CachedFirst, helpers.ProcessCacheResponseThroughChannel),
+			Entry("with cache response strategy channel", resource.LiveCancelsCached, helpers.ProcessCacheResponseThroughChannel),
+			Entry("with cache response strategy callback", resource.LiveCancelsCached, helpers.ProcessCacheResponseThroughCallback),
+			Entry("with cache response strategy callback", resource.CachedFirst, helpers.ProcessCacheResponseThroughCallback),
+		)
 		DescribeTable("a direct receiver should be able to submit a valid cache request, receive a response, and terminate",
 			func(strategy resource.CachedMessageSubscriptionStrategy, cacheResponseProcessStrategy helpers.CacheResponseProcessStrategy) {
 				logging.SetLogLevel(logging.LogLevelDebug)
@@ -457,7 +492,115 @@ var _ = Describe("Cache Strategy", func() {
 			Entry("test cache RR for valid LiveCancelsCached with channel", resource.LiveCancelsCached, helpers.ProcessCacheResponseThroughChannel),
 			Entry("test cache RR for valid LivCancelsCached  with callback", resource.LiveCancelsCached, helpers.ProcessCacheResponseThroughCallback),
 		)
-
+		Describe("when the cache tests need a publisher", func() {
+			var messagePublisher solace.DirectMessagePublisher
+			BeforeEach(func() {
+				logging.SetLogLevel(logging.LogLevelDebug)
+				CheckCache() // skips test with message if cache image is not available
+				helpers.InitAllCacheClustersWithMessages()
+				var err error
+				messagingService, err = messaging.NewMessagingServiceBuilder().FromConfigurationProvider(helpers.DefaultCacheConfiguration()).Build()
+				Expect(err).To(BeNil())
+				err = messagingService.Connect()
+				Expect(err).To(BeNil())
+				receiver, err = messagingService.CreateDirectMessageReceiverBuilder().Build()
+				Expect(err).To(BeNil())
+				err = receiver.Start()
+				Expect(err).To(BeNil())
+				messagePublisher, err = messagingService.CreateDirectMessagePublisherBuilder().Build()
+				Expect(err).To(BeNil())
+				err = messagePublisher.Start()
+				Expect(err).To(BeNil())
+				deferredOperation = nil
+			})
+			AfterEach(func() {
+				var err error
+				if receiver.IsRunning() {
+					err = receiver.Terminate(0)
+					Expect(err).To(BeNil())
+				}
+				Expect(receiver.IsRunning()).To(BeFalse())
+				Expect(receiver.IsTerminated()).To(BeTrue())
+				if messagePublisher.IsRunning() {
+					err = messagePublisher.Terminate(0)
+					Expect(err).To(BeNil())
+				}
+				Expect(messagePublisher.IsRunning()).To(BeFalse())
+				Expect(messagePublisher.IsTerminated()).To(BeTrue())
+				if messagingService.IsConnected() {
+					err = messagingService.Disconnect()
+					Expect(err).To(BeNil())
+				}
+				Expect(messagingService.IsConnected()).To(BeFalse())
+				if deferredOperation != nil {
+					deferredOperation()
+				}
+			})
+			It("live data that does not match an outstanding asynchronous cache request is delivered immediately", func() {
+				directTopic := "nocache/charge-it"
+				cacheRequestID := message.CacheRequestID(1)
+				numConfiguredCachedMessages := 3
+				numExpectedLiveMessages := 1
+				numExpectedCachedMessages := numConfiguredCachedMessages
+				numExpectedDirectMessages := 1
+				numExpectedReceivedMessages := numExpectedLiveMessages + numExpectedDirectMessages + numExpectedCachedMessages
+				delay := 2000
+				cacheName := fmt.Sprintf("MaxMsgs%d/delay=%d,msgs=%d", numConfiguredCachedMessages, delay, numExpectedLiveMessages)
+				cacheTopic := fmt.Sprintf("MaxMsgs%d/%s/data1", numConfiguredCachedMessages, testcontext.Cache().Vpn)
+				cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.CachedFirst, cacheName, resource.TopicSubscriptionOf(cacheTopic), int32(delay)*2, 10, 5000)
+				outboundMessage, err := messagingService.MessageBuilder().BuildWithStringPayload("this is a direct message")
+				Expect(err).To(BeNil())
+				err = receiver.AddSubscription(resource.TopicSubscriptionOf(directTopic))
+				receivedMsgChan := make(chan message.InboundMessage, numExpectedReceivedMessages)
+				err = receiver.ReceiveAsync(func(msg message.InboundMessage) {
+					receivedMsgChan <- msg
+				})
+				Expect(err).To(BeNil())
+				channel, err := receiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
+				Expect(err).To(BeNil())
+				Expect(channel).ToNot(BeNil())
+				err = messagePublisher.Publish(outboundMessage, resource.TopicOf(directTopic))
+				Expect(err).To(BeNil())
+				var msg message.InboundMessage
+				/* EBP-21: Assert that this message is a live message */
+				Eventually(receivedMsgChan).Should(Receive(&msg))
+				Expect(msg).ToNot(BeNil())
+				id, ok := msg.GetCacheRequestID()
+				Expect(ok).To(BeFalse())
+				Expect(id).To(BeNumerically("==", 0))
+				Expect(msg.GetDestinationName()).To(Equal(directTopic))
+				Consistently(receivedMsgChan, "500ms").ShouldNot(Receive())
+				msg = nil
+				var cacheResponse solace.CacheResponse
+				Eventually(channel, "2s").Should(Receive(&cacheResponse))
+				/* EBP-26: Assert that the cache response contains a CacheRequestOutcome.Ok */
+				Expect(cacheResponse).ToNot(BeNil())
+				for i := 0; i < numExpectedCachedMessages; i++ {
+					/* EBP-25: Assert that the cache request ID from these received messages matches the cache request ID received in the cache response.*/
+					/* EBP-21: Assert that these messages are cached messages.*/
+					Eventually(receivedMsgChan).Should(Receive(&msg))
+					Expect(msg).ToNot(BeNil())
+					Expect(msg.GetDestinationName()).To(Equal(cacheTopic))
+					id, ok = msg.GetCacheRequestID()
+					Expect(ok).To(BeTrue())
+					Expect(id).To(BeNumerically("==", cacheRequestID))
+					msg = nil
+				}
+				/* NOTE: We expect to get the live data message on the cache topic after the cached messges since we're
+				 * using CachedFirst, but expect to get the live message on the direct topic before the cached messages
+				 * because CachedFirst should not apply to messages not sent on the cacheTopic and the proxy delay
+				 * should prevent the cache instance from receiving the cache request for long enough to receive the
+				 * direct message.
+				 */
+				Eventually(receivedMsgChan).Should(Receive(&msg))
+				Expect(msg).ToNot(BeNil())
+				id, ok = msg.GetCacheRequestID()
+				Expect(ok).To(BeFalse())
+				Expect(id).To(BeNumerically("==", 0))
+				Expect(msg.GetDestinationName()).To(Equal(cacheTopic))
+				/* EBP-21: Assert that this message is a live message. */
+			})
+		})
 		Describe("Lifecycle tests", func() {
 			var messagingService solace.MessagingService
 			var messageReceiver solace.DirectMessageReceiver
