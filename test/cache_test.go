@@ -75,18 +75,14 @@ var _ = Describe("Cache Strategy", func() {
 			deferredOperation = nil
 		})
 		AfterEach(func() {
-			fmt.Printf("Got to AfterEach\n")
 			var err error
 			if receiver.IsRunning() {
-				fmt.Printf("receiver was running, terminating now.\n")
 				err = receiver.Terminate(0)
 				Expect(err).To(BeNil())
 			}
-			fmt.Printf("terminated receiver\n")
 			Expect(receiver.IsRunning()).To(BeFalse())
 			Expect(receiver.IsTerminated()).To(BeTrue())
 			if messagingService.IsConnected() {
-				fmt.Printf("service was connected, disconnecting\n")
 				err = messagingService.Disconnect()
 				Expect(err).To(BeNil())
 			}
@@ -311,7 +307,6 @@ var _ = Describe("Cache Strategy", func() {
 					Expect(id).To(BeNumerically("==", cacheRequestID))
 					/* EBP-21: Assert that this message is a cached message. */
 				}
-				fmt.Printf("Received all message")
 			},
 			Entry("wildcard topic 1 with channel", "MaxMsgs*/%s/data1", helpers.ProcessCacheResponseThroughChannel),
 			Entry("wildcard topic 1 with callback", "MaxMsgs*/%s/data1", helpers.ProcessCacheResponseThroughCallback),
