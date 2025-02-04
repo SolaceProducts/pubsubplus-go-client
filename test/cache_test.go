@@ -230,6 +230,49 @@ var _ = Describe("Cache Strategy", func() {
 				<-cacheResponseSignalChan
 			}
 		})
+		DescribeTable("a cache request should retrieve at most the configured number of maxCachedMessages", func(configuredMaxMessages int32, expectedMessages int) {
+			/* NOTE: We make a chan twice the size of what we expect is necessary, so that if we do get additional
+			 * messages they will immediately be available and not race with the channel read at the end of the
+			 * test.
+			 */
+			receivedMsgChan := make(chan message.InboundMessage, expectedMessages*2)
+			err := receiver.ReceiveAsync(func(msg message.InboundMessage) {
+				receivedMsgChan <- msg
+			})
+			cacheRequestID := message.CacheRequestID(1)
+			cacheName := fmt.Sprintf("MaxMsgs%d", expectedMessages)
+			cacheTopic := fmt.Sprintf("%s/%s/data1", cacheName, testcontext.Cache().Vpn)
+			cacheReqeustConfig := resource.NewCachedMessageSubscriptionRequest(resource.AsAvailable, cacheName, resource.TopicSubscriptionOf(cacheTopic), helpers.ValidCacheAccessTimeout, configuredMaxMessages, helpers.ValidCachedMessageAge)
+			cacheResponseChan, err := receiver.RequestCachedAsync(cacheReqeustConfig, cacheRequestID)
+			Expect(err).To(BeNil())
+			var response solace.CacheResponse
+			Eventually(cacheResponseChan, "5s").Should(Receive(&response))
+			Expect(response).ToNot(BeNil())
+			/* EBP-25: Assert response ID matches request ID. */
+			/* EBP-26: Assert CacheRequestOutcome.Ok */
+			/* EBP-28: Assert err from response is nil */
+			for i := 0; i < expectedMessages; i++ {
+				var msg message.InboundMessage
+				Eventually(receivedMsgChan, "5s").Should(Receive(&msg))
+				Expect(msg).ToNot(BeNil())
+				Expect(msg.GetDestinationName()).To(Equal(cacheTopic))
+				id, ok := msg.GetCacheRequestID()
+				Expect(ok).To(BeTrue())
+				Expect(id).To(BeNumerically("==", cacheRequestID))
+				/* EBP-21: Assert this is a cached message. */
+			}
+			/* NOTE: Asserts that the channel is empty, that we did not receive more cached messages than expected.
+			 * We can assume that if we were going to receive more messages they would already be in the channel
+			 * since we already received the cache response, and the cache response is not passed to the application
+			 * before the data messages.
+			 */
+			Consistently(receivedMsgChan, "10ms").ShouldNot(Receive())
+		},
+			Entry("with maxMessages 1", int32(1), 1),
+			Entry("with maxMessages 3", int32(3), 3),
+			Entry("with maxMessages 10", int32(10), 10),
+			Entry("with maxMessages 0", int32(0), 10),
+		)
 		DescribeTable("wildcard request are rejected with error of not live data flow on live data queue",
 			func(cacheRequestStrategy resource.CachedMessageSubscriptionStrategy, cacheResponseProcessStrategy helpers.CacheResponseProcessStrategy) {
 				numExpectedCachedMessages := 3
