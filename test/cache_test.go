@@ -230,6 +230,80 @@ var _ = Describe("Cache Strategy", func() {
 				<-cacheResponseSignalChan
 			}
 		})
+		It("a cache request will return the expected number of cached messages based on configured cache message age", func() {
+			cacheRequestID := message.CacheRequestID(1)
+			cacheName := "MaxMsgs1"
+			cacheTopic := fmt.Sprintf("%s/%s/data1", cacheName, testcontext.Cache().Vpn)
+			/* NOTE: We're expecting to get 2 messages, 5 gives plenty of buffer in case of errors. */
+			receivedMsgChan := make(chan message.InboundMessage, 5)
+			err := receiver.ReceiveAsync(func(msg message.InboundMessage) {
+				receivedMsgChan <- msg
+			})
+			/* NOTE: Cache request with max age `0` should retrieve all messages, in this case 1. */
+			cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.AsAvailable, cacheName, resource.TopicSubscriptionOf(cacheTopic), helpers.ValidCacheAccessTimeout, helpers.ValidMaxCachedMessages, int32(0))
+			channel, err := receiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
+			Expect(err).To(BeNil())
+			Expect(channel).ToNot(BeNil())
+			var cacheResponse solace.CacheResponse
+			Eventually(channel, "5s").Should(Receive(&cacheResponse))
+			Expect(cacheResponse).ToNot(BeNil())
+			/* EBP-25: Assert response ID matches request ID. */
+			/* EBP-26: Assert response CacheRequestOutcome is Ok. */
+			/* EBP-28: Assert response err is nil */
+			var msg message.InboundMessage
+			Eventually(receivedMsgChan, "5s").Should(Receive(&msg))
+			Expect(msg).ToNot(BeNil())
+			Expect(msg.GetDestinationName()).To(Equal(cacheTopic))
+			id, ok := msg.GetCacheRequestID()
+			Expect(ok).To(BeTrue())
+			Expect(id).To(BeNumerically("==", cacheRequestID))
+			/* EBP-21: Assert this is a cached message. */
+			/* NOTE: Because we waited for the cache response, we only need to poll the data message channel
+			 * instantaneously.
+			 */
+			Consistently(receivedMsgChan, "1ms").ShouldNot(Receive())
+
+			/* NOTE: Cache request with max age `1` should receive no messages because we first wait for 2ms. This
+			 * guarantees that the cache instance was populated at least 2ms ago, making its cached messages older
+			 * than 1ms. Only messages 1ms or newer should be returned, so none should be returned.
+			 */
+			time.Sleep(time.Second * 2)
+			cacheRequestConfig = resource.NewCachedMessageSubscriptionRequest(resource.AsAvailable, cacheName, resource.TopicSubscriptionOf(cacheTopic), helpers.ValidCacheAccessTimeout, helpers.ValidMaxCachedMessages, int32(1))
+			channel, err = receiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
+			Expect(err).To(BeNil())
+			Expect(channel).ToNot(BeNil())
+			Eventually(channel, "5s").Should(Receive(&cacheResponse))
+			Expect(cacheResponse).ToNot(BeNil())
+			/* EBP-25: Assert response ID matches request ID. */
+			/* EBP-26: Assert response CacheRequestOutcome. */
+			/* EBP-28: Assert response err. */
+			/* NOTE: Because we waited for the cache response, we only need to poll the data message channel
+			 * instantaneously.
+			 */
+			Consistently(receivedMsgChan, "1ms").ShouldNot(Receive())
+
+			/* NOTE: Cache request with max age `10000` should retrieve all messages, in this case 1. */
+			cacheRequestConfig = resource.NewCachedMessageSubscriptionRequest(resource.AsAvailable, cacheName, resource.TopicSubscriptionOf(cacheTopic), helpers.ValidCacheAccessTimeout, helpers.ValidMaxCachedMessages, int32(10000))
+			channel, err = receiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
+			Expect(err).To(BeNil())
+			Expect(channel).ToNot(BeNil())
+			Eventually(channel, "5s").Should(Receive(&cacheResponse))
+			Expect(cacheResponse).ToNot(BeNil())
+			/* EBP-25: Assert response ID matches request ID. */
+			/* EBP-26: Assert response CacheRequestOutcome is Ok. */
+			/* EBP-28: Assert response err is nil */
+			Eventually(receivedMsgChan, "5s").Should(Receive(&msg))
+			Expect(msg).ToNot(BeNil())
+			Expect(msg.GetDestinationName()).To(Equal(cacheTopic))
+			id, ok = msg.GetCacheRequestID()
+			Expect(ok).To(BeTrue())
+			/* EBP-21: Assert this is a cached message. */
+			/* NOTE: Because we waited for the cache response, we only need to poll the data message channel
+			 * instantaneously.
+			 */
+			Consistently(receivedMsgChan, "1ms").ShouldNot(Receive())
+			Expect(id).To(BeNumerically("==", cacheRequestID))
+		})
 		DescribeTable("wildcard request are rejected with error of not live data flow on live data queue",
 			func(cacheRequestStrategy resource.CachedMessageSubscriptionStrategy, cacheResponseProcessStrategy helpers.CacheResponseProcessStrategy) {
 				numExpectedCachedMessages := 3
