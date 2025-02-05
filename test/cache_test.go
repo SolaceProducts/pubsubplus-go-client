@@ -231,7 +231,7 @@ var _ = Describe("Cache Strategy", func() {
 				<-cacheResponseSignalChan
 			}
 		})
-		DescribeTable("a cache request should retrieve at most the configured number of maxCachedMessages", func(configuredMaxMessages int32, expectedMessages int) {
+		DescribeTable("a cache request should retrieve at most the configured number of maxCachedMessages", func(configuredMaxMessages int32, expectedMessages int, strategy resource.CachedMessageSubscriptionStrategy) {
 			/* NOTE: We make a chan twice the size of what we expect is necessary, so that if we do get additional
 			 * messages they will immediately be available and not race with the channel read at the end of the
 			 * test.
@@ -243,7 +243,7 @@ var _ = Describe("Cache Strategy", func() {
 			cacheRequestID := message.CacheRequestID(1)
 			cacheName := fmt.Sprintf("MaxMsgs%d", expectedMessages)
 			cacheTopic := fmt.Sprintf("%s/%s/data1", cacheName, testcontext.Cache().Vpn)
-			cacheReqeustConfig := resource.NewCachedMessageSubscriptionRequest(resource.AsAvailable, cacheName, resource.TopicSubscriptionOf(cacheTopic), helpers.ValidCacheAccessTimeout, configuredMaxMessages, helpers.ValidCachedMessageAge)
+			cacheReqeustConfig := resource.NewCachedMessageSubscriptionRequest(strategy, cacheName, resource.TopicSubscriptionOf(cacheTopic), helpers.ValidCacheAccessTimeout, configuredMaxMessages, helpers.ValidCachedMessageAge)
 			cacheResponseChan, err := receiver.RequestCachedAsync(cacheReqeustConfig, cacheRequestID)
 			Expect(err).To(BeNil())
 			var response solace.CacheResponse
@@ -269,10 +269,22 @@ var _ = Describe("Cache Strategy", func() {
 			 */
 			Consistently(receivedMsgChan, "10ms").ShouldNot(Receive())
 		},
-			Entry("with maxMessages 1", int32(1), 1),
-			Entry("with maxMessages 3", int32(3), 3),
-			Entry("with maxMessages 10", int32(10), 10),
-			Entry("with maxMessages 0", int32(0), 10),
+			Entry("with maxMessages 1", int32(1), 1, resource.AsAvailable),
+			Entry("with maxMessages 3", int32(3), 3, resource.AsAvailable),
+			Entry("with maxMessages 10", int32(10), 10, resource.AsAvailable),
+			Entry("with maxMessages 0", int32(0), 10, resource.AsAvailable),
+			Entry("with maxMessages 1", int32(1), 1, resource.CachedFirst),
+			Entry("with maxMessages 3", int32(3), 3, resource.CachedFirst),
+			Entry("with maxMessages 10", int32(10), 10, resource.CachedFirst),
+			Entry("with maxMessages 0", int32(0), 10, resource.CachedFirst),
+			Entry("with maxMessages 1", int32(1), 1, resource.CachedOnly),
+			Entry("with maxMessages 3", int32(3), 3, resource.CachedOnly),
+			Entry("with maxMessages 10", int32(10), 10, resource.CachedOnly),
+			Entry("with maxMessages 0", int32(0), 10, resource.CachedOnly),
+			Entry("with maxMessages 1", int32(1), 1, resource.LiveCancelsCached),
+			Entry("with maxMessages 3", int32(3), 3, resource.LiveCancelsCached),
+			Entry("with maxMessages 10", int32(10), 10, resource.LiveCancelsCached),
+			Entry("with maxMessages 0", int32(0), 10, resource.LiveCancelsCached),
 		)
 		DescribeTable("long running cache requests with live data queue and live data to fill", func(cacheResponseProcessStrategy helpers.CacheResponseProcessStrategy) {
 			numExpectedCachedMessages := 3
