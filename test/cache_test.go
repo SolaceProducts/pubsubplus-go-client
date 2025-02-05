@@ -18,6 +18,7 @@ package test
 
 import (
 	"fmt"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -535,6 +536,61 @@ var _ = Describe("Cache Strategy", func() {
 				if deferredOperation != nil {
 					deferredOperation()
 				}
+			})
+			It("a cache request requiring multiple responses from the cache instance results in only one cache response", func() {
+				/* NOTE: AFAIK, the response from the cache instance is split every 1Mb, so initializing the
+				 * cluster with messages of size 300k char should be a good number to both exceed the limit of what
+				 * can be returned to the API from the instance in a single response, and provide an offset so that
+				 * we are not always having data returned exactly on the boundary of 1Mb.
+				 */
+				numExpectedCacheMessages := 28
+				payload := strings.Repeat("a", 30000)
+				outboundMessage, err := messagingService.MessageBuilder().BuildWithStringPayload(payload)
+				Expect(err).To(BeNil())
+				Expect(outboundMessage).ToNot(BeNil())
+				publishTopic := fmt.Sprintf("MaxMsgs10/%s/data1", testcontext.Cache().Vpn)
+				/* NOTE: Intiialize the cache with very large messages. This will be overwritten by the next test,
+				 * so we don't need to worry about long messages causing other tests to take longer.
+				 */
+				for i := 0; i < 10; i++ {
+					messagePublisher.Publish(outboundMessage, resource.TopicOf(publishTopic))
+				}
+				cacheRequestID := message.CacheRequestID(1)
+				cacheName := "MaxMsgs10"
+				cacheTopic := fmt.Sprintf("MaxMsgs*/%s/>", testcontext.Cache().Vpn)
+				cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.AsAvailable, cacheName, resource.TopicSubscriptionOf(cacheTopic), 20000, 0, 0)
+				/* WARNING: If a topic subscription is added to one of the cache clusters that causes it to
+				 * attract more messages, then this buffer may not be big enough, and receiver termination will
+				 * hang.
+				 */
+				receivedMsgChan := make(chan message.InboundMessage, 30)
+				err = receiver.ReceiveAsync(func(msg message.InboundMessage) {
+					receivedMsgChan <- msg
+				})
+				Expect(err).To(BeNil())
+				channel, err := receiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
+				Expect(err).To(BeNil())
+				Expect(channel).ToNot(BeNil())
+				var cacheResponse solace.CacheResponse
+				Eventually(channel, "30s").Should(Receive(&cacheResponse))
+				Expect(cacheResponse).ToNot(BeNil())
+				/* EBP-25: Assert cache request ID matches cache response ID. */
+				/* EBP-26: Assert CacheRequestOutcome is Ok. */
+				/* EBP-28: Assert err from response is nil. */
+				var msg message.InboundMessage
+				for i := 0; i < numExpectedCacheMessages; i++ {
+					fmt.Printf("Received message %d\n", i)
+					Eventually(receivedMsgChan, "5s").Should(Receive(&msg))
+					Expect(msg).ToNot(BeNil())
+					/* NOTE: Can't assert topic from received message because of wildcard in cache request. */
+					id, ok := msg.GetCacheRequestID()
+					Expect(ok).To(BeTrue())
+					Expect(id).To(BeNumerically("==", cacheRequestID))
+					/* EBP-21: Assert this is a cached message. */
+				}
+				Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSent)).To(BeNumerically("==", 1))
+				Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSucceeded)).To(BeNumerically("==", 3))
+				Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsFailed)).To(BeNumerically("==", 0))
 			})
 			It("live data that does not match an outstanding asynchronous cache request is delivered immediately", func() {
 				directTopic := "nocache/charge-it"
