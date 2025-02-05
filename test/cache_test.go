@@ -243,7 +243,7 @@ var _ = Describe("Cache Strategy", func() {
 				case resource.CachedFirst:
 					cacheRequestConfig = helpers.GetValidCachedFirstCacheRequestConfig(cacheName, topic)
 				default:
-					Fail("Got unexpected cacheRequestStrategy %s")
+					Fail("Got unexpected cacheRequestStrategy")
 				}
 				switch cacheResponseProcessStrategy {
 				case helpers.ProcessCacheResponseThroughChannel:
@@ -264,6 +264,56 @@ var _ = Describe("Cache Strategy", func() {
 			Entry("with cache response strategy channel", resource.LiveCancelsCached, helpers.ProcessCacheResponseThroughChannel),
 			Entry("with cache response strategy callback", resource.LiveCancelsCached, helpers.ProcessCacheResponseThroughCallback),
 			Entry("with cache response strategy callback", resource.CachedFirst, helpers.ProcessCacheResponseThroughCallback),
+		)
+		DescribeTable("cache requests with wildcard topic with live data flowthrough",
+			func(topic string, cacheResponseProcessStrategy helpers.CacheResponseProcessStrategy) {
+				topic = fmt.Sprintf(topic, testcontext.Cache().Vpn)
+				numExpectedCachedMessages := 1
+				cacheRequestID := message.CacheRequestID(1)
+				cacheName := fmt.Sprintf("MaxMsgs%d", numExpectedCachedMessages)
+				cacheRequestConfig := helpers.GetValidAsAvailableCacheRequestConfig(cacheName, topic)
+				receivedMsgChan := make(chan message.InboundMessage, numExpectedCachedMessages*10)
+				err := receiver.ReceiveAsync(func(msg message.InboundMessage) {
+					receivedMsgChan <- msg
+				})
+				var cacheResponse solace.CacheResponse
+				switch cacheResponseProcessStrategy {
+				case helpers.ProcessCacheResponseThroughChannel:
+					channel, err := receiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
+					Expect(err).To(BeNil())
+					Expect(channel).ToNot(BeNil())
+					Eventually(channel).Should(Receive(&cacheResponse))
+				case helpers.ProcessCacheResponseThroughCallback:
+					channel := make(chan solace.CacheResponse, 1)
+					callback := func(cacheResponse solace.CacheResponse) {
+						channel <- cacheResponse
+					}
+					err = receiver.RequestCachedAsyncWithCallback(cacheRequestConfig, cacheRequestID, callback)
+					Expect(err).To(BeNil())
+					Eventually(channel).Should(Receive(&cacheResponse))
+				default:
+					Fail("Got unrecognized cacheRequestStrategy")
+				}
+				Expect(cacheResponse).ToNot(BeNil())
+				/* EBP-25: Assert that the cache request from the response matches the request. */
+				/* EBP-26: Assert that the CacheRequestOutcome is Ok. */
+				/* EBP-28: Assert the err from the cache response is nil */
+				for i := 0; i < numExpectedCachedMessages; i++ {
+					var msg message.InboundMessage
+					Eventually(receivedMsgChan).Should(Receive(&msg))
+					Expect(msg).ToNot(BeNil())
+					id, ok := msg.GetCacheRequestID()
+					Expect(ok).To(BeTrue())
+					Expect(id).To(BeNumerically("==", cacheRequestID))
+					/* EBP-21: Assert that this message is a cached message. */
+				}
+			},
+			Entry("wildcard topic 1 with channel", "MaxMsgs*/%s/data1", helpers.ProcessCacheResponseThroughChannel),
+			Entry("wildcard topic 1 with callback", "MaxMsgs*/%s/data1", helpers.ProcessCacheResponseThroughCallback),
+			Entry("wildcard topic 2 with channel", "MaxMsgs1/%s/*", helpers.ProcessCacheResponseThroughChannel),
+			Entry("wildcard topic 2 with callback", "MaxMsgs1/%s/*", helpers.ProcessCacheResponseThroughCallback),
+			Entry("wildcard topic 3 with channl", "MaxMsgs1/%s/>", helpers.ProcessCacheResponseThroughChannel),
+			Entry("wildcard topic 3 with callback", "MaxMsgs1/%s/>", helpers.ProcessCacheResponseThroughCallback),
 		)
 		DescribeTable("a direct receiver should be able to submit a valid cache request, receive a response, and terminate",
 			func(strategy resource.CachedMessageSubscriptionStrategy, cacheResponseProcessStrategy helpers.CacheResponseProcessStrategy) {
