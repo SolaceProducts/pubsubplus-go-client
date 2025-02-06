@@ -235,6 +235,32 @@ var _ = Describe("Cache Strategy", func() {
 				<-cacheResponseSignalChan
 			}
 		})
+		It("cache request fails on expired timeout", func() {
+			cacheRequestID := message.CacheRequestID(1)
+			cacheName := "MaxMsgs3/delay=3500"
+			topic := fmt.Sprintf("MaxMsgs3/%s/data1", testcontext.Cache().Vpn)
+			cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.CachedFirst, cacheName, resource.TopicSubscriptionOf(topic), 3000, helpers.ValidMaxCachedMessages, helpers.ValidCachedMessageAge)
+			/* NOTE: Chan size 3 in case we get unexpected msgs to avoid hang in termination. */
+			receivedMsgChan := make(chan message.InboundMessage, 3)
+			err := receiver.ReceiveAsync(func(msg message.InboundMessage) {
+				receivedMsgChan <- msg
+			})
+			Expect(err).To(BeNil())
+			channel, err := receiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
+			Expect(err).To(BeNil())
+			Expect(channel).ToNot(BeNil())
+			Consistently(channel, "2.5s").ShouldNot(Receive())
+			var cacheResponse solace.CacheResponse
+			Eventually(channel, "5s").Should(Receive(&cacheResponse))
+			Expect(cacheResponse).ToNot(BeNil())
+			/* EBP-25: Assert cache request ID. */
+			/* EBP-26: Assert cache request outcome failed. */
+			/* EBP-28: Assert CACHE_TIMEOUT sc and CACHE_INCOMPLETE rc in err. */
+			Consistently(receivedMsgChan).ShouldNot(Receive())
+			Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSent)).To(BeNumerically("==", 1))
+			Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsFailed)).To(BeNumerically("==", 0))
+			Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSucceeded)).To(BeNumerically("==", 0))
+		})
 		DescribeTable("a cache request should retrieve at most the configured number of maxCachedMessages", func(configuredMaxMessages int32, expectedMessages int, strategy resource.CachedMessageSubscriptionStrategy) {
 			/* NOTE: We make a chan twice the size of what we expect is necessary, so that if we do get additional
 			 * messages they will immediately be available and not race with the channel read at the end of the
