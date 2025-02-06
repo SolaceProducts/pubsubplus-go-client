@@ -235,6 +235,38 @@ var _ = Describe("Cache Strategy", func() {
 				<-cacheResponseSignalChan
 			}
 		})
+		It("cache request requires messages from multiple clusters, but one cluster is shut down", func() {
+			cacheRequestID := message.CacheRequestID(1)
+			numExpectedMessages := 3
+			cacheName := fmt.Sprintf("MaxMsgs%d/inc=badCacheCluster", numExpectedMessages)
+			topic := fmt.Sprintf("MaxMsgs%d/%s/data1", numExpectedMessages, testcontext.Cache().Vpn)
+			cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.CachedFirst, cacheName, resource.TopicSubscriptionOf(topic), 10000, helpers.ValidMaxCachedMessages, helpers.ValidCachedMessageAge)
+			receivedMsgChan := make(chan message.InboundMessage, 3)
+			err := receiver.ReceiveAsync(func(msg message.InboundMessage) {
+				receivedMsgChan <- msg
+			})
+			Expect(err).To(BeNil())
+			channel, err := receiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
+			Expect(err).To(BeNil())
+			Expect(channel).ToNot(BeNil())
+			Eventually(func() uint64 { return messagingService.Metrics().GetValue(metrics.CacheRequestsSent) }, "10s").Should(BeNumerically("==", 1))
+			var cacheResponse solace.CacheResponse
+			Eventually(channel, "15s").Should(Receive(&cacheResponse))
+			Expect(cacheResponse).ToNot(BeNil())
+			/* EBP-25: Assert response ID matched request ID. */
+			/* EBP-26: Assert CacheRequestOutcome is Failed. */
+			/* EBP-28: Assert err contains CACHE_TIMEOUT sc and CACHE_INCOMPLETE rc. */
+			for i := 0; i < numExpectedMessages; i++ {
+				var msg message.InboundMessage
+				Eventually(receivedMsgChan).Should(Receive(&msg))
+				Expect(msg).ToNot(BeNil())
+				Expect(msg.GetDestinationName()).To(Equal(topic))
+				id, ok := msg.GetCacheRequestID()
+				Expect(ok).To(BeTrue())
+				Expect(id).To(BeNumerically("==", cacheRequestID))
+				/* EBP-21: Assert this is a cached message */
+			}
+		})
 		DescribeTable("a cache request should retrieve at most the configured number of maxCachedMessages", func(configuredMaxMessages int32, expectedMessages int, strategy resource.CachedMessageSubscriptionStrategy) {
 			/* NOTE: We make a chan twice the size of what we expect is necessary, so that if we do get additional
 			 * messages they will immediately be available and not race with the channel read at the end of the
