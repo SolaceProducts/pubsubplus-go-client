@@ -88,7 +88,7 @@ var servicePropertyToCCSMPMap = map[config.ServiceProperty]property{
 	config.TransportLayerSecurityPropertyCertValidated:          {ccsmp.SolClientSessionPropSslValidateCertificate, booleanConverter},
 	config.TransportLayerSecurityPropertyCertRejectExpired:      {ccsmp.SolClientSessionPropSslValidateCertificateDate, booleanConverter},
 	config.TransportLayerSecurityPropertyCertValidateServername: {ccsmp.SolClientSessionPropSslValidateCertificateHost, booleanConverter},
-	config.TransportLayerSecurityPropertyExcludedProtocols:      {"SESSION_SSL_EXCLUDED_PROTOCOLS", defaultConverter},  // copy-pasted from solClientDeprecated.h
+	config.TransportLayerSecurityPropertyExcludedProtocols:      {"SESSION_SSL_EXCLUDED_PROTOCOLS", defaultConverter}, // copy-pasted from solClientDeprecated.h
 	config.TransportLayerSecurityPropertyProtocolDowngradeTo:    {ccsmp.SolClientSessionPropSslConnectionDowngradeTo, defaultConverter},
 	config.TransportLayerSecurityPropertyCipherSuites:           {ccsmp.SolClientSessionPropSslCipherSuites, defaultConverter},
 	config.TransportLayerSecurityPropertyTrustStorePath:         {ccsmp.SolClientSessionPropSslTrustStoreDir, defaultConverter},
