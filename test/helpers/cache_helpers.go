@@ -31,8 +31,8 @@ import (
 )
 
 const (
-	ValidCachedMessageAge   int32 = 5
-	ValidMaxCachedMessages  int32 = 10
+	ValidCachedMessageAge   int32 = 0
+	ValidMaxCachedMessages  int32 = 0
 	ValidCacheAccessTimeout int32 = 5000
 )
 

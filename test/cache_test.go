@@ -832,6 +832,79 @@ var _ = Describe("Cache Strategy", func() {
 					deferredOperation()
 				}
 			})
+			It("a cache request requiring multiple responses from the cache instance results in only one cache response", func() {
+				/* NOTE: AFAIK, the response from the cache instance is split every 1Mb, so initializing the
+				 * cluster with messages of size 300k char should be a good number to both exceed the limit of what
+				 * can be returned to the API from the instance in a single response, and provide an offset so that
+				 * we are not always having data returned exactly on the boundary of 1Mb.
+				 */
+				numExpectedCacheMessages := 28
+				payload := strings.Repeat("a", 300000)
+				/* WARNING: If a topic subscription is added to one of the cache clusters that causes it to
+				 * attract more messages, then this buffer may not be big enough, and receiver termination will
+				 * hang.
+				 */
+				receivedMsgChan := make(chan message.InboundMessage, 30)
+				err := receiver.ReceiveAsync(func(msg message.InboundMessage) {
+					receivedMsgChan <- msg
+				})
+				outboundMessage, err := messagingService.MessageBuilder().BuildWithStringPayload(payload)
+				Expect(err).To(BeNil())
+				Expect(outboundMessage).ToNot(BeNil())
+				publishTopic := fmt.Sprintf("MaxMsgs10/%s/data1", testcontext.Cache().Vpn)
+				err = receiver.AddSubscription(resource.TopicSubscriptionOf(publishTopic))
+				Expect(err).To(BeNil())
+				/* NOTE: Intiialize the cache with very large messages. This will be overwritten by the next test,
+				 * so we don't need to worry about long messages causing other tests to take longer.
+				 */
+				numSentMessages := 10
+				for i := 0; i < numSentMessages; i++ {
+					messagePublisher.Publish(outboundMessage, resource.TopicOf(publishTopic))
+				}
+				for i := 0; i < numSentMessages; i++ {
+					var msg message.InboundMessage
+					Eventually(receivedMsgChan, "10s").Should(Receive(&msg))
+					Expect(msg).ToNot(BeNil())
+					Expect(msg.GetDestinationName()).To(Equal(publishTopic))
+					id, ok := msg.GetCacheRequestID()
+					Expect(ok).To(BeFalse())
+					Expect(id).To(BeNumerically("==", 0))
+					/* EBP-21: Assert this is a live message */
+				}
+				err = receiver.RemoveSubscription(resource.TopicSubscriptionOf(publishTopic))
+				Expect(err).To(BeNil())
+				cacheRequestID := message.CacheRequestID(1)
+				cacheName := "MaxMsgs10"
+				cacheTopic := fmt.Sprintf("MaxMsgs*/%s/>", testcontext.Cache().Vpn)
+				cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.AsAvailable, cacheName, resource.TopicSubscriptionOf(cacheTopic), 20000, 0, 0)
+				Expect(err).To(BeNil())
+				channel, err := receiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
+				Expect(err).To(BeNil())
+				Expect(channel).ToNot(BeNil())
+				var cacheResponse solace.CacheResponse
+				Eventually(channel, "30s").Should(Receive(&cacheResponse))
+				Expect(cacheResponse).ToNot(BeNil())
+				/* EBP-25: Assert cache request ID matches cache response ID. */
+				/* EBP-26: Assert CacheRequestOutcome is Ok. */
+				/* EBP-28: Assert err from response is nil. */
+				var msg message.InboundMessage
+				for i := 0; i < numExpectedCacheMessages; i++ {
+					Eventually(receivedMsgChan, "5s").Should(Receive(&msg))
+					Expect(msg).ToNot(BeNil())
+					/* NOTE: Can't assert topic from received message because of wildcard in cache request. */
+					id, ok := msg.GetCacheRequestID()
+					Expect(ok).To(BeTrue())
+					Expect(id).To(BeNumerically("==", cacheRequestID))
+					/* EBP-21: Assert this is a cached message. */
+				}
+				Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSent)).To(BeNumerically("==", 1))
+				/* NOTE: This metric is incremented by CCSMP, and appears to be incremented for every portion of the
+				 * response that is received. Because the messages are very large, their parent response is split
+				 * across 6 portions.
+				 */
+				Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSucceeded)).To(BeNumerically("==", 6))
+				Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsFailed)).To(BeNumerically("==", 0))
+			})
 			It("live data that does not match an outstanding asynchronous cache request is delivered immediately", func() {
 				directTopic := "nocache/charge-it"
 				cacheRequestID := message.CacheRequestID(1)
