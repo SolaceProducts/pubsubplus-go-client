@@ -96,6 +96,31 @@ var _ = Describe("Cache Strategy", func() {
 				deferredOperation()
 			}
 		})
+		DescribeTable("cache reply contains no data", func(topic_template string) {
+			topic := fmt.Sprintf(topic_template, testcontext.Cache().Vpn)
+			cacheRequestID := message.CacheRequestID(1)
+			cacheName := "UnitTest"
+			cacheRequestConfig := helpers.GetValidAsAvailableCacheRequestConfig(cacheName, topic)
+			receivedMsgChan := make(chan message.InboundMessage, 3)
+			err := receiver.ReceiveAsync(func(msg message.InboundMessage) {
+				receivedMsgChan <- msg
+			})
+			Expect(err).To(BeNil())
+			channel, err := receiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
+			Expect(err).To(BeNil())
+			Expect(channel).ToNot(BeNil())
+			var cacheResponse solace.CacheResponse
+			Eventually(channel, "5s").Should(Receive(&cacheResponse))
+			Expect(cacheResponse).ToNot(BeNil())
+			/* EBP-25: Assert cache reponse ID matches cache request ID. */
+			/* EBP-26: Assert CacheRequestOutcome is NoData. */
+			/* EBP-28: Assert err is nil. */
+			Consistently(receivedMsgChan).ShouldNot(Receive())
+		},
+			Entry("with topic 1", "MaxMsgs3/%s/notcached"),
+			Entry("with topic 2", "Max*sgs3/%s/data1"),
+			Entry("with topic 3", "MaxMsgs3/%s/nodata"),
+		)
 		It("a direct receiver should get an error when trying to send an invalid cache request", func() {
 			/* NOTE: This test also asserts that the receiver can terminate after a failed attempt to send a cache
 			 * request.
