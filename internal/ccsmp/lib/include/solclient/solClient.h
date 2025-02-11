@@ -2395,12 +2395,12 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
 #define SOLCLIENT_SESSION_PROP_SSL_PROTOCOL_SSLV3                 ("SSLv3")
 /*@}*/
 
-#define SOLCLIENT_SESSION_PROP_MINIMUM_TLS_PROTOCOL_VERSION ("SESSION_MINIMUM_TLS_PROTOCOL_VERSION") /** Disallow older TLS protocols than this. Use one of the SSL protocols above. Default value: SOLCLIENT_SESSION_PROP_DEFAULT_MINIMUM_TLS_PROTOCOL_VERSION */
-#define SOLCLIENT_SESSION_PROP_MAXIMUM_TLS_PROTOCOL_VERSION ("SESSION_MAXIMUM_TLS_PROTOCOL_VERSION") /** Disallows newer TLS protocols than this. Use one of the SSL protocols above if really necessary, but best left empty. Default value: SOLCLIENT_SESSION_PROP_DEFAULT_MAXIMUM_TLS_PROTOCOL_VERSION */
+#define SOLCLIENT_SESSION_PROP_MINIMUM_TLS_PROTOCOL_VERSION ("SESSION_MINIMUM_TLS_PROTOCOL_VERSION") /**< Disallow older TLS protocols than this. Use one of the SSL protocols above. Default value: SOLCLIENT_SESSION_PROP_DEFAULT_MINIMUM_TLS_PROTOCOL_VERSION */
+#define SOLCLIENT_SESSION_PROP_MAXIMUM_TLS_PROTOCOL_VERSION ("SESSION_MAXIMUM_TLS_PROTOCOL_VERSION") /**< Disallows newer TLS protocols than this. Use one of the SSL protocols above if really necessary, but best left empty. Default value: SOLCLIENT_SESSION_PROP_DEFAULT_MAXIMUM_TLS_PROTOCOL_VERSION */
 
 
-#define SOLCLIENT_SESSION_PROP_DEFAULT_MINIMUM_TLS_PROTOCOL_VERSION ("TLSv1.2") /** Default for SOLCLIENT_SESSION_PROP_MINIMUM_TLS_PROTOCOL_VERSION: don't use anything older than TLSv1.2 */
-#define SOLCLIENT_SESSION_PROP_DEFAULT_MAXIMUM_TLS_PROTOCOL_VERSION ("") /** Default for SOLCLIENT_SESSION_PROP_MAXIMUM_TLS_PROTOCOL_VERSION: no upper limit. */
+#define SOLCLIENT_SESSION_PROP_DEFAULT_MINIMUM_TLS_PROTOCOL_VERSION ("TLSv1.2") /**< Default for SOLCLIENT_SESSION_PROP_MINIMUM_TLS_PROTOCOL_VERSION: don't use anything older than TLSv1.2 */
+#define SOLCLIENT_SESSION_PROP_DEFAULT_MAXIMUM_TLS_PROTOCOL_VERSION ("") /**< Default for SOLCLIENT_SESSION_PROP_MAXIMUM_TLS_PROTOCOL_VERSION: no upper limit. */
 
 
 /** @defgroup propertymax Configuration Properties Maximum Sizes
