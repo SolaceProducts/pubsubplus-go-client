@@ -792,6 +792,10 @@ var _ = Describe("Cache Strategy", func() {
 					/* EBP-21: Assert this is a cached message. */
 				}
 				Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSent)).To(BeNumerically("==", 1))
+				/* NOTE: This metric is incremented by CCSMP, and appears to be incremented for every portion of the
+				 * response that is received. Because the messages are very large, their parent response is split
+				 * across 6 portions.
+				 */
 				Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSucceeded)).To(BeNumerically("==", 6))
 				Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsFailed)).To(BeNumerically("==", 0))
 			})
