@@ -108,7 +108,10 @@ func InitCacheWithPreExistingMessages(cacheCluster testcontext.CacheClusterConfi
 	numMessages := defaultNumMessages
 	clusterName := cacheCluster.Name
 	for _, topic := range cacheCluster.Topics {
-		if strings.HasPrefix(topic, fmt.Sprintf("%s/*/data", clusterName)) {
+		if clusterName == "Suspect" {
+			topics = append(topics, topic)
+			numMessages = defaultNumMessages
+		} else if strings.HasPrefix(topic, fmt.Sprintf("%s/*/data", clusterName)) {
 			/* NOTE: Checking the length is greater than the prefix means we can
 			 * split the string immediately instead of needing to check that the
 			 * slice length is 2. */
