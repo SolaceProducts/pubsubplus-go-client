@@ -203,13 +203,13 @@ func (tss TransportSecurityStrategy) WithExcludedProtocols(protocols ...Transpor
 	return tss
 }
 
-// WithMinimumProtocols specifies the lowest TLS protocol version to allow.
+// WithMinimumProtocol specifies the lowest TLS protocol version to allow.
 func (tss TransportSecurityStrategy) WithMinimumProtocol(protocol TransportSecurityProtocol) TransportSecurityStrategy {
 	tss.config[TransportLayerSecurityPropertyMinimumProtocol] = string(protocol)
 	return tss
 }
 
-// WithMaximumProtocols specifies the highest TLS protocol version to negotiate.
+// WithMaximumProtocol specifies the highest TLS protocol version to negotiate.
 func (tss TransportSecurityStrategy) WithMaximumProtocol(protocol TransportSecurityProtocol) TransportSecurityStrategy {
 	tss.config[TransportLayerSecurityPropertyMaximumProtocol] = string(protocol)
 	return tss
