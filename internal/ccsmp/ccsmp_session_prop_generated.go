@@ -228,9 +228,7 @@ const (
 	// SolClientSessionPropDefaultTransportProtocolDowngradeTimeoutMs: The default value for the Transport Protocol downgrade timeout in milliseconds.
 	SolClientSessionPropDefaultTransportProtocolDowngradeTimeoutMs = C.SOLCLIENT_SESSION_PROP_DEFAULT_TRANSPORT_PROTOCOL_DOWNGRADE_TIMEOUT_MS
 	// SolClientSessionPropMinimumTlsProtocolVersion: Disallow older TLS protocols than this. Use one of the SSL protocols above. Default value: SOLCLIENT_SESSION_PROP_DEFAULT_MINIMUM_TLS_PROTOCOL_VERSION
-        // lint:ignore ST1003 staticcheck would want TLS capitalized.
 	SolClientSessionPropMinimumTlsProtocolVersion = C.SOLCLIENT_SESSION_PROP_MINIMUM_TLS_PROTOCOL_VERSION
 	// SolClientSessionPropMaximumTlsProtocolVersion: Disallows newer TLS protocols than this. Use one of the SSL protocols above if really necessary, but best left empty. Default value: SOLCLIENT_SESSION_PROP_DEFAULT_MAXIMUM_TLS_PROTOCOL_VERSION
-        // lint:ignore ST1003 staticcheck would want TLS capitalized.
 	SolClientSessionPropMaximumTlsProtocolVersion = C.SOLCLIENT_SESSION_PROP_MAXIMUM_TLS_PROTOCOL_VERSION
 )
