@@ -96,6 +96,34 @@ var _ = Describe("Cache Strategy", func() {
 				deferredOperation()
 			}
 		})
+		It("a direct receiver should get CacheRequestOutcome.Suspect when there is at least one suspect message in the cache response", func() {
+			cacheRequestID := message.CacheRequestID(1)
+			cacheName := "UnitTestSuspect"
+			topic := "Suspect/data1"
+			cacheRequestConfig := helpers.GetValidCachedFirstCacheRequestConfig(cacheName, topic)
+			receivedMsgChan := make(chan message.InboundMessage, 1)
+			err := receiver.ReceiveAsync(func(msg message.InboundMessage) {
+				receivedMsgChan <- msg
+			})
+			Expect(err).To(BeNil())
+			channel, err := receiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
+			Expect(err).To(BeNil())
+			Expect(channel).ToNot(BeNil())
+			var cacheResponse solace.CacheResponse
+			Eventually(channel, "5s").Should(Receive(&cacheResponse))
+			Expect(cacheResponse).ToNot(BeNil())
+			/* EBP-25: Assert cache response ID matches request ID. */
+			/* EBP-26: Assert CacheRequestOutcome is Suspect. */
+			/* EBP-28: Assert err is nil */
+			var msg message.InboundMessage
+			Eventually(receivedMsgChan).Should(Receive(&msg))
+			Expect(msg).ToNot(BeNil())
+			Expect(msg.GetDestinationName()).To(Equal(topic))
+			id, ok := msg.GetCacheRequestID()
+			Expect(ok).To(BeTrue())
+			Expect(id).To(BeNumerically("==", cacheRequestID))
+			/* EBP-21: Assert this message is suspect. */
+		})
 		It("a direct receiver should get an error when trying to send an invalid cache request", func() {
 			/* NOTE: This test also asserts that the receiver can terminate after a failed attempt to send a cache
 			 * request.
