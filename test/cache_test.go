@@ -380,6 +380,52 @@ var _ = Describe("Cache Strategy", func() {
 			Entry("with channel", helpers.ProcessCacheResponseThroughChannel),
 			Entry("with callback", helpers.ProcessCacheResponseThroughCallback),
 		)
+		It("requests subsequent to non-wildcard live data are rejected as not supported", func() {
+			firstCacheRequestID := message.CacheRequestID(1)
+			numExpectedCachedMessages := 3
+			cacheName := fmt.Sprintf("MaxMsgs%d/delay=5000", numExpectedCachedMessages)
+			topic := fmt.Sprintf("MaxMsgs%d/%s/data1", numExpectedCachedMessages, testcontext.Cache().Vpn)
+			cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.LiveCancelsCached, cacheName, resource.TopicSubscriptionOf(topic), int32(7000), int32(0), int32(0))
+			receivedMsgChan := make(chan message.InboundMessage, 3)
+			receiver.ReceiveAsync(func(msg message.InboundMessage) {
+				receivedMsgChan <- msg
+			})
+			channel, err := receiver.RequestCachedAsync(cacheRequestConfig, firstCacheRequestID)
+			Expect(err).To(BeNil())
+			Expect(channel).ToNot(BeNil())
+			cacheName = fmt.Sprintf("MaxMsgs%d", numExpectedCachedMessages)
+
+			/* NOTE: Subsequent LiveCancelsCached fails. */
+			cacheRequestConfig = helpers.GetValidLiveCancelsCachedRequestConfig(cacheName, topic)
+			secondCacheRequestID := message.CacheRequestID(2)
+			secondChannel, err := receiver.RequestCachedAsync(cacheRequestConfig, secondCacheRequestID)
+			Expect(err).To(BeAssignableToTypeOf(&solace.NativeError{}))
+			helpers.ValidateNativeError(err, subcode.CacheAlreadyInProgress)
+			Expect(secondChannel).To(BeNil())
+
+			/* NOTE: Subsequent AsAvailable fails. */
+			cacheRequestConfig = helpers.GetValidAsAvailableCacheRequestConfig(cacheName, topic)
+			secondCacheRequestID = message.CacheRequestID(3)
+			secondChannel, err = receiver.RequestCachedAsync(cacheRequestConfig, secondCacheRequestID)
+			Expect(err).To(BeAssignableToTypeOf(&solace.NativeError{}))
+			helpers.ValidateNativeError(err, subcode.CacheAlreadyInProgress)
+			Expect(secondChannel).To(BeNil())
+
+			/* NOTE: Subsequent CachedFirst fails. */
+			cacheRequestConfig = helpers.GetValidCachedFirstCacheRequestConfig(cacheName, topic)
+			secondCacheRequestID = message.CacheRequestID(4)
+			secondChannel, err = receiver.RequestCachedAsync(cacheRequestConfig, secondCacheRequestID)
+			Expect(err).To(BeAssignableToTypeOf(&solace.NativeError{}))
+			helpers.ValidateNativeError(err, subcode.CacheAlreadyInProgress)
+			Expect(secondChannel).To(BeNil())
+
+			var cacheResponse solace.CacheResponse
+			Eventually(channel, "10s").Should(Receive(&cacheResponse))
+			Expect(cacheResponse).ToNot(BeNil())
+			/* EBP-25: Assert cache request ID matches cache response ID. */
+			/* EBP-26: Assert CacheRequestOutcome Ok. */
+			/* EBP-28: Assert err is nil. */
+		})
 		It("cache request requires messages from multiple clusters, but one cluster is shut down", func() {
 			cacheRequestID := message.CacheRequestID(1)
 			numExpectedMessages := 3
