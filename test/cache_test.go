@@ -425,6 +425,17 @@ var _ = Describe("Cache Strategy", func() {
 			/* EBP-25: Assert cache request ID matches cache response ID. */
 			/* EBP-26: Assert CacheRequestOutcome Ok. */
 			/* EBP-28: Assert err is nil. */
+
+			for i := 0; i < numExpectedCachedMessages; i++ {
+				var msg message.InboundMessage
+				Eventually(receivedMsgChan).Should(Receive(&msg))
+				Expect(msg).ToNot(BeNil())
+				Expect(msg.GetDestinationName()).To(Equal(topic))
+				id, ok := msg.GetCacheRequestID()
+				Expect(ok).To(BeTrue())
+				Expect(id).To(BeNumerically("==", firstCacheRequestID))
+				/* EBP-21: Assert that this message is cached. */
+			}
 		})
 		It("cache request requires messages from multiple clusters, but one cluster is shut down", func() {
 			cacheRequestID := message.CacheRequestID(1)
