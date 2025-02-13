@@ -59,7 +59,7 @@ var _ = Describe("Cache Strategy", func() {
 		var messagingService solace.MessagingService
 		var receiver solace.DirectMessageReceiver
 		/* NOTE: deferredOperation is used for conducting operations after termination, such as closing a channel
-		 * that is may be used during termination but that is declared within a single test case because its use is
+		 * that may be used during termination but that is declared within a single test case because its use is
 		 * specific to that test case. If the closing of this channel were handled within the test case using a `defer`,
 		 * when termination tried to access the channel in `AfterEach`, it would panic.
 		 */
@@ -96,6 +96,80 @@ var _ = Describe("Cache Strategy", func() {
 				deferredOperation()
 			}
 		})
+		DescribeTable("cache reply contains no data", func(topic_template string, cacheRequestStrategy resource.CachedMessageSubscriptionStrategy, cacheResponseProcessStrategy helpers.CacheResponseProcessStrategy) {
+			topic := fmt.Sprintf(topic_template, testcontext.Cache().Vpn)
+			cacheRequestID := message.CacheRequestID(1)
+			cacheName := "UnitTest"
+			var cacheRequestConfig resource.CachedMessageSubscriptionRequest
+			switch cacheRequestStrategy {
+			case resource.AsAvailable:
+				cacheRequestConfig = helpers.GetValidAsAvailableCacheRequestConfig(cacheName, topic)
+			case resource.CachedFirst:
+				cacheRequestConfig = helpers.GetValidCachedFirstCacheRequestConfig(cacheName, topic)
+			case resource.CachedOnly:
+				cacheRequestConfig = helpers.GetValidCachedOnlyCacheRequestConfig(cacheName, topic)
+			case resource.LiveCancelsCached:
+				cacheRequestConfig = helpers.GetValidLiveCancelsCachedRequestConfig(cacheName, topic)
+			}
+			/* NOTE: Despite expecting to receive 0 messages, we create a channel with a size of 1 to mitigate the
+			 * risk of the test blocking receiver terminate in the event that we unexpectedly receive a message. The
+			 * `Consistently` assertion will still fail if this channel receives a message, so there will not be any
+			 * silent failures caused by this channel size. If the channel size were 0, the receiver would block
+			 * termination indefinitely because the application channel would not be have the size to receive the
+			 * message from the API.
+			 */
+			receivedMsgChan := make(chan message.InboundMessage, 1)
+			err := receiver.ReceiveAsync(func(msg message.InboundMessage) {
+				receivedMsgChan <- msg
+			})
+			Expect(err).To(BeNil())
+			var cacheResponse solace.CacheResponse
+			switch cacheResponseProcessStrategy {
+			case helpers.ProcessCacheResponseThroughChannel:
+				channel, err := receiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
+				Expect(err).To(BeNil())
+				Expect(channel).ToNot(BeNil())
+				Eventually(channel, "5s").Should(Receive(&cacheResponse))
+			case helpers.ProcessCacheResponseThroughCallback:
+				channel := make(chan solace.CacheResponse, 1)
+				callback := func(cacheResponse solace.CacheResponse) {
+					channel <- cacheResponse
+				}
+				err = receiver.RequestCachedAsyncWithCallback(cacheRequestConfig, cacheRequestID, callback)
+				Expect(err).To(BeNil())
+				Eventually(channel, "5s").Should(Receive(&cacheResponse))
+			}
+			Expect(cacheResponse).ToNot(BeNil())
+			/* EBP-25: Assert cache reponse ID matches cache request ID. */
+			/* EBP-26: Assert CacheRequestOutcome is NoData. */
+			/* EBP-28: Assert err is nil. */
+			Consistently(receivedMsgChan).ShouldNot(Receive())
+		},
+			Entry("with topic 1 with channel with AsAvailable", "MaxMsgs3/%s/notcached", resource.AsAvailable, helpers.ProcessCacheResponseThroughChannel),
+			Entry("with topic 1 with callback with AsAvailable", "MaxMsgs3/%s/notcached", resource.AsAvailable, helpers.ProcessCacheResponseThroughCallback),
+			Entry("with topic 1 with channel with LiveCancelsCached", "MaxMsgs3/%s/notcached", resource.LiveCancelsCached, helpers.ProcessCacheResponseThroughChannel),
+			Entry("with topic 1 with callback with LiveCancelsCached", "MaxMsgs3/%s/notcached", resource.LiveCancelsCached, helpers.ProcessCacheResponseThroughCallback),
+			Entry("with topic 1 with channel with CachedFirst", "MaxMsgs3/%s/notcached", resource.CachedFirst, helpers.ProcessCacheResponseThroughChannel),
+			Entry("with topic 1 with callback with CachedFirst", "MaxMsgs3/%s/notcached", resource.CachedFirst, helpers.ProcessCacheResponseThroughCallback),
+			Entry("with topic 1 with channel with CachedOnly", "MaxMsgs3/%s/notcached", resource.CachedOnly, helpers.ProcessCacheResponseThroughChannel),
+			Entry("with topic 1 with callback with CachedOnly", "MaxMsgs3/%s/notcached", resource.CachedOnly, helpers.ProcessCacheResponseThroughCallback),
+			Entry("with topic 2 with channel with AsAvailable", "Max*sgs3/%s/data1", resource.AsAvailable, helpers.ProcessCacheResponseThroughChannel),
+			Entry("with topic 2 with callback with AsAvailable", "Max*sgs3/%s/data1", resource.AsAvailable, helpers.ProcessCacheResponseThroughCallback),
+			Entry("with topic 2 with channel with LiveCancelsCached", "Max*sgs3/%s/data1", resource.LiveCancelsCached, helpers.ProcessCacheResponseThroughChannel),
+			Entry("with topic 2 with callback with LiveCancelsCached", "Max*sgs3/%s/data1", resource.LiveCancelsCached, helpers.ProcessCacheResponseThroughCallback),
+			Entry("with topic 2 with channel with CachedFirst", "Max*sgs3/%s/data1", resource.CachedFirst, helpers.ProcessCacheResponseThroughChannel),
+			Entry("with topic 2 with callback with CachedFirst", "Max*sgs3/%s/data1", resource.CachedFirst, helpers.ProcessCacheResponseThroughCallback),
+			Entry("with topic 2 with channel with CachedOnly", "Max*sgs3/%s/data1", resource.CachedOnly, helpers.ProcessCacheResponseThroughChannel),
+			Entry("with topic 2 with callback with CachedOnly", "Max*sgs3/%s/data1", resource.CachedOnly, helpers.ProcessCacheResponseThroughCallback),
+			Entry("with topic 3 with channel with AsAvailable", "MaxMsgs3/%s/nodata", resource.AsAvailable, helpers.ProcessCacheResponseThroughChannel),
+			Entry("with topic 3 with callback with AsAvailable", "MaxMsgs3/%s/nodata", resource.AsAvailable, helpers.ProcessCacheResponseThroughCallback),
+			Entry("with topic 3 with channel with CachedFirst", "MaxMsgs3/%s/nodata", resource.CachedFirst, helpers.ProcessCacheResponseThroughChannel),
+			Entry("with topic 3 with callback with CachedFirst", "MaxMsgs3/%s/nodata", resource.CachedFirst, helpers.ProcessCacheResponseThroughCallback),
+			Entry("with topic 3 with channel with CachedOnly", "MaxMsgs3/%s/nodata", resource.CachedOnly, helpers.ProcessCacheResponseThroughChannel),
+			Entry("with topic 3 with callback with CachedOnly", "MaxMsgs3/%s/nodata", resource.CachedOnly, helpers.ProcessCacheResponseThroughCallback),
+			Entry("with topic 3 with channel with LiveCancelsCached", "MaxMsgs3/%s/nodata", resource.LiveCancelsCached, helpers.ProcessCacheResponseThroughChannel),
+			Entry("with topic 3 with callback with LiveCancelsCached", "MaxMsgs3/%s/nodata", resource.LiveCancelsCached, helpers.ProcessCacheResponseThroughCallback),
+		)
 		It("a direct receiver should get CacheRequestOutcome.Suspect when there is at least one suspect message in the cache response", func() {
 			cacheRequestID := message.CacheRequestID(1)
 			cacheName := "UnitTestSuspect"
