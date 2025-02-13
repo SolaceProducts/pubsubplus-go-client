@@ -556,6 +556,7 @@ var _ = Describe("MessagingService Lifecycle", func() {
 						_, err := builder.Build()
 						Expect(err).To(HaveOccurred())
 						Expect(err).To(BeAssignableToTypeOf(&solace.InvalidConfigurationError{}))
+						Expect(err.Error()).To(ContainSubstring("can't be higher than"))
 					})
 
 					It("fails to build with mixed protocol version configs", func() {
@@ -567,10 +568,12 @@ var _ = Describe("MessagingService Lifecycle", func() {
 						_, err := builder.Build()
 						Expect(err).To(HaveOccurred())
 						Expect(err).To(BeAssignableToTypeOf(&solace.InvalidConfigurationError{}))
+						Expect(err.Error()).To(ContainSubstring("Attempt to configure both deprecated and new tls version control properties."))
 					})
 
 
                                         // When we upgrade the broker, this will fail by conneccting successfully, but until then, it's useful.
+                                        // EBP-511
 					It("fails to connect with TLSv1.3 because the broker is old", func() {
                                                 tss := config.NewTransportSecurityStrategy()
                                                 tss.WithMinimumProtocol(config.TransportSecurityProtocolTLSv1_3)
