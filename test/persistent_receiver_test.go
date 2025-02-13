@@ -1460,7 +1460,7 @@ var _ = Describe("PersistentReceiver", func() {
 			It("Garbage mixed in as property", func() {
 				receiverBuilder := messagingService.CreatePersistentMessageReceiverBuilder()
 				receiverBuilder.FromConfigurationProvider(config.ReceiverPropertyMap{
-					config.ReceiverPropertyPersistentMessageRequiredOutcomeSupport: fmt.Sprintf("%s,garbage",config.PersistentReceiverRejectedOutcome),
+					config.ReceiverPropertyPersistentMessageRequiredOutcomeSupport: fmt.Sprintf("%s,garbage", config.PersistentReceiverRejectedOutcome),
 				})
 				receiver, err := receiverBuilder.Build(resource.QueueDurableExclusive(queueName))
 				helpers.ValidateError(err, &solace.IllegalArgumentError{})
@@ -1469,7 +1469,7 @@ var _ = Describe("PersistentReceiver", func() {
 			It("Poor punctuation in property", func() {
 				receiverBuilder := messagingService.CreatePersistentMessageReceiverBuilder()
 				receiverBuilder.FromConfigurationProvider(config.ReceiverPropertyMap{
-					config.ReceiverPropertyPersistentMessageRequiredOutcomeSupport: fmt.Sprintf("%s %s",config.PersistentReceiverRejectedOutcome, config.PersistentReceiverAcceptedOutcome),
+					config.ReceiverPropertyPersistentMessageRequiredOutcomeSupport: fmt.Sprintf("%s %s", config.PersistentReceiverRejectedOutcome, config.PersistentReceiverAcceptedOutcome),
 				})
 				receiver, err := receiverBuilder.Build(resource.QueueDurableExclusive(queueName))
 				helpers.ValidateError(err, &solace.IllegalArgumentError{})
@@ -2254,11 +2254,13 @@ var _ = Describe("PersistentReceiver", func() {
 
 				Context("with high latency", func() {
 					const latencyToxicName = "persistent_receiver_latency"
-					const toxicDelay = 5000
+					const toxicDelay = 7000
+					var subFuncCalled chan struct{}
 					BeforeEach(func() {
 						testcontext.Toxi().SMF().AddToxic(latencyToxicName, "latency", "upstream", 1.0, toxiproxy.Attributes{
 							"latency": toxicDelay,
 						})
+						subFuncCalled = make(chan struct{})
 					})
 
 					AfterEach(func() {
@@ -2272,6 +2274,7 @@ var _ = Describe("PersistentReceiver", func() {
 							receiver.SetTerminationNotificationListener(func(te solace.TerminationEvent) {
 								close(receiverTerminated)
 							})
+							Eventually(subFuncCalled, "3000ms").Should(BeClosed()) // add/remove sub have been called
 							Eventually(messagingService.DisconnectAsync()).Should(Receive(BeNil()))
 							Eventually(receiverTerminated).Should(BeClosed())
 							var err error
@@ -2283,6 +2286,8 @@ var _ = Describe("PersistentReceiver", func() {
 							subscription := resource.TopicSubscriptionOf("some_subscription")
 							go func() {
 								subscriptionErr <- receiver.AddSubscription(subscription)
+								// notify a channel that AddSubscription has been called
+								close(subFuncCalled)
 							}()
 							return subscriptionErr
 						}),
@@ -2291,6 +2296,8 @@ var _ = Describe("PersistentReceiver", func() {
 							subscription := resource.TopicSubscriptionOf("some_subscription")
 							go func() {
 								subscriptionErr <- receiver.RemoveSubscription(subscription)
+								// notify a channel that RemoveSubscription has been called
+								close(subFuncCalled)
 							}()
 							return subscriptionErr
 						}),
@@ -2299,6 +2306,8 @@ var _ = Describe("PersistentReceiver", func() {
 							subscription := resource.TopicSubscriptionOf(alreadyAddedTopic)
 							go func() {
 								subscriptionErr <- receiver.RemoveSubscription(subscription)
+								// notify a channel that RemoveSubscription has been called
+								close(subFuncCalled)
 							}()
 							return subscriptionErr
 						}),
@@ -2313,6 +2322,8 @@ var _ = Describe("PersistentReceiver", func() {
 									subscriptionErr <- errOrNil
 								},
 							)
+							// notify a channel that AddSubscriptionAsync has been called
+							close(subFuncCalled)
 							Expect(err).ToNot(HaveOccurred())
 							return subscriptionErr
 						}),
@@ -2327,6 +2338,8 @@ var _ = Describe("PersistentReceiver", func() {
 									subscriptionErr <- errOrNil
 								},
 							)
+							// notify a channel that RemoveSubscriptionAsync has been called
+							close(subFuncCalled)
 							Expect(err).ToNot(HaveOccurred())
 							return subscriptionErr
 						}),
@@ -2341,6 +2354,8 @@ var _ = Describe("PersistentReceiver", func() {
 									subscriptionErr <- errOrNil
 								},
 							)
+							// notify a channel that RemoveSubscriptionAsync has been called
+							close(subFuncCalled)
 							Expect(err).ToNot(HaveOccurred())
 							return subscriptionErr
 						}),
