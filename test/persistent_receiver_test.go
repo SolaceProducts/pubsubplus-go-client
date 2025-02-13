@@ -2274,7 +2274,7 @@ var _ = Describe("PersistentReceiver", func() {
 							receiver.SetTerminationNotificationListener(func(te solace.TerminationEvent) {
 								close(receiverTerminated)
 							})
-							Eventually(subFuncCalled, "3000ms").Should(BeClosed()) // add/remove sub have been called
+							Eventually(subFuncCalled, "3000ms", "500ms").Should(BeClosed()) // add/remove sub have been called
 							Eventually(messagingService.DisconnectAsync()).Should(Receive(BeNil()))
 							Eventually(receiverTerminated).Should(BeClosed())
 							var err error
@@ -2285,9 +2285,9 @@ var _ = Describe("PersistentReceiver", func() {
 							subscriptionErr := make(chan error, 1)
 							subscription := resource.TopicSubscriptionOf("some_subscription")
 							go func() {
-								subscriptionErr <- receiver.AddSubscription(subscription)
-								// notify a channel that AddSubscription has been called
+								// notify the channel that AddSubscription is just about to be called
 								close(subFuncCalled)
+								subscriptionErr <- receiver.AddSubscription(subscription)
 							}()
 							return subscriptionErr
 						}),
@@ -2295,9 +2295,9 @@ var _ = Describe("PersistentReceiver", func() {
 							subscriptionErr := make(chan error, 1)
 							subscription := resource.TopicSubscriptionOf("some_subscription")
 							go func() {
-								subscriptionErr <- receiver.RemoveSubscription(subscription)
-								// notify a channel that RemoveSubscription has been called
+								// notify the channel that RemoveSubscription is just about to be called
 								close(subFuncCalled)
+								subscriptionErr <- receiver.RemoveSubscription(subscription)
 							}()
 							return subscriptionErr
 						}),
@@ -2305,15 +2305,17 @@ var _ = Describe("PersistentReceiver", func() {
 							subscriptionErr := make(chan error, 1)
 							subscription := resource.TopicSubscriptionOf(alreadyAddedTopic)
 							go func() {
-								subscriptionErr <- receiver.RemoveSubscription(subscription)
-								// notify a channel that RemoveSubscription has been called
+								// notify the channel that RemoveSubscription is just about to be called
 								close(subFuncCalled)
+								subscriptionErr <- receiver.RemoveSubscription(subscription)
 							}()
 							return subscriptionErr
 						}),
 						Entry("with a call to async subscribe", func() chan error {
 							subscriptionErr := make(chan error, 1)
 							subscription := resource.TopicSubscriptionOf("some_subscription")
+							// notify the channel that AddSubscriptionAsync is just about to be called
+							close(subFuncCalled)
 							err := receiver.AddSubscriptionAsync(subscription,
 								func(callbackSubscription resource.Subscription, operation solace.SubscriptionOperation, errOrNil error) {
 									defer GinkgoRecover()
@@ -2322,14 +2324,14 @@ var _ = Describe("PersistentReceiver", func() {
 									subscriptionErr <- errOrNil
 								},
 							)
-							// notify a channel that AddSubscriptionAsync has been called
-							close(subFuncCalled)
 							Expect(err).ToNot(HaveOccurred())
 							return subscriptionErr
 						}),
 						Entry("with a call to async unsubscribe", func() chan error {
 							subscriptionErr := make(chan error, 1)
 							subscription := resource.TopicSubscriptionOf("some_subscription")
+							// notify the channel that RemoveSubscriptionAsync is just about to be called
+							close(subFuncCalled)
 							err := receiver.RemoveSubscriptionAsync(subscription,
 								func(callbackSubscription resource.Subscription, operation solace.SubscriptionOperation, errOrNil error) {
 									defer GinkgoRecover()
@@ -2338,14 +2340,14 @@ var _ = Describe("PersistentReceiver", func() {
 									subscriptionErr <- errOrNil
 								},
 							)
-							// notify a channel that RemoveSubscriptionAsync has been called
-							close(subFuncCalled)
 							Expect(err).ToNot(HaveOccurred())
 							return subscriptionErr
 						}),
 						Entry("with a call to async unsubscribe when subscription was already added", func() chan error {
 							subscriptionErr := make(chan error, 1)
 							subscription := resource.TopicSubscriptionOf(alreadyAddedTopic)
+							// notify the channel that RemoveSubscriptionAsync is just about to be called
+							close(subFuncCalled)
 							err := receiver.RemoveSubscriptionAsync(subscription,
 								func(callbackSubscription resource.Subscription, operation solace.SubscriptionOperation, errOrNil error) {
 									defer GinkgoRecover()
@@ -2354,8 +2356,6 @@ var _ = Describe("PersistentReceiver", func() {
 									subscriptionErr <- errOrNil
 								},
 							)
-							// notify a channel that RemoveSubscriptionAsync has been called
-							close(subFuncCalled)
 							Expect(err).ToNot(HaveOccurred())
 							return subscriptionErr
 						}),
