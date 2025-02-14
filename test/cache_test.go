@@ -298,6 +298,125 @@ var _ = Describe("Cache Strategy", func() {
 			Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsFailed)).To(BeNumerically("==", 0))
 			Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSucceeded)).To(BeNumerically("==", 2))
 		})
+		It("requests subsequent to non-wildcard AsAvailable request are rejected, except for AsAvailable and CachedOnly", func() {
+			firstCacheRequestID := message.CacheRequestID(1)
+			numExpectedCachedMessages := 3
+			cacheName := fmt.Sprintf("MaxMsgs%d/delay=10000", numExpectedCachedMessages)
+			topic := fmt.Sprintf("MaxMsgs%d/%s/data1", numExpectedCachedMessages, testcontext.Cache().Vpn)
+			cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.AsAvailable, cacheName, resource.TopicSubscriptionOf(topic), int32(12000), int32(0), int32(0))
+			/* NOTE: We expect the first AsAvailable, second AsAvailable, and CachedOnly requests to succeed, so our
+			 * application buffer may contain as many as 3 times the number of cached messages expected from a single
+			 * cache request to MaxMsgs3 before we are able to clear it.
+			 */
+			receivedMsgChan := make(chan message.InboundMessage, numExpectedCachedMessages*3)
+			receiver.ReceiveAsync(func(msg message.InboundMessage) {
+				receivedMsgChan <- msg
+			})
+			channel, err := receiver.RequestCachedAsync(cacheRequestConfig, firstCacheRequestID)
+			Expect(err).To(BeNil())
+			Expect(channel).ToNot(BeNil())
+			cacheName = fmt.Sprintf("MaxMsgs%d", numExpectedCachedMessages)
+
+			Eventually(func() uint64 { return messagingService.Metrics().GetValue(metrics.CacheRequestsSent) }).Should(BeNumerically("==", 1))
+			Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSucceeded)).To(BeNumerically("==", 0))
+			Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsFailed)).To(BeNumerically("==", 0))
+
+			/* NOTE: Subsequent LiveCancelsCached fails. */
+			cacheRequestConfig = helpers.GetValidLiveCancelsCachedRequestConfig(cacheName, topic)
+			secondCacheRequestID := message.CacheRequestID(2)
+			secondChannel, err := receiver.RequestCachedAsync(cacheRequestConfig, secondCacheRequestID)
+			Expect(err).To(BeAssignableToTypeOf(&solace.NativeError{}))
+			helpers.ValidateNativeError(err, subcode.CacheAlreadyInProgress)
+			Expect(secondChannel).To(BeNil())
+			Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSent)).To(BeNumerically("==", 1))
+			Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSucceeded)).To(BeNumerically("==", 0))
+			Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsFailed)).To(BeNumerically("==", 0))
+
+			/* NOTE: Subsequent CachedFirst fails. */
+			cacheRequestConfig = helpers.GetValidCachedFirstCacheRequestConfig(cacheName, topic)
+			secondCacheRequestID = message.CacheRequestID(3)
+			secondChannel, err = receiver.RequestCachedAsync(cacheRequestConfig, secondCacheRequestID)
+			Expect(err).To(BeAssignableToTypeOf(&solace.NativeError{}))
+			helpers.ValidateNativeError(err, subcode.CacheAlreadyInProgress)
+			Expect(secondChannel).To(BeNil())
+			Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSent)).To(BeNumerically("==", 1))
+			Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSucceeded)).To(BeNumerically("==", 0))
+			Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsFailed)).To(BeNumerically("==", 0))
+
+			var cacheResponse solace.CacheResponse
+			cacheName = fmt.Sprintf("MaxMsgs%d", numExpectedCachedMessages)
+
+			/* NOTE: Subsequent CachedOnly succeeds. */
+			cacheRequestConfig = helpers.GetValidCachedOnlyCacheRequestConfig(cacheName, topic)
+			secondCacheRequestID = message.CacheRequestID(5)
+			secondChannel, err = receiver.RequestCachedAsync(cacheRequestConfig, secondCacheRequestID)
+			Expect(err).To(BeNil())
+			Expect(secondChannel).ToNot(BeNil())
+			Eventually(secondChannel, "10s").Should(Receive(&cacheResponse))
+			Expect(cacheResponse).ToNot(BeNil())
+			/* EBP-25: Assert cache request ID matches cache response ID. */
+			/* EBP-26: Assert CacheRequestOutcome Ok. */
+			/* EBP-28: Assert err is nil. */
+			for i := 0; i < numExpectedCachedMessages; i++ {
+				var msg message.InboundMessage
+				Eventually(receivedMsgChan).Should(Receive(&msg))
+				Expect(msg).ToNot(BeNil())
+				Expect(msg.GetDestinationName()).To(Equal(topic))
+				id, ok := msg.GetCacheRequestID()
+				Expect(ok).To(BeTrue())
+				Expect(id).To(BeNumerically("==", secondCacheRequestID))
+				/* EBP-21: Assert that this message is cached. */
+			}
+			Eventually(func() uint64 { return messagingService.Metrics().GetValue(metrics.CacheRequestsSent) }).Should(BeNumerically("==", 2))
+			Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSucceeded)).To(BeNumerically("==", 1))
+			Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsFailed)).To(BeNumerically("==", 0))
+
+			/* NOTE: Subsequent AsAvailable succeeds. */
+			cacheRequestConfig = helpers.GetValidAsAvailableCacheRequestConfig(cacheName, topic)
+			secondCacheRequestID = message.CacheRequestID(4)
+			secondChannel, err = receiver.RequestCachedAsync(cacheRequestConfig, secondCacheRequestID)
+			Expect(err).To(BeNil())
+			Expect(secondChannel).ToNot(BeNil())
+			Eventually(secondChannel, "10s").Should(Receive(&cacheResponse))
+			Expect(cacheResponse).ToNot(BeNil())
+			/* EBP-25: Assert cache request ID matches cache response ID. */
+			/* EBP-26: Assert CacheRequestOutcome Ok. */
+			/* EBP-28: Assert err is nil. */
+			for i := 0; i < numExpectedCachedMessages; i++ {
+				var msg message.InboundMessage
+				Eventually(receivedMsgChan).Should(Receive(&msg))
+				Expect(msg).ToNot(BeNil())
+				Expect(msg.GetDestinationName()).To(Equal(topic))
+				id, ok := msg.GetCacheRequestID()
+				Expect(ok).To(BeTrue())
+				Expect(id).To(BeNumerically("==", secondCacheRequestID))
+				/* EBP-21: Assert that this message is cached. */
+			}
+			Eventually(func() uint64 { return messagingService.Metrics().GetValue(metrics.CacheRequestsSent) }).Should(BeNumerically("==", 3))
+			Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSucceeded)).To(BeNumerically("==", 2))
+			Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsFailed)).To(BeNumerically("==", 0))
+
+			/* NOTE: First AsAvailable cache request should succeed. */
+			Eventually(channel, "10s").Should(Receive(&cacheResponse))
+			Expect(cacheResponse).ToNot(BeNil())
+			/* EBP-25: Assert cache request ID matches cache response ID. */
+			/* EBP-26: Assert CacheRequestOutcome Ok. */
+			/* EBP-28: Assert err is nil. */
+
+			for i := 0; i < numExpectedCachedMessages; i++ {
+				var msg message.InboundMessage
+				Eventually(receivedMsgChan).Should(Receive(&msg))
+				Expect(msg).ToNot(BeNil())
+				Expect(msg.GetDestinationName()).To(Equal(topic))
+				id, ok := msg.GetCacheRequestID()
+				Expect(ok).To(BeTrue())
+				Expect(id).To(BeNumerically("==", firstCacheRequestID))
+				/* EBP-21: Assert that this message is cached. */
+			}
+			Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSent)).To(BeNumerically("==", 3))
+			Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSucceeded)).To(BeNumerically("==", 3))
+			Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsFailed)).To(BeNumerically("==", 0))
+		})
 		It("a direct receiver that tries to submit more than the maximum number of cache requests should get an IllegalStateError", func() {
 			err := receiver.ReceiveAsync(func(message.InboundMessage) {})
 			Expect(err).To(BeNil())
