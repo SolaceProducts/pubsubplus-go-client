@@ -343,17 +343,17 @@ var _ = Describe("Cache Strategy", func() {
 			Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSucceeded)).To(BeNumerically("==", 0))
 			Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsFailed)).To(BeNumerically("==", 0))
 
-			var cacheResponse solace.CacheResponse
+			var cacheResponse1 solace.CacheResponse
 			cacheName = fmt.Sprintf("MaxMsgs%d", numExpectedCachedMessages)
 
 			/* NOTE: Subsequent CachedOnly succeeds. */
 			cacheRequestConfig = helpers.GetValidCachedOnlyCacheRequestConfig(cacheName, topic)
-			secondCacheRequestID = message.CacheRequestID(5)
+			secondCacheRequestID = message.CacheRequestID(4)
 			secondChannel, err = receiver.RequestCachedAsync(cacheRequestConfig, secondCacheRequestID)
 			Expect(err).To(BeNil())
 			Expect(secondChannel).ToNot(BeNil())
-			Eventually(secondChannel, "10s").Should(Receive(&cacheResponse))
-			Expect(cacheResponse).ToNot(BeNil())
+			Eventually(secondChannel, "10s").Should(Receive(&cacheResponse1))
+			Expect(cacheResponse1).ToNot(BeNil())
 			/* EBP-25: Assert cache request ID matches cache response ID. */
 			/* EBP-26: Assert CacheRequestOutcome Ok. */
 			/* EBP-28: Assert err is nil. */
@@ -372,13 +372,14 @@ var _ = Describe("Cache Strategy", func() {
 			Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsFailed)).To(BeNumerically("==", 0))
 
 			/* NOTE: Subsequent AsAvailable succeeds. */
+			var cacheResponse2 solace.CacheResponse
 			cacheRequestConfig = helpers.GetValidAsAvailableCacheRequestConfig(cacheName, topic)
-			secondCacheRequestID = message.CacheRequestID(4)
+			secondCacheRequestID = message.CacheRequestID(5)
 			secondChannel, err = receiver.RequestCachedAsync(cacheRequestConfig, secondCacheRequestID)
 			Expect(err).To(BeNil())
 			Expect(secondChannel).ToNot(BeNil())
-			Eventually(secondChannel, "10s").Should(Receive(&cacheResponse))
-			Expect(cacheResponse).ToNot(BeNil())
+			Eventually(secondChannel, "10s").Should(Receive(&cacheResponse2))
+			Expect(cacheResponse2).ToNot(BeNil())
 			/* EBP-25: Assert cache request ID matches cache response ID. */
 			/* EBP-26: Assert CacheRequestOutcome Ok. */
 			/* EBP-28: Assert err is nil. */
@@ -397,8 +398,9 @@ var _ = Describe("Cache Strategy", func() {
 			Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsFailed)).To(BeNumerically("==", 0))
 
 			/* NOTE: First AsAvailable cache request should succeed. */
-			Eventually(channel, "10s").Should(Receive(&cacheResponse))
-			Expect(cacheResponse).ToNot(BeNil())
+			var cacheResponse3 solace.CacheResponse
+			Eventually(channel, "10s").Should(Receive(&cacheResponse3))
+			Expect(cacheResponse3).ToNot(BeNil())
 			/* EBP-25: Assert cache request ID matches cache response ID. */
 			/* EBP-26: Assert CacheRequestOutcome Ok. */
 			/* EBP-28: Assert err is nil. */
