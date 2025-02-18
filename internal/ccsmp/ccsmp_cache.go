@@ -84,18 +84,18 @@ func ConvertCachedMessageSubscriptionRequestToCcsmpPropsList(cachedMessageSubscr
 
 // CachedMessageSubscriptionRequestStrategyMappingToCCSMPCacheRequestFlags is the mapping for Cached message Subscription Request Strategies to respective CCSMP cache request flags
 var CachedMessageSubscriptionRequestStrategyMappingToCCSMPCacheRequestFlags = map[resource.CachedMessageSubscriptionStrategy]C.solClient_cacheRequestFlags_t{
-	resource.AsAvailable:       C.solClient_cacheRequestFlags_t(C.SOLCLIENT_CACHEREQUEST_FLAGS_LIVEDATA_FLOWTHRU | C.SOLCLIENT_CACHEREQUEST_FLAGS_NOWAIT_REPLY),
-	resource.LiveCancelsCached: C.solClient_cacheRequestFlags_t(C.SOLCLIENT_CACHEREQUEST_FLAGS_LIVEDATA_FULFILL | C.SOLCLIENT_CACHEREQUEST_FLAGS_NOWAIT_REPLY),
-	resource.CachedFirst:       C.solClient_cacheRequestFlags_t(C.SOLCLIENT_CACHEREQUEST_FLAGS_LIVEDATA_QUEUE | C.SOLCLIENT_CACHEREQUEST_FLAGS_NOWAIT_REPLY),
-	resource.CachedOnly:        C.solClient_cacheRequestFlags_t(C.SOLCLIENT_CACHEREQUEST_FLAGS_LIVEDATA_FLOWTHRU | C.SOLCLIENT_CACHEREQUEST_FLAGS_NOWAIT_REPLY),
+	resource.CacheRequestStrategyAsAvailable:       C.solClient_cacheRequestFlags_t(C.SOLCLIENT_CACHEREQUEST_FLAGS_LIVEDATA_FLOWTHRU | C.SOLCLIENT_CACHEREQUEST_FLAGS_NOWAIT_REPLY),
+	resource.CacheRequestStrategyLiveCancelsCached: C.solClient_cacheRequestFlags_t(C.SOLCLIENT_CACHEREQUEST_FLAGS_LIVEDATA_FULFILL | C.SOLCLIENT_CACHEREQUEST_FLAGS_NOWAIT_REPLY),
+	resource.CacheRequestStrategyCachedFirst:       C.solClient_cacheRequestFlags_t(C.SOLCLIENT_CACHEREQUEST_FLAGS_LIVEDATA_QUEUE | C.SOLCLIENT_CACHEREQUEST_FLAGS_NOWAIT_REPLY),
+	resource.CacheRequestStrategyCachedOnly:        C.solClient_cacheRequestFlags_t(C.SOLCLIENT_CACHEREQUEST_FLAGS_LIVEDATA_FLOWTHRU | C.SOLCLIENT_CACHEREQUEST_FLAGS_NOWAIT_REPLY),
 }
 
 // CachedMessageSubscriptionRequestStrategyMappingToCCSMPSubscribeFlags is the mapping for Cached message Subscription Request Strategies to respective CCSMP subscription flags
 var CachedMessageSubscriptionRequestStrategyMappingToCCSMPSubscribeFlags = map[resource.CachedMessageSubscriptionStrategy]C.solClient_subscribeFlags_t{
-	resource.AsAvailable:       C.SOLCLIENT_SUBSCRIBE_FLAGS_REQUEST_CONFIRM,
-	resource.LiveCancelsCached: C.SOLCLIENT_SUBSCRIBE_FLAGS_REQUEST_CONFIRM,
-	resource.CachedFirst:       C.SOLCLIENT_SUBSCRIBE_FLAGS_REQUEST_CONFIRM,
-	resource.CachedOnly:        C.SOLCLIENT_SUBSCRIBE_FLAGS_LOCAL_DISPATCH_ONLY,
+	resource.CacheRequestStrategyAsAvailable:       C.SOLCLIENT_SUBSCRIBE_FLAGS_REQUEST_CONFIRM,
+	resource.CacheRequestStrategyLiveCancelsCached: C.SOLCLIENT_SUBSCRIBE_FLAGS_REQUEST_CONFIRM,
+	resource.CacheRequestStrategyCachedFirst:       C.SOLCLIENT_SUBSCRIBE_FLAGS_REQUEST_CONFIRM,
+	resource.CacheRequestStrategyCachedOnly:        C.SOLCLIENT_SUBSCRIBE_FLAGS_LOCAL_DISPATCH_ONLY,
 }
 
 /* NOTE: sessionToCacheEventCallbackMap is required as a global var even though cache sessions etc. are scoped to a

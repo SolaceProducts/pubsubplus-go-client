@@ -62,10 +62,10 @@ func TestNewCachedMessageSubscriptionRequest(t *testing.T) {
 	const cacheAccessTimeout = 3001 // in valid range - (valid range from 3000 to signed MaxInt32)
 	const maxCachedMessages = 5     // in valid range (valid range from 0 to signed MaxInt32)
 	const cachedMessageAge = 15     // in valid range (valid range from 0 to signed MaxInt32)
-	cachedMessageSubscriptionRequest := resource.NewCachedMessageSubscriptionRequest(resource.LiveCancelsCached,
+	cachedMessageSubscriptionRequest := resource.NewCachedMessageSubscriptionRequest(resource.CacheRequestStrategyLiveCancelsCached,
 		cacheName, subscription, cacheAccessTimeout, maxCachedMessages, cachedMessageAge)
 
-	if *(cachedMessageSubscriptionRequest.GetCachedMessageSubscriptionRequestStrategy()) != resource.LiveCancelsCached {
+	if *(cachedMessageSubscriptionRequest.GetCachedMessageSubscriptionRequestStrategy()) != resource.CacheRequestStrategyLiveCancelsCached {
 		t.Error("Expected GetCachedMessageSubscriptionRequestStrategy() to match passed in cachedMessageSubscriptionStrategy when NewCachedMessageSubscriptionRequest() called with valid cachedMessageSubscriptionStrategy.")
 	}
 	if cachedMessageSubscriptionRequest.GetCacheName() != cacheName {
@@ -108,7 +108,7 @@ func TestNewCachedMessageSubscriptionRequestWithEmptyCacheName(t *testing.T) {
 	const cacheAccessTimeout = 5000 // (in milliseconds) - (valid range from 3000 to signed MaxInt32)
 	const maxCachedMessages = 5     // in valid range (valid range from 0 to signed MaxInt32)
 	const cachedMessageAge = 15     // in valid range (valid range from 0 to signed MaxInt32)
-	cachedMessageSubscriptionRequest := resource.NewCachedMessageSubscriptionRequest(resource.AsAvailable,
+	cachedMessageSubscriptionRequest := resource.NewCachedMessageSubscriptionRequest(resource.CacheRequestStrategyAsAvailable,
 		cacheName, subscription, cacheAccessTimeout, maxCachedMessages, cachedMessageAge)
 
 	if cachedMessageSubscriptionRequest.GetCacheName() != "" {
@@ -121,7 +121,7 @@ func TestNewCachedMessageSubscriptionRequestWithNilSubscription(t *testing.T) {
 	const cacheAccessTimeout = 5000 // (in milliseconds) - (valid range from 3000 to signed MaxInt32)
 	const maxCachedMessages = 5     // in valid range (valid range from 0 to signed MaxInt32)
 	const cachedMessageAge = 15     // in valid range (valid range from 0 to signed MaxInt32)
-	cachedMessageSubscriptionRequest := resource.NewCachedMessageSubscriptionRequest(resource.AsAvailable,
+	cachedMessageSubscriptionRequest := resource.NewCachedMessageSubscriptionRequest(resource.CacheRequestStrategyAsAvailable,
 		cacheName, nil, cacheAccessTimeout, maxCachedMessages, cachedMessageAge)
 
 	if cachedMessageSubscriptionRequest.GetName() != "" {

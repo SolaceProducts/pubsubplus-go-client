@@ -102,14 +102,14 @@ var _ = Describe("Cache Strategy", func() {
 			cacheName := "UnitTest"
 			var cacheRequestConfig resource.CachedMessageSubscriptionRequest
 			switch cacheRequestStrategy {
-			case resource.AsAvailable:
-				cacheRequestConfig = helpers.GetValidAsAvailableCacheRequestConfig(cacheName, topic)
-			case resource.CachedFirst:
-				cacheRequestConfig = helpers.GetValidCachedFirstCacheRequestConfig(cacheName, topic)
-			case resource.CachedOnly:
-				cacheRequestConfig = helpers.GetValidCachedOnlyCacheRequestConfig(cacheName, topic)
-			case resource.LiveCancelsCached:
-				cacheRequestConfig = helpers.GetValidLiveCancelsCachedRequestConfig(cacheName, topic)
+			case resource.CacheRequestStrategyAsAvailable:
+				cacheRequestConfig = helpers.GetValidCacheRequestStrategyAsAvailableCacheRequestConfig(cacheName, topic)
+			case resource.CacheRequestStrategyCachedFirst:
+				cacheRequestConfig = helpers.GetValidCacheRequestStrategyCachedFirstCacheRequestConfig(cacheName, topic)
+			case resource.CacheRequestStrategyCachedOnly:
+				cacheRequestConfig = helpers.GetValidCacheRequestStrategyCachedOnlyCacheRequestConfig(cacheName, topic)
+			case resource.CacheRequestStrategyLiveCancelsCached:
+				cacheRequestConfig = helpers.GetValidCacheRequestStrategyLiveCancelsCachedRequestConfig(cacheName, topic)
 			}
 			/* NOTE: Despite expecting to receive 0 messages, we create a channel with a size of 1 to mitigate the
 			 * risk of the test blocking receiver terminate in the event that we unexpectedly receive a message. The
@@ -145,36 +145,36 @@ var _ = Describe("Cache Strategy", func() {
 			/* EBP-28: Assert err is nil. */
 			Consistently(receivedMsgChan).ShouldNot(Receive())
 		},
-			Entry("with topic 1 with channel with AsAvailable", "MaxMsgs3/%s/notcached", resource.AsAvailable, helpers.ProcessCacheResponseThroughChannel),
-			Entry("with topic 1 with callback with AsAvailable", "MaxMsgs3/%s/notcached", resource.AsAvailable, helpers.ProcessCacheResponseThroughCallback),
-			Entry("with topic 1 with channel with LiveCancelsCached", "MaxMsgs3/%s/notcached", resource.LiveCancelsCached, helpers.ProcessCacheResponseThroughChannel),
-			Entry("with topic 1 with callback with LiveCancelsCached", "MaxMsgs3/%s/notcached", resource.LiveCancelsCached, helpers.ProcessCacheResponseThroughCallback),
-			Entry("with topic 1 with channel with CachedFirst", "MaxMsgs3/%s/notcached", resource.CachedFirst, helpers.ProcessCacheResponseThroughChannel),
-			Entry("with topic 1 with callback with CachedFirst", "MaxMsgs3/%s/notcached", resource.CachedFirst, helpers.ProcessCacheResponseThroughCallback),
-			Entry("with topic 1 with channel with CachedOnly", "MaxMsgs3/%s/notcached", resource.CachedOnly, helpers.ProcessCacheResponseThroughChannel),
-			Entry("with topic 1 with callback with CachedOnly", "MaxMsgs3/%s/notcached", resource.CachedOnly, helpers.ProcessCacheResponseThroughCallback),
-			Entry("with topic 2 with channel with AsAvailable", "Max*sgs3/%s/data1", resource.AsAvailable, helpers.ProcessCacheResponseThroughChannel),
-			Entry("with topic 2 with callback with AsAvailable", "Max*sgs3/%s/data1", resource.AsAvailable, helpers.ProcessCacheResponseThroughCallback),
-			Entry("with topic 2 with channel with LiveCancelsCached", "Max*sgs3/%s/data1", resource.LiveCancelsCached, helpers.ProcessCacheResponseThroughChannel),
-			Entry("with topic 2 with callback with LiveCancelsCached", "Max*sgs3/%s/data1", resource.LiveCancelsCached, helpers.ProcessCacheResponseThroughCallback),
-			Entry("with topic 2 with channel with CachedFirst", "Max*sgs3/%s/data1", resource.CachedFirst, helpers.ProcessCacheResponseThroughChannel),
-			Entry("with topic 2 with callback with CachedFirst", "Max*sgs3/%s/data1", resource.CachedFirst, helpers.ProcessCacheResponseThroughCallback),
-			Entry("with topic 2 with channel with CachedOnly", "Max*sgs3/%s/data1", resource.CachedOnly, helpers.ProcessCacheResponseThroughChannel),
-			Entry("with topic 2 with callback with CachedOnly", "Max*sgs3/%s/data1", resource.CachedOnly, helpers.ProcessCacheResponseThroughCallback),
-			Entry("with topic 3 with channel with AsAvailable", "MaxMsgs3/%s/nodata", resource.AsAvailable, helpers.ProcessCacheResponseThroughChannel),
-			Entry("with topic 3 with callback with AsAvailable", "MaxMsgs3/%s/nodata", resource.AsAvailable, helpers.ProcessCacheResponseThroughCallback),
-			Entry("with topic 3 with channel with CachedFirst", "MaxMsgs3/%s/nodata", resource.CachedFirst, helpers.ProcessCacheResponseThroughChannel),
-			Entry("with topic 3 with callback with CachedFirst", "MaxMsgs3/%s/nodata", resource.CachedFirst, helpers.ProcessCacheResponseThroughCallback),
-			Entry("with topic 3 with channel with CachedOnly", "MaxMsgs3/%s/nodata", resource.CachedOnly, helpers.ProcessCacheResponseThroughChannel),
-			Entry("with topic 3 with callback with CachedOnly", "MaxMsgs3/%s/nodata", resource.CachedOnly, helpers.ProcessCacheResponseThroughCallback),
-			Entry("with topic 3 with channel with LiveCancelsCached", "MaxMsgs3/%s/nodata", resource.LiveCancelsCached, helpers.ProcessCacheResponseThroughChannel),
-			Entry("with topic 3 with callback with LiveCancelsCached", "MaxMsgs3/%s/nodata", resource.LiveCancelsCached, helpers.ProcessCacheResponseThroughCallback),
+			Entry("with topic 1 with channel with CacheRequestStrategyAsAvailable", "MaxMsgs3/%s/notcached", resource.CacheRequestStrategyAsAvailable, helpers.ProcessCacheResponseThroughChannel),
+			Entry("with topic 1 with callback with CacheRequestStrategyAsAvailable", "MaxMsgs3/%s/notcached", resource.CacheRequestStrategyAsAvailable, helpers.ProcessCacheResponseThroughCallback),
+			Entry("with topic 1 with channel with CacheRequestStrategyLiveCancelsCached", "MaxMsgs3/%s/notcached", resource.CacheRequestStrategyLiveCancelsCached, helpers.ProcessCacheResponseThroughChannel),
+			Entry("with topic 1 with callback with CacheRequestStrategyLiveCancelsCached", "MaxMsgs3/%s/notcached", resource.CacheRequestStrategyLiveCancelsCached, helpers.ProcessCacheResponseThroughCallback),
+			Entry("with topic 1 with channel with CacheRequestStrategyCachedFirst", "MaxMsgs3/%s/notcached", resource.CacheRequestStrategyCachedFirst, helpers.ProcessCacheResponseThroughChannel),
+			Entry("with topic 1 with callback with CacheRequestStrategyCachedFirst", "MaxMsgs3/%s/notcached", resource.CacheRequestStrategyCachedFirst, helpers.ProcessCacheResponseThroughCallback),
+			Entry("with topic 1 with channel with CacheRequestStrategyCachedOnly", "MaxMsgs3/%s/notcached", resource.CacheRequestStrategyCachedOnly, helpers.ProcessCacheResponseThroughChannel),
+			Entry("with topic 1 with callback with CacheRequestStrategyCachedOnly", "MaxMsgs3/%s/notcached", resource.CacheRequestStrategyCachedOnly, helpers.ProcessCacheResponseThroughCallback),
+			Entry("with topic 2 with channel with CacheRequestStrategyAsAvailable", "Max*sgs3/%s/data1", resource.CacheRequestStrategyAsAvailable, helpers.ProcessCacheResponseThroughChannel),
+			Entry("with topic 2 with callback with CacheRequestStrategyAsAvailable", "Max*sgs3/%s/data1", resource.CacheRequestStrategyAsAvailable, helpers.ProcessCacheResponseThroughCallback),
+			Entry("with topic 2 with channel with CacheRequestStrategyLiveCancelsCached", "Max*sgs3/%s/data1", resource.CacheRequestStrategyLiveCancelsCached, helpers.ProcessCacheResponseThroughChannel),
+			Entry("with topic 2 with callback with CacheRequestStrategyLiveCancelsCached", "Max*sgs3/%s/data1", resource.CacheRequestStrategyLiveCancelsCached, helpers.ProcessCacheResponseThroughCallback),
+			Entry("with topic 2 with channel with CacheRequestStrategyCachedFirst", "Max*sgs3/%s/data1", resource.CacheRequestStrategyCachedFirst, helpers.ProcessCacheResponseThroughChannel),
+			Entry("with topic 2 with callback with CacheRequestStrategyCachedFirst", "Max*sgs3/%s/data1", resource.CacheRequestStrategyCachedFirst, helpers.ProcessCacheResponseThroughCallback),
+			Entry("with topic 2 with channel with CacheRequestStrategyCachedOnly", "Max*sgs3/%s/data1", resource.CacheRequestStrategyCachedOnly, helpers.ProcessCacheResponseThroughChannel),
+			Entry("with topic 2 with callback with CacheRequestStrategyCachedOnly", "Max*sgs3/%s/data1", resource.CacheRequestStrategyCachedOnly, helpers.ProcessCacheResponseThroughCallback),
+			Entry("with topic 3 with channel with CacheRequestStrategyAsAvailable", "MaxMsgs3/%s/nodata", resource.CacheRequestStrategyAsAvailable, helpers.ProcessCacheResponseThroughChannel),
+			Entry("with topic 3 with callback with CacheRequestStrategyAsAvailable", "MaxMsgs3/%s/nodata", resource.CacheRequestStrategyAsAvailable, helpers.ProcessCacheResponseThroughCallback),
+			Entry("with topic 3 with channel with CacheRequestStrategyCachedFirst", "MaxMsgs3/%s/nodata", resource.CacheRequestStrategyCachedFirst, helpers.ProcessCacheResponseThroughChannel),
+			Entry("with topic 3 with callback with CacheRequestStrategyCachedFirst", "MaxMsgs3/%s/nodata", resource.CacheRequestStrategyCachedFirst, helpers.ProcessCacheResponseThroughCallback),
+			Entry("with topic 3 with channel with CacheRequestStrategyCachedOnly", "MaxMsgs3/%s/nodata", resource.CacheRequestStrategyCachedOnly, helpers.ProcessCacheResponseThroughChannel),
+			Entry("with topic 3 with callback with CacheRequestStrategyCachedOnly", "MaxMsgs3/%s/nodata", resource.CacheRequestStrategyCachedOnly, helpers.ProcessCacheResponseThroughCallback),
+			Entry("with topic 3 with channel with CacheRequestStrategyLiveCancelsCached", "MaxMsgs3/%s/nodata", resource.CacheRequestStrategyLiveCancelsCached, helpers.ProcessCacheResponseThroughChannel),
+			Entry("with topic 3 with callback with CacheRequestStrategyLiveCancelsCached", "MaxMsgs3/%s/nodata", resource.CacheRequestStrategyLiveCancelsCached, helpers.ProcessCacheResponseThroughCallback),
 		)
 		It("a direct receiver should get CacheRequestOutcome.Suspect when there is at least one suspect message in the cache response", func() {
 			cacheRequestID := message.CacheRequestID(1)
 			cacheName := "UnitTestSuspect"
 			topic := "Suspect/data1"
-			cacheRequestConfig := helpers.GetValidCachedFirstCacheRequestConfig(cacheName, topic)
+			cacheRequestConfig := helpers.GetValidCacheRequestStrategyCachedFirstCacheRequestConfig(cacheName, topic)
 			receivedMsgChan := make(chan message.InboundMessage, 1)
 			err := receiver.ReceiveAsync(func(msg message.InboundMessage) {
 				receivedMsgChan <- msg
@@ -208,7 +208,7 @@ var _ = Describe("Cache Strategy", func() {
 			numExpectedCacheRequestsSucceeded := 0
 			trivialCacheName := "trivial cache name"
 			trivialTopic := "trivial topic"
-			strategy := resource.AsAvailable
+			strategy := resource.CacheRequestStrategyAsAvailable
 			invalidCacheRequestConfig := helpers.GetInvalidCacheRequestConfig(strategy, trivialCacheName, trivialTopic)
 			channel, err := receiver.RequestCachedAsync(invalidCacheRequestConfig, cacheRequestID)
 			Expect(channel).To(BeNil())
@@ -237,7 +237,7 @@ var _ = Describe("Cache Strategy", func() {
 			delay := 2000
 			topic := fmt.Sprintf("MaxMsgs%d/%s/data1", numExpectedCachedMessages, testcontext.Cache().Vpn)
 			cacheName := fmt.Sprintf("MaxMsgs%d/delay=%d,", numExpectedCachedMessages, delay)
-			cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.AsAvailable, cacheName, resource.TopicSubscriptionOf(topic), int32(delay+1000), helpers.ValidMaxCachedMessages, helpers.ValidCachedMessageAge)
+			cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.CacheRequestStrategyAsAvailable, cacheName, resource.TopicSubscriptionOf(topic), int32(delay+1000), helpers.ValidMaxCachedMessages, helpers.ValidCachedMessageAge)
 			channelOne, err := receiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
 			Expect(channelOne).ToNot(BeNil())
 			Expect(err).To(BeNil())
@@ -276,7 +276,7 @@ var _ = Describe("Cache Strategy", func() {
 			numExpectedCachedMessages := 3
 			topic := fmt.Sprintf("MaxMsgs%d/%s/data1", numExpectedCachedMessages, testcontext.Cache().Vpn)
 			cacheName := fmt.Sprintf("MaxMsgs%d", numExpectedCachedMessages)
-			cacheRequestConfig := helpers.GetValidCacheRequestConfig(resource.AsAvailable, cacheName, topic)
+			cacheRequestConfig := helpers.GetValidCacheRequestConfig(resource.CacheRequestStrategyAsAvailable, cacheName, topic)
 
 			channelOne, err := receiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
 			Expect(channelOne).ToNot(BeNil())
@@ -306,7 +306,7 @@ var _ = Describe("Cache Strategy", func() {
 			numExpectedCachedMessages := 3
 			topic := fmt.Sprintf("MaxMsgs%d/%s/data1", numExpectedCachedMessages, testcontext.Cache().Vpn)
 			cacheName := fmt.Sprintf("MaxMsgs%d", numExpectedCachedMessages)
-			cacheRequestConfig := helpers.GetValidCacheRequestConfig(resource.AsAvailable, cacheName, topic)
+			cacheRequestConfig := helpers.GetValidCacheRequestConfig(resource.CacheRequestStrategyAsAvailable, cacheName, topic)
 			cacheResponseSignalChan := make(chan solace.CacheResponse)
 			callback := func(cacheResponse solace.CacheResponse) {
 				cacheResponseSignalChan <- cacheResponse
@@ -341,7 +341,7 @@ var _ = Describe("Cache Strategy", func() {
 			cacheRequestID := message.CacheRequestID(1)
 			cacheName := "MaxMsgs3/delay=3500"
 			topic := fmt.Sprintf("MaxMsgs3/%s/data1", testcontext.Cache().Vpn)
-			cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.CachedFirst, cacheName, resource.TopicSubscriptionOf(topic), 3000, helpers.ValidMaxCachedMessages, helpers.ValidCachedMessageAge)
+			cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.CacheRequestStrategyCachedFirst, cacheName, resource.TopicSubscriptionOf(topic), 3000, helpers.ValidMaxCachedMessages, helpers.ValidCachedMessageAge)
 			/* NOTE: Chan size 3 in case we get unexpected msgs to avoid hang in termination. */
 			receivedMsgChan := make(chan message.InboundMessage, 3)
 			err := receiver.ReceiveAsync(func(msg message.InboundMessage) {
@@ -370,14 +370,14 @@ var _ = Describe("Cache Strategy", func() {
 			topic := fmt.Sprintf("%s/%s/nodata", cacheName, testcontext.Cache().Vpn)
 			var cacheRequestConfig resource.CachedMessageSubscriptionRequest
 			switch strategy {
-			case resource.AsAvailable:
-				cacheRequestConfig = helpers.GetValidAsAvailableCacheRequestConfig(cacheName, topic)
-			case resource.CachedOnly:
-				cacheRequestConfig = helpers.GetValidCachedOnlyCacheRequestConfig(cacheName, topic)
-			case resource.CachedFirst:
-				cacheRequestConfig = helpers.GetValidCachedFirstCacheRequestConfig(cacheName, topic)
-			case resource.LiveCancelsCached:
-				cacheRequestConfig = helpers.GetValidLiveCancelsCachedRequestConfig(cacheName, topic)
+			case resource.CacheRequestStrategyAsAvailable:
+				cacheRequestConfig = helpers.GetValidCacheRequestStrategyAsAvailableCacheRequestConfig(cacheName, topic)
+			case resource.CacheRequestStrategyCachedOnly:
+				cacheRequestConfig = helpers.GetValidCacheRequestStrategyCachedOnlyCacheRequestConfig(cacheName, topic)
+			case resource.CacheRequestStrategyCachedFirst:
+				cacheRequestConfig = helpers.GetValidCacheRequestStrategyCachedFirstCacheRequestConfig(cacheName, topic)
+			case resource.CacheRequestStrategyLiveCancelsCached:
+				cacheRequestConfig = helpers.GetValidCacheRequestStrategyLiveCancelsCachedRequestConfig(cacheName, topic)
 			default:
 				Fail("Got unrecognized cache request strategy")
 			}
@@ -416,14 +416,14 @@ var _ = Describe("Cache Strategy", func() {
 			/* EBP-28: Assert response err. */
 			Consistently(receivedMsgChan).ShouldNot(Receive())
 		},
-			Entry("with CachedFirst and channel", resource.CachedFirst, helpers.ProcessCacheResponseThroughChannel),
-			Entry("with CachedFirst and callback", resource.CachedFirst, helpers.ProcessCacheResponseThroughCallback),
-			Entry("with CachedOnly and channel", resource.CachedOnly, helpers.ProcessCacheResponseThroughChannel),
-			Entry("with CachedOnly and callback", resource.CachedOnly, helpers.ProcessCacheResponseThroughCallback),
-			Entry("with AsAvailable and channel", resource.AsAvailable, helpers.ProcessCacheResponseThroughChannel),
-			Entry("with AsAvailable and callback", resource.AsAvailable, helpers.ProcessCacheResponseThroughCallback),
-			Entry("with LiveCancelsCached and channel", resource.LiveCancelsCached, helpers.ProcessCacheResponseThroughChannel),
-			Entry("with LiveCancelsCached and callback", resource.LiveCancelsCached, helpers.ProcessCacheResponseThroughCallback),
+			Entry("with CacheRequestStrategyCachedFirst and channel", resource.CacheRequestStrategyCachedFirst, helpers.ProcessCacheResponseThroughChannel),
+			Entry("with CacheRequestStrategyCachedFirst and callback", resource.CacheRequestStrategyCachedFirst, helpers.ProcessCacheResponseThroughCallback),
+			Entry("with CacheRequestStrategyCachedOnly and channel", resource.CacheRequestStrategyCachedOnly, helpers.ProcessCacheResponseThroughChannel),
+			Entry("with CacheRequestStrategyCachedOnly and callback", resource.CacheRequestStrategyCachedOnly, helpers.ProcessCacheResponseThroughCallback),
+			Entry("with CacheRequestStrategyAsAvailable and channel", resource.CacheRequestStrategyAsAvailable, helpers.ProcessCacheResponseThroughChannel),
+			Entry("with CacheRequestStrategyAsAvailable and callback", resource.CacheRequestStrategyAsAvailable, helpers.ProcessCacheResponseThroughCallback),
+			Entry("with CacheRequestStrategyLiveCancelsCached and channel", resource.CacheRequestStrategyLiveCancelsCached, helpers.ProcessCacheResponseThroughChannel),
+			Entry("with CacheRequestStrategyLiveCancelsCached and callback", resource.CacheRequestStrategyLiveCancelsCached, helpers.ProcessCacheResponseThroughCallback),
 		)
 		It("a cache request will return the expected number of cached messages based on configured cache message age", func() {
 			cacheRequestID := message.CacheRequestID(1)
@@ -435,7 +435,7 @@ var _ = Describe("Cache Strategy", func() {
 				receivedMsgChan <- msg
 			})
 			/* NOTE: Cache request with max age `0` should retrieve all messages, in this case 1. */
-			cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.AsAvailable, cacheName, resource.TopicSubscriptionOf(cacheTopic), helpers.ValidCacheAccessTimeout, helpers.ValidMaxCachedMessages, int32(0))
+			cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.CacheRequestStrategyAsAvailable, cacheName, resource.TopicSubscriptionOf(cacheTopic), helpers.ValidCacheAccessTimeout, helpers.ValidMaxCachedMessages, int32(0))
 			channel, err := receiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
 			Expect(err).To(BeNil())
 			Expect(channel).ToNot(BeNil())
@@ -463,7 +463,7 @@ var _ = Describe("Cache Strategy", func() {
 			 * than 1ms. Only messages 1ms or newer should be returned, so none should be returned.
 			 */
 			time.Sleep(time.Second * 2)
-			cacheRequestConfig = resource.NewCachedMessageSubscriptionRequest(resource.AsAvailable, cacheName, resource.TopicSubscriptionOf(cacheTopic), helpers.ValidCacheAccessTimeout, helpers.ValidMaxCachedMessages, int32(1))
+			cacheRequestConfig = resource.NewCachedMessageSubscriptionRequest(resource.CacheRequestStrategyAsAvailable, cacheName, resource.TopicSubscriptionOf(cacheTopic), helpers.ValidCacheAccessTimeout, helpers.ValidMaxCachedMessages, int32(1))
 			channel, err = receiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
 			Expect(err).To(BeNil())
 			Expect(channel).ToNot(BeNil())
@@ -478,7 +478,7 @@ var _ = Describe("Cache Strategy", func() {
 			Consistently(receivedMsgChan, "1ms").ShouldNot(Receive())
 
 			/* NOTE: Cache request with max age `10000` should retrieve all messages, in this case 1. */
-			cacheRequestConfig = resource.NewCachedMessageSubscriptionRequest(resource.AsAvailable, cacheName, resource.TopicSubscriptionOf(cacheTopic), helpers.ValidCacheAccessTimeout, helpers.ValidMaxCachedMessages, int32(10000))
+			cacheRequestConfig = resource.NewCachedMessageSubscriptionRequest(resource.CacheRequestStrategyAsAvailable, cacheName, resource.TopicSubscriptionOf(cacheTopic), helpers.ValidCacheAccessTimeout, helpers.ValidMaxCachedMessages, int32(10000))
 			channel, err = receiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
 			Expect(err).To(BeNil())
 			Expect(channel).ToNot(BeNil())
@@ -512,7 +512,7 @@ var _ = Describe("Cache Strategy", func() {
 			cacheName := fmt.Sprintf("MaxMsgs%d/delay=%d,msgs=%d", numExpectedCachedMessages, delay, numExpectedLiveMessages)
 			topic := fmt.Sprintf("MaxMsgs%d/%s/data1", numExpectedCachedMessages, testcontext.Cache().Vpn)
 			cacheRequestID := message.CacheRequestID(1)
-			cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.CachedFirst, cacheName, resource.TopicSubscriptionOf(topic), 45000, 0, 50000)
+			cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.CacheRequestStrategyCachedFirst, cacheName, resource.TopicSubscriptionOf(topic), 45000, 0, 50000)
 			var cacheResponse solace.CacheResponse
 			/* NOTE: We need to wait for longer than usual for the cache response (10s) since the cache response is
 			 * given to the application only after all messages related to the cache request have been received by
@@ -575,7 +575,7 @@ var _ = Describe("Cache Strategy", func() {
 			numExpectedMessages := 3
 			cacheName := fmt.Sprintf("MaxMsgs%d/inc=badCacheCluster", numExpectedMessages)
 			topic := fmt.Sprintf("MaxMsgs%d/%s/data1", numExpectedMessages, testcontext.Cache().Vpn)
-			cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.CachedFirst, cacheName, resource.TopicSubscriptionOf(topic), 10000, helpers.ValidMaxCachedMessages, helpers.ValidCachedMessageAge)
+			cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.CacheRequestStrategyCachedFirst, cacheName, resource.TopicSubscriptionOf(topic), 10000, helpers.ValidMaxCachedMessages, helpers.ValidCachedMessageAge)
 			receivedMsgChan := make(chan message.InboundMessage, 3)
 			err := receiver.ReceiveAsync(func(msg message.InboundMessage) {
 				receivedMsgChan <- msg
@@ -640,22 +640,22 @@ var _ = Describe("Cache Strategy", func() {
 			 */
 			Consistently(receivedMsgChan, "10ms").ShouldNot(Receive())
 		},
-			Entry("with maxMessages 1", int32(1), 1, resource.AsAvailable),
-			Entry("with maxMessages 3", int32(3), 3, resource.AsAvailable),
-			Entry("with maxMessages 10", int32(10), 10, resource.AsAvailable),
-			Entry("with maxMessages 0", int32(0), 10, resource.AsAvailable),
-			Entry("with maxMessages 1", int32(1), 1, resource.CachedFirst),
-			Entry("with maxMessages 3", int32(3), 3, resource.CachedFirst),
-			Entry("with maxMessages 10", int32(10), 10, resource.CachedFirst),
-			Entry("with maxMessages 0", int32(0), 10, resource.CachedFirst),
-			Entry("with maxMessages 1", int32(1), 1, resource.CachedOnly),
-			Entry("with maxMessages 3", int32(3), 3, resource.CachedOnly),
-			Entry("with maxMessages 10", int32(10), 10, resource.CachedOnly),
-			Entry("with maxMessages 0", int32(0), 10, resource.CachedOnly),
-			Entry("with maxMessages 1", int32(1), 1, resource.LiveCancelsCached),
-			Entry("with maxMessages 3", int32(3), 3, resource.LiveCancelsCached),
-			Entry("with maxMessages 10", int32(10), 10, resource.LiveCancelsCached),
-			Entry("with maxMessages 0", int32(0), 10, resource.LiveCancelsCached),
+			Entry("with maxMessages 1", int32(1), 1, resource.CacheRequestStrategyAsAvailable),
+			Entry("with maxMessages 3", int32(3), 3, resource.CacheRequestStrategyAsAvailable),
+			Entry("with maxMessages 10", int32(10), 10, resource.CacheRequestStrategyAsAvailable),
+			Entry("with maxMessages 0", int32(0), 10, resource.CacheRequestStrategyAsAvailable),
+			Entry("with maxMessages 1", int32(1), 1, resource.CacheRequestStrategyCachedFirst),
+			Entry("with maxMessages 3", int32(3), 3, resource.CacheRequestStrategyCachedFirst),
+			Entry("with maxMessages 10", int32(10), 10, resource.CacheRequestStrategyCachedFirst),
+			Entry("with maxMessages 0", int32(0), 10, resource.CacheRequestStrategyCachedFirst),
+			Entry("with maxMessages 1", int32(1), 1, resource.CacheRequestStrategyCachedOnly),
+			Entry("with maxMessages 3", int32(3), 3, resource.CacheRequestStrategyCachedOnly),
+			Entry("with maxMessages 10", int32(10), 10, resource.CacheRequestStrategyCachedOnly),
+			Entry("with maxMessages 0", int32(0), 10, resource.CacheRequestStrategyCachedOnly),
+			Entry("with maxMessages 1", int32(1), 1, resource.CacheRequestStrategyLiveCancelsCached),
+			Entry("with maxMessages 3", int32(3), 3, resource.CacheRequestStrategyLiveCancelsCached),
+			Entry("with maxMessages 10", int32(10), 10, resource.CacheRequestStrategyLiveCancelsCached),
+			Entry("with maxMessages 0", int32(0), 10, resource.CacheRequestStrategyLiveCancelsCached),
 		)
 		DescribeTable("long running cache requests with live data queue and live data to fill", func(cacheResponseProcessStrategy helpers.CacheResponseProcessStrategy) {
 			numExpectedCachedMessages := 3
@@ -670,7 +670,7 @@ var _ = Describe("Cache Strategy", func() {
 			cacheName := fmt.Sprintf("MaxMsgs%d/delay=%d,msgs=%d", numExpectedCachedMessages, delay, numExpectedLiveMessages)
 			topic := fmt.Sprintf("MaxMsgs%d/%s/data1", numExpectedCachedMessages, testcontext.Cache().Vpn)
 			cacheRequestID := message.CacheRequestID(1)
-			cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.CachedFirst, cacheName, resource.TopicSubscriptionOf(topic), 45000, 0, 50000)
+			cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.CacheRequestStrategyCachedFirst, cacheName, resource.TopicSubscriptionOf(topic), 45000, 0, 50000)
 			var cacheResponse solace.CacheResponse
 			/* NOTE: We need to wait for longer than usual for the cache response (10s) since the cache response is
 			 * given to the application only after all messages related to the cache request have been received by
@@ -735,10 +735,10 @@ var _ = Describe("Cache Strategy", func() {
 				topic := fmt.Sprintf("%s/%s/>", cacheName, testcontext.Cache().Vpn)
 				var cacheRequestConfig resource.CachedMessageSubscriptionRequest
 				switch cacheRequestStrategy {
-				case resource.LiveCancelsCached:
-					cacheRequestConfig = helpers.GetValidLiveCancelsCachedRequestConfig(cacheName, topic)
-				case resource.CachedFirst:
-					cacheRequestConfig = helpers.GetValidCachedFirstCacheRequestConfig(cacheName, topic)
+				case resource.CacheRequestStrategyLiveCancelsCached:
+					cacheRequestConfig = helpers.GetValidCacheRequestStrategyLiveCancelsCachedRequestConfig(cacheName, topic)
+				case resource.CacheRequestStrategyCachedFirst:
+					cacheRequestConfig = helpers.GetValidCacheRequestStrategyCachedFirstCacheRequestConfig(cacheName, topic)
 				default:
 					Fail("Got unexpected cacheRequestStrategy")
 				}
@@ -757,10 +757,10 @@ var _ = Describe("Cache Strategy", func() {
 				Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSent)).To(BeNumerically("==", 0))
 				Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsFailed)).To(BeNumerically("==", 0))
 			},
-			Entry("with cache response strategy channel", resource.CachedFirst, helpers.ProcessCacheResponseThroughChannel),
-			Entry("with cache response strategy channel", resource.LiveCancelsCached, helpers.ProcessCacheResponseThroughChannel),
-			Entry("with cache response strategy callback", resource.LiveCancelsCached, helpers.ProcessCacheResponseThroughCallback),
-			Entry("with cache response strategy callback", resource.CachedFirst, helpers.ProcessCacheResponseThroughCallback),
+			Entry("with cache response strategy channel", resource.CacheRequestStrategyCachedFirst, helpers.ProcessCacheResponseThroughChannel),
+			Entry("with cache response strategy channel", resource.CacheRequestStrategyLiveCancelsCached, helpers.ProcessCacheResponseThroughChannel),
+			Entry("with cache response strategy callback", resource.CacheRequestStrategyLiveCancelsCached, helpers.ProcessCacheResponseThroughCallback),
+			Entry("with cache response strategy callback", resource.CacheRequestStrategyCachedFirst, helpers.ProcessCacheResponseThroughCallback),
 		)
 		DescribeTable("cache requests with wildcard topic with live data flowthrough",
 			func(topic string, cacheResponseProcessStrategy helpers.CacheResponseProcessStrategy) {
@@ -775,7 +775,7 @@ var _ = Describe("Cache Strategy", func() {
 					numExpectedCachedMessages = 14
 				}
 				cacheRequestID := message.CacheRequestID(1)
-				cacheRequestConfig := helpers.GetValidAsAvailableCacheRequestConfig(cacheName, topic)
+				cacheRequestConfig := helpers.GetValidCacheRequestStrategyAsAvailableCacheRequestConfig(cacheName, topic)
 				receivedMsgChan := make(chan message.InboundMessage, numExpectedCachedMessages*10)
 				err := receiver.ReceiveAsync(func(msg message.InboundMessage) {
 					receivedMsgChan <- msg
@@ -833,19 +833,19 @@ var _ = Describe("Cache Strategy", func() {
 				totalMessagesReceived := 0
 				numExpectedReceivedMessages := numExpectedSentMessages
 				switch strategy {
-				case resource.AsAvailable:
-					strategyString = "AsAvailable"
+				case resource.CacheRequestStrategyAsAvailable:
+					strategyString = "CacheRequestStrategyAsAvailable"
 					numExpectedReceivedMessages += numExpectedCachedMessages
 					numExpectedReceivedMessages += numExpectedLiveMessages
-				case resource.LiveCancelsCached:
-					strategyString = "LiveCancelsCached"
+				case resource.CacheRequestStrategyLiveCancelsCached:
+					strategyString = "CacheRequestStrategyLiveCancelsCached"
 					numExpectedReceivedMessages += numExpectedLiveMessages
-				case resource.CachedFirst:
-					strategyString = "CachedFirst"
+				case resource.CacheRequestStrategyCachedFirst:
+					strategyString = "CacheRequestStrategyCachedFirst"
 					numExpectedReceivedMessages += numExpectedCachedMessages
 					numExpectedReceivedMessages += numExpectedLiveMessages
-				case resource.CachedOnly:
-					strategyString = "CachedOnly"
+				case resource.CacheRequestStrategyCachedOnly:
+					strategyString = "CacheRequestStrategyCachedOnly"
 					numExpectedReceivedMessages += numExpectedCachedMessages
 				}
 				numExpectedSentDirectMessages := numSentCacheRequests + numExpectedSentMessages
@@ -891,14 +891,14 @@ var _ = Describe("Cache Strategy", func() {
 				Expect(messagingService.Metrics().GetValue(metrics.DirectMessagesSent)).To(BeNumerically("==", numExpectedSentDirectMessages), fmt.Sprintf("DirectMessagesSent for %s was wrong", strategyString))
 				Expect(totalMessagesReceived).To(BeNumerically("==", numExpectedReceivedMessages))
 			},
-			Entry("test cache RR for valid AsAvailable with channel", resource.AsAvailable, helpers.ProcessCacheResponseThroughChannel),
-			Entry("test cache RR for valid AsAvailable with callback", resource.AsAvailable, helpers.ProcessCacheResponseThroughCallback),
-			Entry("test cache RR for valid CachedFirst with channel", resource.CachedFirst, helpers.ProcessCacheResponseThroughChannel),
-			Entry("test cache RR for valid CachedFirst with callback", resource.CachedFirst, helpers.ProcessCacheResponseThroughCallback),
-			Entry("test cache RR for valid CachedOnly with channel", resource.CachedOnly, helpers.ProcessCacheResponseThroughChannel),
-			Entry("test cache RR for valid CachedOnly with callback", resource.CachedOnly, helpers.ProcessCacheResponseThroughCallback),
-			Entry("test cache RR for valid LiveCancelsCached with channel", resource.LiveCancelsCached, helpers.ProcessCacheResponseThroughChannel),
-			Entry("test cache RR for valid LivCancelsCached  with callback", resource.LiveCancelsCached, helpers.ProcessCacheResponseThroughCallback),
+			Entry("test cache RR for valid CacheRequestStrategyAsAvailable with channel", resource.CacheRequestStrategyAsAvailable, helpers.ProcessCacheResponseThroughChannel),
+			Entry("test cache RR for valid CacheRequestStrategyAsAvailable with callback", resource.CacheRequestStrategyAsAvailable, helpers.ProcessCacheResponseThroughCallback),
+			Entry("test cache RR for valid CacheRequestStrategyCachedFirst with channel", resource.CacheRequestStrategyCachedFirst, helpers.ProcessCacheResponseThroughChannel),
+			Entry("test cache RR for valid CacheRequestStrategyCachedFirst with callback", resource.CacheRequestStrategyCachedFirst, helpers.ProcessCacheResponseThroughCallback),
+			Entry("test cache RR for valid CacheRequestStrategyCachedOnly with channel", resource.CacheRequestStrategyCachedOnly, helpers.ProcessCacheResponseThroughChannel),
+			Entry("test cache RR for valid CacheRequestStrategyCachedOnly with callback", resource.CacheRequestStrategyCachedOnly, helpers.ProcessCacheResponseThroughCallback),
+			Entry("test cache RR for valid CacheRequestStrategyLiveCancelsCached with channel", resource.CacheRequestStrategyLiveCancelsCached, helpers.ProcessCacheResponseThroughChannel),
+			Entry("test cache RR for valid LivCancelsCached  with callback", resource.CacheRequestStrategyLiveCancelsCached, helpers.ProcessCacheResponseThroughCallback),
 		)
 		DescribeTable("asynchronous cache request with live data",
 			func(strategy resource.CachedMessageSubscriptionStrategy, cacheResponseProcessStrategy helpers.CacheResponseProcessStrategy) {
@@ -911,19 +911,19 @@ var _ = Describe("Cache Strategy", func() {
 				numExpectedSentMessages := 0
 				numExpectedReceivedMessages := numExpectedSentMessages
 				switch strategy {
-				case resource.AsAvailable:
-					strategyString = "AsAvailable"
+				case resource.CacheRequestStrategyAsAvailable:
+					strategyString = "CacheRequestStrategyAsAvailable"
 					numExpectedReceivedMessages += numExpectedCachedMessages
 					numExpectedReceivedMessages += numExpectedLiveMessages
-				case resource.LiveCancelsCached:
-					strategyString = "LiveCancelsCached"
+				case resource.CacheRequestStrategyLiveCancelsCached:
+					strategyString = "CacheRequestStrategyLiveCancelsCached"
 					numExpectedReceivedMessages += numExpectedLiveMessages
-				case resource.CachedFirst:
-					strategyString = "CachedFirst"
+				case resource.CacheRequestStrategyCachedFirst:
+					strategyString = "CacheRequestStrategyCachedFirst"
 					numExpectedReceivedMessages += numExpectedCachedMessages
 					numExpectedReceivedMessages += numExpectedLiveMessages
-				case resource.CachedOnly:
-					strategyString = "CachedOnly"
+				case resource.CacheRequestStrategyCachedOnly:
+					strategyString = "CacheRequestStrategyCachedOnly"
 					numExpectedReceivedMessages += numExpectedCachedMessages
 				}
 				numExpectedSentDirectMessages := numSentCacheRequests + numExpectedSentMessages
@@ -999,19 +999,19 @@ var _ = Describe("Cache Strategy", func() {
 				}
 				Eventually(func() uint64 { return messagingService.Metrics().GetValue(metrics.CacheRequestsSent) }, "10s").Should(BeNumerically("==", numSentCacheRequests))
 				switch strategy {
-				case resource.AsAvailable:
+				case resource.CacheRequestStrategyAsAvailable:
 					waitForLiveMessage()
 					Consistently(receivedMsgChan, "500ms").ShouldNot(Receive())
 					waitForCacheResponses()
 					waitForCachedMessages()
-				case resource.LiveCancelsCached:
+				case resource.CacheRequestStrategyLiveCancelsCached:
 					waitForLiveMessage()
 					waitForCacheResponses()
 					/* NOTE: We only need to poll for 1ms, because if the API were going to give us cached
 					 * messages, they would already be on the queue by the time we go to this assertion.
 					 */
 					Consistently(receivedMsgChan, "1ms").ShouldNot(Receive())
-				case resource.CachedFirst:
+				case resource.CacheRequestStrategyCachedFirst:
 					/* NOTE: we wait for 1500 ms since the delay is 2000 ms, and we want to allow a bit of room
 					 * in the waiter so that we don't wait to long. Waiting past the delay would race with the
 					 * reception of the cache response, coinciding with receivedMsgChan receiving
@@ -1021,7 +1021,7 @@ var _ = Describe("Cache Strategy", func() {
 					waitForCacheResponses()
 					waitForCachedMessages()
 					waitForLiveMessage()
-				case resource.CachedOnly:
+				case resource.CacheRequestStrategyCachedOnly:
 					Consistently(receivedMsgChan, "1500ms").ShouldNot(Receive())
 					waitForCacheResponses()
 					waitForCachedMessages()
@@ -1039,14 +1039,14 @@ var _ = Describe("Cache Strategy", func() {
 				Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsFailed)).To(BeNumerically("==", 0), fmt.Sprintf("CacheRequestsFailed for %s was wrong", strategyString))
 				Expect(messagingService.Metrics().GetValue(metrics.DirectMessagesSent)).To(BeNumerically("==", numExpectedSentDirectMessages), fmt.Sprintf("DirectMessagesSent for %s was wrong", strategyString))
 			},
-			Entry("test cache RR for valid AsAvailable with channel", resource.AsAvailable, helpers.ProcessCacheResponseThroughChannel),
-			Entry("test cache RR for valid AsAvailable with callback", resource.AsAvailable, helpers.ProcessCacheResponseThroughCallback),
-			Entry("test cache RR for valid CachedFirst with channel", resource.CachedFirst, helpers.ProcessCacheResponseThroughChannel),
-			Entry("test cache RR for valid CachedFirst with callback", resource.CachedFirst, helpers.ProcessCacheResponseThroughCallback),
-			Entry("test cache RR for valid CachedOnly with channel", resource.CachedOnly, helpers.ProcessCacheResponseThroughChannel),
-			Entry("test cache RR for valid CachedOnly with callback", resource.CachedOnly, helpers.ProcessCacheResponseThroughCallback),
-			Entry("test cache RR for valid LiveCancelsCached with channel", resource.LiveCancelsCached, helpers.ProcessCacheResponseThroughChannel),
-			Entry("test cache RR for valid LiveCancelsCached  with callback", resource.LiveCancelsCached, helpers.ProcessCacheResponseThroughCallback),
+			Entry("test cache RR for valid CacheRequestStrategyAsAvailable with channel", resource.CacheRequestStrategyAsAvailable, helpers.ProcessCacheResponseThroughChannel),
+			Entry("test cache RR for valid CacheRequestStrategyAsAvailable with callback", resource.CacheRequestStrategyAsAvailable, helpers.ProcessCacheResponseThroughCallback),
+			Entry("test cache RR for valid CacheRequestStrategyCachedFirst with channel", resource.CacheRequestStrategyCachedFirst, helpers.ProcessCacheResponseThroughChannel),
+			Entry("test cache RR for valid CacheRequestStrategyCachedFirst with callback", resource.CacheRequestStrategyCachedFirst, helpers.ProcessCacheResponseThroughCallback),
+			Entry("test cache RR for valid CacheRequestStrategyCachedOnly with channel", resource.CacheRequestStrategyCachedOnly, helpers.ProcessCacheResponseThroughChannel),
+			Entry("test cache RR for valid CacheRequestStrategyCachedOnly with callback", resource.CacheRequestStrategyCachedOnly, helpers.ProcessCacheResponseThroughCallback),
+			Entry("test cache RR for valid CacheRequestStrategyLiveCancelsCached with channel", resource.CacheRequestStrategyLiveCancelsCached, helpers.ProcessCacheResponseThroughChannel),
+			Entry("test cache RR for valid CacheRequestStrategyLiveCancelsCached  with callback", resource.CacheRequestStrategyLiveCancelsCached, helpers.ProcessCacheResponseThroughCallback),
 		)
 		Describe("when the cache tests need a publisher", func() {
 			var messagePublisher solace.DirectMessagePublisher
@@ -1136,7 +1136,7 @@ var _ = Describe("Cache Strategy", func() {
 				cacheRequestID := message.CacheRequestID(1)
 				cacheName := "MaxMsgs10"
 				cacheTopic := fmt.Sprintf("MaxMsgs*/%s/>", testcontext.Cache().Vpn)
-				cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.AsAvailable, cacheName, resource.TopicSubscriptionOf(cacheTopic), 20000, 0, 0)
+				cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.CacheRequestStrategyAsAvailable, cacheName, resource.TopicSubscriptionOf(cacheTopic), 20000, 0, 0)
 				Expect(err).To(BeNil())
 				channel, err := receiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
 				Expect(err).To(BeNil())
@@ -1176,7 +1176,7 @@ var _ = Describe("Cache Strategy", func() {
 				delay := 2000
 				cacheName := fmt.Sprintf("MaxMsgs%d/delay=%d,msgs=%d", numConfiguredCachedMessages, delay, numExpectedLiveMessages)
 				cacheTopic := fmt.Sprintf("MaxMsgs%d/%s/data1", numConfiguredCachedMessages, testcontext.Cache().Vpn)
-				cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.CachedFirst, cacheName, resource.TopicSubscriptionOf(cacheTopic), int32(delay)*2, 10, 5000)
+				cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.CacheRequestStrategyCachedFirst, cacheName, resource.TopicSubscriptionOf(cacheTopic), int32(delay)*2, 10, 5000)
 				outboundMessage, err := messagingService.MessageBuilder().BuildWithStringPayload("this is a direct message")
 				Expect(err).To(BeNil())
 				err = receiver.AddSubscription(resource.TopicSubscriptionOf(directTopic))
@@ -1216,8 +1216,8 @@ var _ = Describe("Cache Strategy", func() {
 					msg = nil
 				}
 				/* NOTE: We expect to get the live data message on the cache topic after the cached messges since we're
-				 * using CachedFirst, but expect to get the live message on the direct topic before the cached messages
-				 * because CachedFirst should not apply to messages not sent on the cacheTopic and the proxy delay
+				 * using CacheRequestStrategyCachedFirst, but expect to get the live message on the direct topic before the cached messages
+				 * because CacheRequestStrategyCachedFirst should not apply to messages not sent on the cacheTopic and the proxy delay
 				 * should prevent the cache instance from receiving the cache request for long enough to receive the
 				 * direct message.
 				 */
@@ -1235,7 +1235,7 @@ var _ = Describe("Cache Strategy", func() {
 					cacheRequestID := message.CacheRequestID(1)
 					cacheName := fmt.Sprintf("MaxMsgs%d", numExpectedCachedMessages)
 					topic := fmt.Sprintf("%s/%s/data1", cacheName, testcontext.Cache().Vpn)
-					cacheRequestConfig := helpers.GetValidCachedFirstCacheRequestConfig(cacheName, topic)
+					cacheRequestConfig := helpers.GetValidCacheRequestStrategyCachedFirstCacheRequestConfig(cacheName, topic)
 					receivedMsgChan := make(chan message.InboundMessage, numExpectedCachedMessages)
 					err := receiver.ReceiveAsync(func(msg message.InboundMessage) {
 						receivedMsgChan <- msg
@@ -1569,7 +1569,7 @@ var _ = Describe("Cache Strategy", func() {
 			Context("a connected messaging service with a built direct message receiver", func() {
 				const cacheName string = "trivial cache name"
 				const topic string = "trivial topic"
-				const strategy resource.CachedMessageSubscriptionStrategy = resource.AsAvailable
+				const strategy resource.CachedMessageSubscriptionStrategy = resource.CacheRequestStrategyAsAvailable
 				const cacheRequestID message.CacheRequestID = 1
 				BeforeEach(func() {
 					logging.SetLogLevel(logging.LogLevelDebug)
@@ -1624,7 +1624,7 @@ var _ = Describe("Cache Strategy", func() {
 				Context("a connected messaging service with a built direct message receiver", func() {
 					const cacheName string = "trivial cache name"
 					const topic string = "trivial topic"
-					const strategy resource.CachedMessageSubscriptionStrategy = resource.AsAvailable
+					const strategy resource.CachedMessageSubscriptionStrategy = resource.CacheRequestStrategyAsAvailable
 					const cacheRequestID message.CacheRequestID = 1
 					BeforeEach(func() {
 						logging.SetLogLevel(logging.LogLevelDebug)
@@ -1753,19 +1753,19 @@ var _ = Describe("Cache Strategy", func() {
 							totalMessagesReceived := 0
 							numExpectedReceivedMessages := 0
 							switch strategy {
-							case resource.AsAvailable:
-								strategyString = "AsAvailable"
+							case resource.CacheRequestStrategyAsAvailable:
+								strategyString = "CacheRequestStrategyAsAvailable"
 								numExpectedReceivedMessages += numExpectedCachedMessages
 								numExpectedReceivedMessages += numExpectedLiveMessages
-							case resource.LiveCancelsCached:
-								strategyString = "LiveCancelsCached"
+							case resource.CacheRequestStrategyLiveCancelsCached:
+								strategyString = "CacheRequestStrategyLiveCancelsCached"
 								numExpectedReceivedMessages += numExpectedLiveMessages
-							case resource.CachedFirst:
-								strategyString = "CachedFirst"
+							case resource.CacheRequestStrategyCachedFirst:
+								strategyString = "CacheRequestStrategyCachedFirst"
 								numExpectedReceivedMessages += numExpectedCachedMessages
 								numExpectedReceivedMessages += numExpectedLiveMessages
-							case resource.CachedOnly:
-								strategyString = "CachedOnly"
+							case resource.CacheRequestStrategyCachedOnly:
+								strategyString = "CacheRequestStrategyCachedOnly"
 								numExpectedReceivedMessages += numExpectedCachedMessages
 							}
 							var cacheResponseProcessStrategyString string
@@ -1840,14 +1840,14 @@ var _ = Describe("Cache Strategy", func() {
 							Expect(messagingService.Metrics().GetValue(metrics.DirectMessagesSent)).To(BeNumerically("==", numExpectedSentDirectMessages), fmt.Sprintf("DirectMessagesSent for %s was wrong", strategyString))
 							Expect(totalMessagesReceived).To(BeNumerically("==", numExpectedReceivedMessages))
 						},
-						Entry("test cache RR for valid AsAvailable with channel", resource.AsAvailable, helpers.ProcessCacheResponseThroughChannel),
-						Entry("test cache RR for valid AsAvailable with callback", resource.AsAvailable, helpers.ProcessCacheResponseThroughCallback),
-						Entry("test cache RR for valid CachedFirst with channel", resource.CachedFirst, helpers.ProcessCacheResponseThroughChannel),
-						Entry("test cache RR for valid CachedFirst with callback", resource.CachedFirst, helpers.ProcessCacheResponseThroughCallback),
-						Entry("test cache RR for valid CachedOnly with channel", resource.CachedOnly, helpers.ProcessCacheResponseThroughChannel),
-						Entry("test cache RR for valid CachedOnly with callback", resource.CachedOnly, helpers.ProcessCacheResponseThroughCallback),
-						Entry("test cache RR for valid LiveCancelsCached with channel", resource.LiveCancelsCached, helpers.ProcessCacheResponseThroughChannel),
-						Entry("test cache RR for valid LivCancelsCached  with callback", resource.LiveCancelsCached, helpers.ProcessCacheResponseThroughCallback),
+						Entry("test cache RR for valid CacheRequestStrategyAsAvailable with channel", resource.CacheRequestStrategyAsAvailable, helpers.ProcessCacheResponseThroughChannel),
+						Entry("test cache RR for valid CacheRequestStrategyAsAvailable with callback", resource.CacheRequestStrategyAsAvailable, helpers.ProcessCacheResponseThroughCallback),
+						Entry("test cache RR for valid CacheRequestStrategyCachedFirst with channel", resource.CacheRequestStrategyCachedFirst, helpers.ProcessCacheResponseThroughChannel),
+						Entry("test cache RR for valid CacheRequestStrategyCachedFirst with callback", resource.CacheRequestStrategyCachedFirst, helpers.ProcessCacheResponseThroughCallback),
+						Entry("test cache RR for valid CacheRequestStrategyCachedOnly with channel", resource.CacheRequestStrategyCachedOnly, helpers.ProcessCacheResponseThroughChannel),
+						Entry("test cache RR for valid CacheRequestStrategyCachedOnly with callback", resource.CacheRequestStrategyCachedOnly, helpers.ProcessCacheResponseThroughCallback),
+						Entry("test cache RR for valid CacheRequestStrategyLiveCancelsCached with channel", resource.CacheRequestStrategyLiveCancelsCached, helpers.ProcessCacheResponseThroughChannel),
+						Entry("test cache RR for valid LivCancelsCached  with callback", resource.CacheRequestStrategyLiveCancelsCached, helpers.ProcessCacheResponseThroughCallback),
 					)
 				})
 			}
@@ -1932,19 +1932,19 @@ var _ = Describe("Cache Strategy", func() {
 							totalMessagesReceived := 0
 							numExpectedReceivedMessages := 0
 							switch strategy {
-							case resource.AsAvailable:
-								strategyString = "AsAvailable"
+							case resource.CacheRequestStrategyAsAvailable:
+								strategyString = "CacheRequestStrategyAsAvailable"
 								numExpectedReceivedMessages += numExpectedCachedMessages
 								numExpectedReceivedMessages += numExpectedLiveMessages
-							case resource.LiveCancelsCached:
-								strategyString = "LiveCancelsCached"
+							case resource.CacheRequestStrategyLiveCancelsCached:
+								strategyString = "CacheRequestStrategyLiveCancelsCached"
 								numExpectedReceivedMessages += numExpectedLiveMessages
-							case resource.CachedFirst:
-								strategyString = "CachedFirst"
+							case resource.CacheRequestStrategyCachedFirst:
+								strategyString = "CacheRequestStrategyCachedFirst"
 								numExpectedReceivedMessages += numExpectedCachedMessages
 								numExpectedReceivedMessages += numExpectedLiveMessages
-							case resource.CachedOnly:
-								strategyString = "CachedOnly"
+							case resource.CacheRequestStrategyCachedOnly:
+								strategyString = "CacheRequestStrategyCachedOnly"
 								numExpectedReceivedMessages += numExpectedCachedMessages
 							}
 							numExpectedSentDirectMessages := numSentCacheRequests
@@ -2016,10 +2016,10 @@ var _ = Describe("Cache Strategy", func() {
 						 * the application with the opportunity to block during termination, making the
 						 * `RequestCachedAsyncWithCallback()` interface relevant to this test.
 						 */
-						Entry("test cache RR for valid AsAvailable with callback", resource.AsAvailable),
-						Entry("test cache RR for valid CachedFirst with callback", resource.CachedFirst),
-						Entry("test cache RR for valid CachedOnly with callback", resource.CachedOnly),
-						Entry("test cache RR for valid LivCancelsCached  with callback", resource.LiveCancelsCached),
+						Entry("test cache RR for valid CacheRequestStrategyAsAvailable with callback", resource.CacheRequestStrategyAsAvailable),
+						Entry("test cache RR for valid CacheRequestStrategyCachedFirst with callback", resource.CacheRequestStrategyCachedFirst),
+						Entry("test cache RR for valid CacheRequestStrategyCachedOnly with callback", resource.CacheRequestStrategyCachedOnly),
+						Entry("test cache RR for valid LivCancelsCached  with callback", resource.CacheRequestStrategyLiveCancelsCached),
 					)
 				})
 			}
