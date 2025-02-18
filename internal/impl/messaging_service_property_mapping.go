@@ -93,8 +93,6 @@ var servicePropertyToCCSMPMap = map[config.ServiceProperty]property{
 	config.TransportLayerSecurityPropertyCipherSuites:           {ccsmp.SolClientSessionPropSslCipherSuites, defaultConverter},
 	config.TransportLayerSecurityPropertyTrustStorePath:         {ccsmp.SolClientSessionPropSslTrustStoreDir, defaultConverter},
 	config.TransportLayerSecurityPropertyTrustedCommonNameList:  {ccsmp.SolClientSessionPropSslTrustedCommonNameList, defaultConverter},
-	config.TransportLayerSecurityPropertyMinimumProtocol:        {ccsmp.SolClientSessionPropMinimumTlsProtocolVersion, defaultConverter},
-	config.TransportLayerSecurityPropertyMaximumProtocol:        {ccsmp.SolClientSessionPropMaximumTlsProtocolVersion, defaultConverter},
 }
 
 // propertyConverter is used to convert the interface{} stored in a map to a string used by CCSMP
