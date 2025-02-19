@@ -141,20 +141,20 @@ func InitAllCacheClustersWithMessages() {
 	}
 }
 
-func GetValidAsAvailableCacheRequestConfig(cacheName string, topic string) resource.CachedMessageSubscriptionRequest {
-	return GetValidCacheRequestConfig(resource.AsAvailable, cacheName, topic)
+func GetValidCacheRequestStrategyAsAvailableCacheRequestConfig(cacheName string, topic string) resource.CachedMessageSubscriptionRequest {
+	return GetValidCacheRequestConfig(resource.CacheRequestStrategyAsAvailable, cacheName, topic)
 }
 
-func GetValidCachedOnlyCacheRequestConfig(cacheName string, topic string) resource.CachedMessageSubscriptionRequest {
-	return GetValidCacheRequestConfig(resource.CachedOnly, cacheName, topic)
+func GetValidCacheRequestStrategyCachedOnlyCacheRequestConfig(cacheName string, topic string) resource.CachedMessageSubscriptionRequest {
+	return GetValidCacheRequestConfig(resource.CacheRequestStrategyCachedOnly, cacheName, topic)
 }
 
-func GetValidLiveCancelsCachedRequestConfig(cacheName string, topic string) resource.CachedMessageSubscriptionRequest {
-	return GetValidCacheRequestConfig(resource.LiveCancelsCached, cacheName, topic)
+func GetValidCacheRequestStrategyLiveCancelsCachedRequestConfig(cacheName string, topic string) resource.CachedMessageSubscriptionRequest {
+	return GetValidCacheRequestConfig(resource.CacheRequestStrategyLiveCancelsCached, cacheName, topic)
 }
 
-func GetValidCachedFirstCacheRequestConfig(cacheName string, topic string) resource.CachedMessageSubscriptionRequest {
-	return GetValidCacheRequestConfig(resource.CachedFirst, cacheName, topic)
+func GetValidCacheRequestStrategyCachedFirstCacheRequestConfig(cacheName string, topic string) resource.CachedMessageSubscriptionRequest {
+	return GetValidCacheRequestConfig(resource.CacheRequestStrategyCachedFirst, cacheName, topic)
 }
 
 func GetValidCacheRequestConfig(strategy resource.CachedMessageSubscriptionStrategy, cacheName string, topic string) resource.CachedMessageSubscriptionRequest {
