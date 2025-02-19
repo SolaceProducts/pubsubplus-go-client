@@ -85,14 +85,7 @@ func FromDefine(inputFile, outputFile, enumPrefix, variablePrefix, header, foote
 			valueString = fmt.Sprintf("\"%s\"", value)
 		}
 		comment := strings.ReplaceAll(string(row[3]), "\n", "")
-
-		var line string
-		if strings.Contains(name, "Tls") {
-			ignore := "//lint:ignore ST1003 staticcheck would want TLS to be all caps."
-			line = fmt.Sprintf("	// %s: %s\n	%s\n	%s = %s\n", name, comment, ignore, name, valueString)
-		} else {
-			line = fmt.Sprintf("	// %s: %s\n	%s = %s\n", name, comment, name, valueString)
-		}
+		line := fmt.Sprintf("	// %s: %s\n	%s = %s\n", name, comment, name, valueString)
 		generatedCode.WriteString(line)
 	}
 	generatedCode.WriteString(footer)

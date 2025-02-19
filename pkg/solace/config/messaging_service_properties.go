@@ -271,19 +271,9 @@ const (
 	// the host used to connect.
 	TransportLayerSecurityPropertyCertValidateServername ServiceProperty = "solace.messaging.tls.cert-validate-servername"
 
-	// TransportLayerSecurityPropertyExcludedProtocols is deprecated, use TransportLayerSecurityPropertyMinimumProtocol and
-	// TransportLayerSecurityPropertyMaximumProtocol instead.
+	// TransportLayerSecurityPropertyExcludedProtocols is a comma-separated list specifying SSL protocols to exclude.
+	// Valid protocols are 'SSLv3', 'TLSv1', 'TLSv1.1' and 'TLSv1.2'
 	TransportLayerSecurityPropertyExcludedProtocols ServiceProperty = "solace.messaging.tls.excluded-protocols"
-
-	// TransportLayerSecurityPropertyMinimumProtocol is the oldest TLS protocol version accepted.
-	// Valid protocols are 'SSLv3', 'TLSv1', 'TLSv1.1', 'TLSv1.2', and 'TLSv1.3'
-	// Defaults to 'TLSv1.2'.
-	TransportLayerSecurityPropertyMinimumProtocol ServiceProperty = "solace.messaging.tls.minimum-protocol"
-
-	// TransportLayerSecurityPropertyMaximumProtocol is the newest TLS protocol version accepted.
-	// Valid protocols are 'SSLv3', 'TLSv1', 'TLSv1.1', 'TLSv1.2', and 'TLSv1.3'
-	// Defaults to empty, meaning highest supported version.
-	TransportLayerSecurityPropertyMaximumProtocol ServiceProperty = "solace.messaging.tls.maximum-protocol"
 
 	// TransportLayerSecurityPropertyProtocolDowngradeTo specifies a transport protocol that the SSL connection is  downgraded to after
 	// client authentication. Allowed transport protocol is 'PLAIN_TEXT'.
