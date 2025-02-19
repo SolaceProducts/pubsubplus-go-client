@@ -575,7 +575,7 @@ var _ = Describe("Cache Strategy", func() {
 			numExpectedCachedMessages := 3
 			cacheName := fmt.Sprintf("MaxMsgs%d/delay=5000", numExpectedCachedMessages)
 			topic := fmt.Sprintf("MaxMsgs%d/%s/data1", numExpectedCachedMessages, testcontext.Cache().Vpn)
-			cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.LiveCancelsCached, cacheName, resource.TopicSubscriptionOf(topic), int32(7000), int32(0), int32(0))
+			cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.CacheRequestStrategyLiveCancelsCached, cacheName, resource.TopicSubscriptionOf(topic), int32(7000), int32(0), int32(0))
 			receivedMsgChan := make(chan message.InboundMessage, numExpectedCachedMessages)
 			receiver.ReceiveAsync(func(msg message.InboundMessage) {
 				receivedMsgChan <- msg
@@ -586,7 +586,7 @@ var _ = Describe("Cache Strategy", func() {
 			cacheName = fmt.Sprintf("MaxMsgs%d", numExpectedCachedMessages)
 
 			/* NOTE: Subsequent LiveCancelsCached fails. */
-			cacheRequestConfig = helpers.GetValidLiveCancelsCachedRequestConfig(cacheName, topic)
+			cacheRequestConfig = helpers.GetValidCacheRequestStrategyLiveCancelsCachedRequestConfig(cacheName, topic)
 			secondCacheRequestID := message.CacheRequestID(2)
 			secondChannel, err := receiver.RequestCachedAsync(cacheRequestConfig, secondCacheRequestID)
 			Expect(err).To(BeAssignableToTypeOf(&solace.NativeError{}))
@@ -594,7 +594,7 @@ var _ = Describe("Cache Strategy", func() {
 			Expect(secondChannel).To(BeNil())
 
 			/* NOTE: Subsequent AsAvailable fails. */
-			cacheRequestConfig = helpers.GetValidAsAvailableCacheRequestConfig(cacheName, topic)
+			cacheRequestConfig = helpers.GetValidCacheRequestStrategyAsAvailableCacheRequestConfig(cacheName, topic)
 			secondCacheRequestID = message.CacheRequestID(3)
 			secondChannel, err = receiver.RequestCachedAsync(cacheRequestConfig, secondCacheRequestID)
 			Expect(err).To(BeAssignableToTypeOf(&solace.NativeError{}))
@@ -602,7 +602,7 @@ var _ = Describe("Cache Strategy", func() {
 			Expect(secondChannel).To(BeNil())
 
 			/* NOTE: Subsequent CachedFirst fails. */
-			cacheRequestConfig = helpers.GetValidCachedFirstCacheRequestConfig(cacheName, topic)
+			cacheRequestConfig = helpers.GetValidCacheRequestStrategyCachedFirstCacheRequestConfig(cacheName, topic)
 			secondCacheRequestID = message.CacheRequestID(4)
 			secondChannel, err = receiver.RequestCachedAsync(cacheRequestConfig, secondCacheRequestID)
 			Expect(err).To(BeAssignableToTypeOf(&solace.NativeError{}))
@@ -610,7 +610,7 @@ var _ = Describe("Cache Strategy", func() {
 			Expect(secondChannel).To(BeNil())
 
 			/* NOTE: Subsequent CachedOnly fails. */
-			cacheRequestConfig = helpers.GetValidCachedOnlyCacheRequestConfig(cacheName, topic)
+			cacheRequestConfig = helpers.GetValidCacheRequestStrategyCachedOnlyCacheRequestConfig(cacheName, topic)
 			secondCacheRequestID = message.CacheRequestID(5)
 			secondChannel, err = receiver.RequestCachedAsync(cacheRequestConfig, secondCacheRequestID)
 			Expect(err).To(BeAssignableToTypeOf(&solace.NativeError{}))
