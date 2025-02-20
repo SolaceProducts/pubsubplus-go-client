@@ -312,9 +312,9 @@ var _ = Describe("Cache Strategy", func() {
 			receiver.ReceiveAsync(func(msg message.InboundMessage) {
 				receivedMsgChan <- msg
 			})
-			channel, err := receiver.RequestCachedAsync(cacheRequestConfig, firstCacheRequestID)
+			firstChannel, err := receiver.RequestCachedAsync(cacheRequestConfig, firstCacheRequestID)
 			Expect(err).To(BeNil())
-			Expect(channel).ToNot(BeNil())
+			Expect(firstChannel).ToNot(BeNil())
 			cacheName = fmt.Sprintf("MaxMsgs%d", numExpectedCachedMessages)
 
 			Eventually(func() uint64 { return messagingService.Metrics().GetValue(metrics.CacheRequestsSent) }).Should(BeNumerically("==", 1))
@@ -334,11 +334,11 @@ var _ = Describe("Cache Strategy", func() {
 
 			/* NOTE: Subsequent CachedFirst fails. */
 			cacheRequestConfig = helpers.GetValidCachedFirstCacheRequestConfig(cacheName, topic)
-			secondCacheRequestID = message.CacheRequestID(3)
-			secondChannel, err = receiver.RequestCachedAsync(cacheRequestConfig, secondCacheRequestID)
+            thirdCacheRequestID := message.CacheRequestID(3)
+            thirdChannel, err := receiver.RequestCachedAsync(cacheRequestConfig, thirdCacheRequestID)
 			Expect(err).To(BeAssignableToTypeOf(&solace.NativeError{}))
 			helpers.ValidateNativeError(err, subcode.CacheAlreadyInProgress)
-			Expect(secondChannel).To(BeNil())
+			Expect(thirdChannel).To(BeNil())
 			Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSent)).To(BeNumerically("==", 1))
 			Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSucceeded)).To(BeNumerically("==", 0))
 			Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsFailed)).To(BeNumerically("==", 0))
@@ -348,11 +348,11 @@ var _ = Describe("Cache Strategy", func() {
 
 			/* NOTE: Subsequent CachedOnly succeeds. */
 			cacheRequestConfig = helpers.GetValidCachedOnlyCacheRequestConfig(cacheName, topic)
-			secondCacheRequestID = message.CacheRequestID(4)
-			secondChannel, err = receiver.RequestCachedAsync(cacheRequestConfig, secondCacheRequestID)
+            fourthCacheRequestID := message.CacheRequestID(4)
+            fourthChannel, err := receiver.RequestCachedAsync(cacheRequestConfig, fourthCacheRequestID)
 			Expect(err).To(BeNil())
-			Expect(secondChannel).ToNot(BeNil())
-			Eventually(secondChannel, "10s").Should(Receive(&cacheResponse1))
+			Expect(fourthChannel).ToNot(BeNil())
+			Eventually(fourthChannel, "10s").Should(Receive(&cacheResponse1))
 			Expect(cacheResponse1).ToNot(BeNil())
 			/* EBP-25: Assert cache request ID matches cache response ID. */
 			/* EBP-26: Assert CacheRequestOutcome Ok. */
@@ -364,7 +364,7 @@ var _ = Describe("Cache Strategy", func() {
 				Expect(msg.GetDestinationName()).To(Equal(topic))
 				id, ok := msg.GetCacheRequestID()
 				Expect(ok).To(BeTrue())
-				Expect(id).To(BeNumerically("==", secondCacheRequestID))
+				Expect(id).To(BeNumerically("==", fourthCacheRequestID))
 				/* EBP-21: Assert that this message is cached. */
 			}
 			Eventually(func() uint64 { return messagingService.Metrics().GetValue(metrics.CacheRequestsSent) }).Should(BeNumerically("==", 2))
@@ -374,11 +374,11 @@ var _ = Describe("Cache Strategy", func() {
 			/* NOTE: Subsequent AsAvailable succeeds. */
 			var cacheResponse2 solace.CacheResponse
 			cacheRequestConfig = helpers.GetValidAsAvailableCacheRequestConfig(cacheName, topic)
-			secondCacheRequestID = message.CacheRequestID(5)
-			secondChannel, err = receiver.RequestCachedAsync(cacheRequestConfig, secondCacheRequestID)
+            fifthCacheRequestID := message.CacheRequestID(5)
+            fifthChannel, err := receiver.RequestCachedAsync(cacheRequestConfig, fifthCacheRequestID)
 			Expect(err).To(BeNil())
-			Expect(secondChannel).ToNot(BeNil())
-			Eventually(secondChannel, "10s").Should(Receive(&cacheResponse2))
+			Expect(fifthChannel).ToNot(BeNil())
+			Eventually(fifthChannel, "10s").Should(Receive(&cacheResponse2))
 			Expect(cacheResponse2).ToNot(BeNil())
 			/* EBP-25: Assert cache request ID matches cache response ID. */
 			/* EBP-26: Assert CacheRequestOutcome Ok. */
@@ -390,7 +390,7 @@ var _ = Describe("Cache Strategy", func() {
 				Expect(msg.GetDestinationName()).To(Equal(topic))
 				id, ok := msg.GetCacheRequestID()
 				Expect(ok).To(BeTrue())
-				Expect(id).To(BeNumerically("==", secondCacheRequestID))
+				Expect(id).To(BeNumerically("==", fifthCacheRequestID))
 				/* EBP-21: Assert that this message is cached. */
 			}
 			Eventually(func() uint64 { return messagingService.Metrics().GetValue(metrics.CacheRequestsSent) }).Should(BeNumerically("==", 3))
@@ -399,7 +399,7 @@ var _ = Describe("Cache Strategy", func() {
 
 			/* NOTE: First AsAvailable cache request should succeed. */
 			var cacheResponse3 solace.CacheResponse
-			Eventually(channel, "10s").Should(Receive(&cacheResponse3))
+			Eventually(firstChannel, "10s").Should(Receive(&cacheResponse3))
 			Expect(cacheResponse3).ToNot(BeNil())
 			/* EBP-25: Assert cache request ID matches cache response ID. */
 			/* EBP-26: Assert CacheRequestOutcome Ok. */
