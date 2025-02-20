@@ -73,7 +73,7 @@ var _ = Describe("Cache Strategy", func() {
 			Expect(err).To(BeNil())
 			err = messagingService.Connect()
 			Expect(err).To(BeNil())
-			receiver, err = messagingService.CreateDirectMessageReceiverBuilder().Build()
+			receiver, err = messagingService.CreateDirectMessageReceiverBuilder().OnBackPressureDropOldest(100100).Build()
 			Expect(err).To(BeNil())
 			err = receiver.Start()
 			Expect(err).To(BeNil())
@@ -558,12 +558,14 @@ var _ = Describe("Cache Strategy", func() {
 			/* NOTE: Check the live messages second. */
 			for i := 0; i < numExpectedLiveMessages; i++ {
 				var msg message.InboundMessage
-				Eventually(receivedMsgChan).Should(Receive(&msg), fmt.Sprintf("Timed out waiting to receive message %d of %d", i, numExpectedLiveMessages))
+				Eventually(receivedMsgChan).Should(Receive(&msg), fmt.Sprintf("Timed out waiting to receive message %d of %d with %d messages dropped from back pressure", i, numExpectedLiveMessages, messagingService.Metrics().GetValue(metrics.ReceivedMessagesBackpressureDiscarded)))
 				Expect(msg).ToNot(BeNil())
 				Expect(msg.GetDestinationName()).To(Equal(topic))
 				id, ok := msg.GetCacheRequestID()
 				Expect(ok).To(BeFalse())
 				Expect(id).To(BeNumerically("==", 0))
+				Expect(msg.GetMessageDiscardNotification().HasBrokerDiscardIndication()).To(BeFalse())
+				Expect(msg.GetMessageDiscardNotification().HasInternalDiscardIndication()).To(BeFalse())
 				/* EBP-21: Assert that this is a live message */
 			}
 		},
