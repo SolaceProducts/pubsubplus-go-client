@@ -303,7 +303,7 @@ var _ = Describe("Cache Strategy", func() {
 			numExpectedCachedMessages := 3
 			cacheName := fmt.Sprintf("MaxMsgs%d/delay=10000", numExpectedCachedMessages)
 			topic := fmt.Sprintf("MaxMsgs%d/%s/data1", numExpectedCachedMessages, testcontext.Cache().Vpn)
-			cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.AsAvailable, cacheName, resource.TopicSubscriptionOf(topic), int32(12000), int32(0), int32(0))
+			cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.CacheRequestStrategyAsAvailable, cacheName, resource.TopicSubscriptionOf(topic), int32(12000), int32(0), int32(0))
 			/* NOTE: We expect the first AsAvailable, second AsAvailable, and CachedOnly requests to succeed, so our
 			 * application buffer may contain as many as 3 times the number of cached messages expected from a single
 			 * cache request to MaxMsgs3 before we are able to clear it.
@@ -322,7 +322,7 @@ var _ = Describe("Cache Strategy", func() {
 			Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsFailed)).To(BeNumerically("==", 0))
 
 			/* NOTE: Subsequent LiveCancelsCached fails. */
-			cacheRequestConfig = helpers.GetValidLiveCancelsCachedRequestConfig(cacheName, topic)
+			cacheRequestConfig = helpers.GetValidCacheRequestStrategyLiveCancelsCachedRequestConfig(cacheName, topic)
 			secondCacheRequestID := message.CacheRequestID(2)
 			secondChannel, err := receiver.RequestCachedAsync(cacheRequestConfig, secondCacheRequestID)
 			Expect(err).To(BeAssignableToTypeOf(&solace.NativeError{}))
@@ -333,7 +333,7 @@ var _ = Describe("Cache Strategy", func() {
 			Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsFailed)).To(BeNumerically("==", 0))
 
 			/* NOTE: Subsequent CachedFirst fails. */
-			cacheRequestConfig = helpers.GetValidCachedFirstCacheRequestConfig(cacheName, topic)
+			cacheRequestConfig = helpers.GetValidCacheRequestStrategyCachedFirstCacheRequestConfig(cacheName, topic)
             thirdCacheRequestID := message.CacheRequestID(3)
             thirdChannel, err := receiver.RequestCachedAsync(cacheRequestConfig, thirdCacheRequestID)
 			Expect(err).To(BeAssignableToTypeOf(&solace.NativeError{}))
@@ -347,7 +347,7 @@ var _ = Describe("Cache Strategy", func() {
 			cacheName = fmt.Sprintf("MaxMsgs%d", numExpectedCachedMessages)
 
 			/* NOTE: Subsequent CachedOnly succeeds. */
-			cacheRequestConfig = helpers.GetValidCachedOnlyCacheRequestConfig(cacheName, topic)
+			cacheRequestConfig = helpers.GetValidCacheRequestStrategyCachedOnlyCacheRequestConfig(cacheName, topic)
             fourthCacheRequestID := message.CacheRequestID(4)
             fourthChannel, err := receiver.RequestCachedAsync(cacheRequestConfig, fourthCacheRequestID)
 			Expect(err).To(BeNil())
@@ -373,7 +373,7 @@ var _ = Describe("Cache Strategy", func() {
 
 			/* NOTE: Subsequent AsAvailable succeeds. */
 			var cacheResponse2 solace.CacheResponse
-			cacheRequestConfig = helpers.GetValidAsAvailableCacheRequestConfig(cacheName, topic)
+			cacheRequestConfig = helpers.GetValidCacheRequestStrategyAsAvailableCacheRequestConfig(cacheName, topic)
             fifthCacheRequestID := message.CacheRequestID(5)
             fifthChannel, err := receiver.RequestCachedAsync(cacheRequestConfig, fifthCacheRequestID)
 			Expect(err).To(BeNil())
