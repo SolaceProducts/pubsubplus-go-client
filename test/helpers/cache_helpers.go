@@ -70,7 +70,7 @@ func SendMsgsToTopic(topic string, numMessages int) {
 	}()
 	err = receiver.Start()
 	Expect(err).To(BeNil())
-	publisher, err := messagingService.CreateDirectMessagePublisherBuilder().OnBackPressureReject(0).Build()
+	publisher, err := messagingService.CreateDirectMessagePublisherBuilder().Build()
 	Expect(err).To(BeNil())
 	defer func() {
 		err := publisher.Terminate(0)
