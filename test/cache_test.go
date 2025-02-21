@@ -1157,6 +1157,160 @@ var _ = Describe("Cache Strategy", func() {
 					deferredOperation()
 				}
 			})
+			DescribeTable("Unsubscribe after cache request works", func(cacheRequestStrategy resource.CachedMessageSubscriptionStrategy) {
+				numExpectedCachedMessages := 3
+				cacheRequestID := message.CacheRequestID(1)
+				sanityReceiver, err := messagingService.CreateDirectMessageReceiverBuilder().Build()
+				Expect(err).To(BeNil())
+				Expect(sanityReceiver).ToNot(BeNil())
+				err = sanityReceiver.Start()
+				Expect(err).To(BeNil())
+				numExpectedCacheReceiverMsgs := 10
+				cacheReceiverMsgChan := make(chan message.InboundMessage, numExpectedCacheReceiverMsgs)
+				err = receiver.ReceiveAsync(func(msg message.InboundMessage) {
+					cacheReceiverMsgChan <- msg
+				})
+				Expect(err).To(BeNil())
+				numExpectedSanityReceiverMsgs := 10
+				sanityReceiverMsgChan := make(chan message.InboundMessage, numExpectedSanityReceiverMsgs)
+				err = sanityReceiver.ReceiveAsync(func(msg message.InboundMessage) {
+					sanityReceiverMsgChan <- msg
+				})
+				Expect(err).To(BeNil())
+				cacheTopic := fmt.Sprintf("MaxMsgs%d/%s/data1", numExpectedCachedMessages, testcontext.Cache().Vpn)
+				outboundMessage, err := messagingService.MessageBuilder().BuildWithStringPayload("test message")
+				Expect(err).To(BeNil())
+				Expect(outboundMessage).ToNot(BeNil())
+
+				err = receiver.AddSubscription(resource.TopicSubscriptionOf(cacheTopic))
+				Expect(err).To(BeNil())
+
+				numExpectedLiveMessages := 5
+				var publishLiveMessagesOnCacheTopic = func() {
+					for i := 0; i < numExpectedLiveMessages; i++ {
+						err = messagePublisher.Publish(outboundMessage, resource.TopicOf(cacheTopic))
+						Expect(err).To(BeNil())
+					}
+				}
+				var waitOnLiveMessages = func(msgChan chan message.InboundMessage) {
+					for i := 0; i < numExpectedLiveMessages; i++ {
+						var msg message.InboundMessage
+						Eventually(msgChan).Should(Receive(&msg))
+						Expect(msg).ToNot(BeNil())
+						Expect(msg.GetDestinationName()).To(Equal(cacheTopic))
+						id, ok := msg.GetCacheRequestID()
+						Expect(ok).To(BeFalse())
+						Expect(id).To(BeNumerically("==", 0))
+						/* EBP-21: Assert message is live. */
+					}
+				}
+				var waitOnCachedMessages = func(msgChan chan message.InboundMessage) {
+					for i := 0; i < numExpectedCachedMessages; i++ {
+						var msg message.InboundMessage
+						Eventually(msgChan).Should(Receive(&msg))
+						Expect(msg).ToNot(BeNil())
+						Expect(msg.GetDestinationName()).To(Equal(cacheTopic))
+						id, ok := msg.GetCacheRequestID()
+						Expect(ok).To(BeTrue())
+						Expect(id).To(BeNumerically("==", cacheRequestID))
+						/* EBP-21: Assert message is live. */
+					}
+				}
+
+				publishLiveMessagesOnCacheTopic()
+				waitOnLiveMessages(cacheReceiverMsgChan)
+				Consistently(sanityReceiverMsgChan).ShouldNot(Receive())
+				err = receiver.RemoveSubscription(resource.TopicSubscriptionOf(cacheTopic))
+				Expect(err).To(BeNil())
+
+				err = sanityReceiver.AddSubscription(resource.TopicSubscriptionOf(cacheTopic))
+				Expect(err).To(BeNil())
+
+				publishLiveMessagesOnCacheTopic()
+				waitOnLiveMessages(sanityReceiverMsgChan)
+				Consistently(cacheReceiverMsgChan).ShouldNot(Receive())
+
+				cacheName := fmt.Sprintf("MaxMsgs%d/delay=2000,msgs=%d", numExpectedCachedMessages, numExpectedLiveMessages)
+
+				cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(cacheRequestStrategy, cacheName, resource.TopicSubscriptionOf(cacheTopic), int32(3000), int32(0), int32(0))
+				cacheResponseChan, err := receiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
+				Expect(err).To(BeNil())
+				Expect(cacheResponseChan).ToNot(BeNil())
+				var cacheResponse solace.CacheResponse
+				Eventually(cacheResponseChan, "10s").Should(Receive(&cacheResponse))
+				Expect(cacheResponse).ToNot(BeNil())
+				/* EBP-25: Assert cache response ID matches request ID. */
+				/* EBP-26: Assert CacheRequestOutcomeOk. */
+				/* EBP-28: Assert err is nil. */
+				switch cacheRequestStrategy {
+				case resource.CacheRequestStrategyLiveCancelsCached:
+					waitOnLiveMessages(sanityReceiverMsgChan)
+					waitOnLiveMessages(cacheReceiverMsgChan)
+				case resource.CacheRequestStrategyAsAvailable:
+					waitOnLiveMessages(sanityReceiverMsgChan)
+					waitOnLiveMessages(cacheReceiverMsgChan)
+					waitOnCachedMessages(cacheReceiverMsgChan)
+					waitOnCachedMessages(sanityReceiverMsgChan)
+					/* EBP-23: Enable this test path once message-filtering has been added.
+					case resource.CacheRequestStrategyCachedOnly:
+						waitOnLiveMessages(sanityReceiverMsgChan)
+						waitOnCachedMessages(cacheReceiverMsgChan)
+						waitOnCachedMessages(sanityReceiverMsgChan)
+					*/
+				case resource.CacheRequestStrategyCachedFirst:
+					waitOnCachedMessages(cacheReceiverMsgChan)
+					waitOnLiveMessages(cacheReceiverMsgChan)
+					waitOnCachedMessages(sanityReceiverMsgChan)
+					waitOnLiveMessages(sanityReceiverMsgChan)
+				default:
+					Fail("Got unrecognized cacheRequestStrategy.")
+				}
+				Consistently(cacheReceiverMsgChan).ShouldNot(Receive())
+				Consistently(sanityReceiverMsgChan).ShouldNot(Receive())
+
+				publishLiveMessagesOnCacheTopic()
+				waitOnLiveMessages(sanityReceiverMsgChan)
+				switch cacheRequestStrategy {
+				/* EBP-23: Enable this test path once message-filtering has been added.
+				case resource.CacheRequestStrategyCachedOnly:
+					Consistently(cacheReceiverMsgChan).ShouldNot(Receive())
+				*/
+				case resource.CacheRequestStrategyAsAvailable:
+					fallthrough
+				case resource.CacheRequestStrategyCachedFirst:
+					fallthrough
+				case resource.CacheRequestStrategyLiveCancelsCached:
+					waitOnLiveMessages(cacheReceiverMsgChan)
+				default:
+					Fail("Got unrecognized cacheRequestStrategy.")
+				}
+				err = receiver.AddSubscription(resource.TopicSubscriptionOf(cacheTopic))
+				Expect(err).To(BeNil())
+				publishLiveMessagesOnCacheTopic()
+				waitOnLiveMessages(sanityReceiverMsgChan)
+				waitOnLiveMessages(cacheReceiverMsgChan)
+				/* NOTE: Here we are testing that after the cache request applied a subscription to the receiver and
+				 * the application manually re-applied that subscription we do not get duplicate messages on the cache
+				 * receiver.
+				 */
+				Consistently(cacheReceiverMsgChan).ShouldNot(Receive())
+
+				err = receiver.RemoveSubscription(resource.TopicSubscriptionOf(cacheTopic))
+				Expect(err).To(BeNil())
+				publishLiveMessagesOnCacheTopic()
+				waitOnLiveMessages(sanityReceiverMsgChan)
+				Consistently(cacheReceiverMsgChan).ShouldNot(Receive())
+
+				err = sanityReceiver.Terminate(0)
+				Expect(err).To(BeNil())
+			},
+				Entry("with CacheRequestStrategyLiveCancelsCached", resource.CacheRequestStrategyLiveCancelsCached),
+				Entry("with CacheRequestStrategyAsAvailable", resource.CacheRequestStrategyAsAvailable),
+				/* EBP-23: Enable this test path once message-filtering has been added.
+				Entry("with CacheRequestStrategyCachedOnly", resource.CacheRequestStrategyCachedOnly),
+				*/
+				Entry("with CacheRequestStrategyCachedFirst", resource.CacheRequestStrategyCachedFirst),
+			)
 			It("a cache request requiring multiple responses from the cache instance results in only one cache response", func() {
 				/* NOTE: AFAIK, the response from the cache instance is split every 1Mb, so initializing the
 				 * cluster with messages of size 300k char should be a good number to both exceed the limit of what
