@@ -173,7 +173,7 @@ func (inboundMessage *InboundMessageImpl) GetCacheRequestID() (message.CacheRequ
 
 // GetCacheStatus retrieves the [CacheStatus] of the message, indicating its provenance.
 func (inboundMessage *InboundMessageImpl) GetCacheStatus() message.CacheStatus {
-	var cacheStatus ccsmp.SolClientCacheStatus = ccsmp.SolClientMessageIsCachedMessage(inboundMessage.messagePointer)
+	cacheStatus := ccsmp.SolClientMessageIsCachedMessage(inboundMessage.messagePointer)
 
 	switch cacheStatus {
 	// live messages
