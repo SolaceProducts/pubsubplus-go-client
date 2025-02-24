@@ -177,21 +177,21 @@ func QueueNonDurableExclusiveAnonymous() *Queue {
 type CachedMessageSubscriptionStrategy int
 
 const (
-	// AsAvailable provides a configuration for receiving a concurrent mix of both live and cached messages on the given TopicSubscription.
-	AsAvailable CachedMessageSubscriptionStrategy = iota
+	// CacheRequestStrategyAsAvailable provides a configuration for receiving a concurrent mix of both live and cached messages on the given TopicSubscription.
+	CacheRequestStrategyAsAvailable CachedMessageSubscriptionStrategy = iota
 
-	// LiveCancelsCached provides a configuration for initially passing received cached messages to the application and as soon as live
+	// CacheRequestStrategyLiveCancelsCached provides a configuration for initially passing received cached messages to the application and as soon as live
 	// messages are received, passing those instead and passing no more cached messages.
-	LiveCancelsCached
+	CacheRequestStrategyLiveCancelsCached
 
-	// CachedFirst provides a configuration for passing only cached messages to the application, before passing the received live messages.
+	// CacheRequestStrategyCachedFirst provides a configuration for passing only cached messages to the application, before passing the received live messages.
 	// The live messages passed to the application thereof this configuration can be received as early as when the cache request is sent
 	// by the API, and are enqueued until the cache response is received and its associated cached messages, if available, are passed to
 	// the application.
-	CachedFirst
+	CacheRequestStrategyCachedFirst
 
 	// CachedOnly provides a configuration for passing only cached messages and no live messages to the application.
-	CachedOnly
+	CacheRequestStrategyCachedOnly
 )
 
 // CachedMessageSubscriptionRequest provides an interface through which cache request configurations can be constructed. These
@@ -287,13 +287,13 @@ func NewCachedMessageSubscriptionRequest(cachedMessageSubscriptionStrategy Cache
 	// map the cachedMessageSubscriptionStrategy
 	var cachedMsgSubStrategy *CachedMessageSubscriptionStrategy = nil
 	switch cachedMessageSubscriptionStrategy {
-	case AsAvailable:
+	case CacheRequestStrategyAsAvailable:
 		fallthrough
-	case CachedFirst:
+	case CacheRequestStrategyCachedFirst:
 		fallthrough
-	case CachedOnly:
+	case CacheRequestStrategyCachedOnly:
 		fallthrough
-	case LiveCancelsCached:
+	case CacheRequestStrategyLiveCancelsCached:
 		// these are valid
 		cachedMsgSubStrategy = &cachedMessageSubscriptionStrategy
 	default:
