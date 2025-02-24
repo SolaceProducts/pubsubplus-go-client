@@ -352,7 +352,7 @@ func TestSendCacheRequestIsNotBlocking(t *testing.T) {
 
 	cacheRequestID := message.CacheRequestID(1)
 	cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(
-		resource.AsAvailable,
+		resource.CacheRequestStrategyAsAvailable,
 		"cache name",
 		resource.TopicSubscriptionOf("/some/test/topic"),
 		int32(5000),
@@ -437,7 +437,7 @@ func newMockCacheRequest(cacheRequestConfig resource.CachedMessageSubscriptionRe
 }
 
 func defaultMockCacheRequest() core.CacheRequest {
-	cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.AsAvailable, "cache_name", resource.TopicSubscriptionOf("/some/test/topic"), int32(5000), int32(5000), int32(5000))
+	cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.CacheRequestStrategyAsAvailable, "cache_name", resource.TopicSubscriptionOf("/some/test/topic"), int32(5000), int32(5000), int32(5000))
 	cacheRequestID := defaultCacheRequestID
 	index := defaultCacheRequestMapIndex
 	cacheResponseHandler := &mockCacheResponseProcessor{}
