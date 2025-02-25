@@ -96,6 +96,8 @@ type CacheRequestMapIndex = ccsmp.SolClientCacheSessionPt
 // in response to a cache request concluding.
 type CoreCacheEventInfo = ccsmp.CacheEventInfo
 
+type CoreCacheSession = ccsmp.SolClientCacheSession
+
 // CoreCacheEventCallback is a type alias for the callback that CCSMP will call on the context thread to pass the
 // cache event info corresponding to a cache response to the Go API.
 type CoreCacheEventCallback = ccsmp.SolClientCacheEventCallback
@@ -109,8 +111,8 @@ type CacheRequest interface {
 	// Processor returns the method through which the application decided to handle the cache response that will result
 	// from this cache request.
 	Processor() CacheResponseProcessor
-	// CacheSession returns the [SolClientCacheSession] that was created to service this cache request.
-	CacheSession() ccsmp.SolClientCacheSession
+	// CacheSession returns the [CoreCacheSession] that was created to service this cache request.
+	CacheSession() CoreCacheSession
 	// Index returns the [CacheRequestMapIndex] used to associate this cache request with its processor in the
 	// receiver's internal map.
 	Index() CacheRequestMapIndex
@@ -124,7 +126,7 @@ type CacheRequestImpl struct {
 	index                            CacheRequestMapIndex
 }
 
-func GetCacheSessionFromCacheRequestIndex(cacheRequestMapIndex CacheRequestMapIndex) ccsmp.SolClientCacheSession {
+func GetCacheSessionFromCacheRequestIndex(cacheRequestMapIndex CacheRequestMapIndex) CoreCacheSession {
 	return ccsmp.WrapSolClientCacheSessionPt(ccsmp.SolClientCacheSessionPt(cacheRequestMapIndex))
 }
 
