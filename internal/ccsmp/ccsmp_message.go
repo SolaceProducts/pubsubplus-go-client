@@ -542,7 +542,8 @@ func SolClientMessageGetCacheRequestID(messageP SolClientMessagePt) (uint64, *So
 
 // SolClientMessageIsCachedMessage function
 func SolClientMessageIsCachedMessage(messageP SolClientMessagePt) SolClientCacheStatus {
-	return C.solClient_msg_isCacheMsg(messageP)
+	var cacheMessageStatus C.solClient_cacheStatus_t = C.solClient_msg_isCacheMsg(messageP)
+	return *(*SolClientCacheStatus)(unsafe.Pointer(&cacheMessageStatus))
 }
 
 // Write only properties
