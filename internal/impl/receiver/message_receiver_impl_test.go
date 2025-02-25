@@ -17,6 +17,7 @@
 package receiver
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 	"testing"
@@ -25,8 +26,10 @@ import (
 
 	"solace.dev/go/messaging/internal/ccsmp"
 	"solace.dev/go/messaging/internal/impl/core"
+	"solace.dev/go/messaging/pkg/solace"
 	"solace.dev/go/messaging/pkg/solace/message"
 	"solace.dev/go/messaging/pkg/solace/resource"
+	"solace.dev/go/messaging/pkg/solace/subcode"
 )
 
 func TestMessageReceiverStartStateChecks(t *testing.T) {
@@ -280,6 +283,214 @@ func TestStartWhenInternalReceiverIsNotRunning(t *testing.T) {
 	}
 }
 
+func TestSendCacheRequestIsNotBlocking(t *testing.T) {
+
+	var validateNativeError = func(err error, sc subcode.Code) {
+		var nativeErr *solace.NativeError
+		if err == nil {
+			t.Errorf("Expected to get an error from sending the cache request")
+		}
+		ret := errors.As(err, &nativeErr)
+		if ret != true {
+			t.Errorf("Expected ret to be true")
+		}
+		if !subcode.Is(nativeErr.SubCode(), sc) {
+			t.Errorf("Expected native error to have subcode %d, instead had %d", sc, nativeErr.SubCode())
+		}
+	}
+	wouldBlockSubcodeNum := 1
+	var sendCacheRequestFailsWithSolClientWouldBlockFunc = func(mock *mockInternalReceiver, _ core.CacheRequest, _ core.CoreCacheEventCallback) error {
+		solClientErr := ccsmp.NewInternalSolClientErrorInfoWrapper(ccsmp.SolClientReturnCode(1),
+			/* NOTE: This subcode doesn't make sense, but is used so that we can assert its value
+			 * later in the test. For purposes of clarity, it matches the return code value. The
+			 * return code is what we'd actually like to assert on, but it is not accessible
+			 * through any of the existing solace.errors interfaces.
+			 */
+			ccsmp.SolClientSubCode(wouldBlockSubcodeNum),
+			ccsmp.SolClientResponseCode(0),
+			"This is a generated error info")
+		return core.ToNativeError(solClientErr)
+	}
+	notReadySubcodeNum := 3
+	var sendCacheRequestFailsWithSolClientNotReadyFunc = func(_ *mockInternalReceiver, _ core.CacheRequest, _ core.CoreCacheEventCallback) error {
+		solClientErr := ccsmp.NewInternalSolClientErrorInfoWrapper(ccsmp.SolClientReturnCode(3),
+			/* NOTE: This subcode doesn't make sense, but is used so that we can assert its value
+			 * later in the test. For purposes of clarity, it matches the return code value. The
+			 * return code is what we'd actually like to assert on, but it is not accessible
+			 * through any of the existing solace.errors interfaces.
+			 */
+			ccsmp.SolClientSubCode(notReadySubcodeNum),
+			ccsmp.SolClientResponseCode(0),
+			"This is a generated error info")
+		return core.ToNativeError(solClientErr)
+	}
+	var createCacheRequestFunc = func(mock *mockInternalReceiver, cacheRequestConfig resource.CachedMessageSubscriptionRequest, cacheRequestID message.CacheRequestID, cacheResponseProcessor core.CacheResponseProcessor) (core.CacheRequest, error) {
+		fmt.Printf("\nCreating cache request in test\n")
+		cacheRequest := defaultMockCacheRequest()
+		return cacheRequest, nil
+	}
+	var createCacheReceiver = func(sendCacheRequestFunc func(*mockInternalReceiver, core.CacheRequest, core.CoreCacheEventCallback) error) *directMessageReceiverImpl {
+		receiver := &directMessageReceiverImpl{}
+		receiver.construct(&directMessageReceiverProps{
+			internalReceiver: &mockInternalReceiver{
+				isRunning: func() bool {
+					return true
+				},
+				sendCacheRequestFunc:   sendCacheRequestFunc,
+				createCacheRequestFunc: createCacheRequestFunc,
+			},
+			backpressureStrategy:   strategyDropOldest,
+			backpressureBufferSize: 5,
+		})
+		return receiver
+	}
+	receiver := createCacheReceiver(sendCacheRequestFailsWithSolClientWouldBlockFunc)
+	receiver.Start()
+
+	receiver2 := createCacheReceiver(sendCacheRequestFailsWithSolClientNotReadyFunc)
+	receiver2.Start()
+
+	cacheRequestID := message.CacheRequestID(1)
+	cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(
+		resource.CacheRequestStrategyAsAvailable,
+		"cache name",
+		resource.TopicSubscriptionOf("/some/test/topic"),
+		int32(5000),
+		int32(5000),
+		int32(5000))
+
+	signal := make(chan bool)
+	var requestCachedAsync = func(directReceiver *directMessageReceiverImpl, cacheRequestConfig resource.CachedMessageSubscriptionRequest, cacheRequestID message.CacheRequestID, subcodeAsNum int) {
+
+		channel, err := directReceiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
+		validateNativeError(err, subcode.Code(subcodeAsNum))
+		if channel != nil {
+			t.Errorf("Expected channel for cache request to be nil since the cache request should have failed before being sent.")
+		}
+		signal <- true
+	}
+	var requestCachedAsyncWithCallback = func(directReceiver *directMessageReceiverImpl, cacheRequestConfig resource.CachedMessageSubscriptionRequest, cacheRequestID message.CacheRequestID, subcodeAsNum int) {
+		err := directReceiver.RequestCachedAsyncWithCallback(cacheRequestConfig, cacheRequestID, func(_ solace.CacheResponse) {})
+		validateNativeError(err, subcode.Code(subcodeAsNum))
+		signal <- true
+	}
+	var assertNonBlocking = func() {
+		select {
+		case <-signal:
+		case <-time.After(1 * time.Second):
+			t.Errorf("Expected cache request to fail immediately and not block for at least 1 second.")
+		}
+	}
+	go requestCachedAsync(receiver, cacheRequestConfig, cacheRequestID, wouldBlockSubcodeNum)
+	assertNonBlocking()
+
+	go requestCachedAsyncWithCallback(receiver, cacheRequestConfig, cacheRequestID, wouldBlockSubcodeNum)
+	assertNonBlocking()
+
+	go requestCachedAsync(receiver2, cacheRequestConfig, cacheRequestID, notReadySubcodeNum)
+	assertNonBlocking()
+
+	go requestCachedAsyncWithCallback(receiver2, cacheRequestConfig, cacheRequestID, notReadySubcodeNum)
+	assertNonBlocking()
+}
+
+type mockCacheResponseProcessor struct {
+	handlerFunc          func(solace.CacheResponse)
+	cacheRequestInfoFunc func(*mockCacheResponseProcessor) *core.CacheRequestInfo
+}
+
+func (mock *mockCacheResponseProcessor) GetCallback() func(solace.CacheResponse) {
+	return mock.handlerFunc
+}
+
+func (mock *mockCacheResponseProcessor) ProcessCacheResponse(cacheResponse solace.CacheResponse) {
+	if mock.handlerFunc != nil {
+		mock.handlerFunc(cacheResponse)
+	}
+}
+
+func (mock *mockCacheResponseProcessor) GetCacheRequestInfo() *core.CacheRequestInfo {
+	if mock.cacheRequestInfoFunc != nil {
+		return mock.cacheRequestInfoFunc(mock)
+	}
+	return nil
+}
+
+func newMockCacheRequest(cacheRequestConfig resource.CachedMessageSubscriptionRequest, cacheRequestID message.CacheRequestID, cacheResponseHandler core.CacheResponseProcessor, index core.CacheRequestMapIndex) core.CacheRequest {
+	return mockCacheRequest{
+		requestConfigFunc: func(_ *mockCacheRequest) resource.CachedMessageSubscriptionRequest {
+			return cacheRequestConfig
+		},
+		cacheRequestIDFunc: func(_ *mockCacheRequest) message.CacheRequestID {
+			return cacheRequestID
+		},
+		cacheResponseHandlerFunc: func(_ *mockCacheRequest) core.CacheResponseProcessor {
+			return cacheResponseHandler
+		},
+		cacheSessionFunc: func(_ *mockCacheRequest) core.CoreCacheSession {
+			return core.GetCacheSessionFromCacheRequestIndex(core.CacheRequestMapIndex(index))
+		},
+		indexFunc: func(_ *mockCacheRequest) core.CacheRequestMapIndex {
+			return core.CacheRequestMapIndex(index)
+		},
+	}
+}
+
+func defaultMockCacheRequest() core.CacheRequest {
+	cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.CacheRequestStrategyAsAvailable, "cache_name", resource.TopicSubscriptionOf("/some/test/topic"), int32(5000), int32(5000), int32(5000))
+	cacheRequestID := defaultCacheRequestID
+	index := defaultCacheRequestMapIndex
+	cacheResponseHandler := &mockCacheResponseProcessor{}
+	return newMockCacheRequest(cacheRequestConfig, cacheRequestID, cacheResponseHandler, index)
+}
+
+var defaultCacheRequestMapIndex = core.CacheRequestMapIndex(0)
+var defaultCoreCacheSession = core.GetCacheSessionFromCacheRequestIndex(defaultCacheRequestMapIndex)
+var defaultCacheRequestID = message.CacheRequestID(0)
+
+type mockCacheRequest struct {
+	requestConfigFunc        func(*mockCacheRequest) resource.CachedMessageSubscriptionRequest
+	cacheRequestIDFunc       func(*mockCacheRequest) message.CacheRequestID
+	cacheResponseHandlerFunc func(*mockCacheRequest) core.CacheResponseProcessor
+	cacheSessionFunc         func(*mockCacheRequest) core.CoreCacheSession
+	indexFunc                func(*mockCacheRequest) core.CacheRequestMapIndex
+}
+
+func (mock mockCacheRequest) RequestConfig() resource.CachedMessageSubscriptionRequest {
+	if mock.requestConfigFunc != nil {
+		return mock.requestConfigFunc(&mock)
+	}
+	return nil
+}
+
+func (mock mockCacheRequest) ID() message.CacheRequestID {
+	if mock.cacheRequestIDFunc != nil {
+		return mock.cacheRequestIDFunc(&mock)
+	}
+	return defaultCacheRequestID
+}
+
+func (mock mockCacheRequest) Processor() core.CacheResponseProcessor {
+	if mock.cacheResponseHandlerFunc != nil {
+		return mock.cacheResponseHandlerFunc(&mock)
+	}
+	return &mockCacheResponseProcessor{}
+}
+
+func (mock mockCacheRequest) CacheSession() core.CoreCacheSession {
+	if mock.cacheSessionFunc != nil {
+		return mock.cacheSessionFunc(&mock)
+	}
+	return defaultCoreCacheSession
+}
+
+func (mock mockCacheRequest) Index() core.CacheRequestMapIndex {
+	if mock.indexFunc != nil {
+		return mock.indexFunc(&mock)
+	}
+	return defaultCacheRequestMapIndex
+}
+
 type result struct {
 	proceed bool
 	err     error
@@ -324,6 +535,7 @@ func (mock *mockInternalReceiver) DestroyCacheRequest(cacheRequest core.CacheReq
 }
 
 func (mock *mockInternalReceiver) SendCacheRequest(cacheRequest core.CacheRequest, cacheEventCallback core.CoreCacheEventCallback) error {
+	fmt.Printf("\nSending cache request from test\n")
 	if mock.sendCacheRequestFunc != nil {
 		return mock.sendCacheRequestFunc(mock, cacheRequest, cacheEventCallback)
 	}
