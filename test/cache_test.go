@@ -1397,13 +1397,13 @@ var _ = Describe("Cache Strategy", func() {
 				err = messagePublisher.Publish(outboundMessage, resource.TopicOf(directTopic))
 				Expect(err).To(BeNil())
 				var msg message.InboundMessage
-				// assert that this message is a live message
-				Expect(msg.GetCacheStatus()).To(Equal(message.Live))
 				Eventually(receivedMsgChan).Should(Receive(&msg))
 				Expect(msg).ToNot(BeNil())
 				id, ok := msg.GetCacheRequestID()
 				Expect(ok).To(BeFalse())
 				Expect(id).To(BeNumerically("==", 0))
+				// assert that this message is a live message
+				Expect(msg.GetCacheStatus()).To(Equal(message.Live))
 				Expect(msg.GetDestinationName()).To(Equal(directTopic))
 				Consistently(receivedMsgChan, "500ms").ShouldNot(Receive())
 				msg = nil
@@ -1413,14 +1413,14 @@ var _ = Describe("Cache Strategy", func() {
 				Expect(cacheResponse).ToNot(BeNil())
 				for i := 0; i < numExpectedCachedMessages; i++ {
 					/* EBP-25: Assert that the cache request ID from these received messages matches the cache request ID received in the cache response.*/
-					// assert that these messages are cached messages
-					Expect(msg.GetCacheStatus()).To(Equal(message.Cached))
 					Eventually(receivedMsgChan).Should(Receive(&msg))
 					Expect(msg).ToNot(BeNil())
 					Expect(msg.GetDestinationName()).To(Equal(cacheTopic))
 					id, ok = msg.GetCacheRequestID()
 					Expect(ok).To(BeTrue())
 					Expect(id).To(BeNumerically("==", cacheRequestID))
+					// assert that these messages are cached messages
+					Expect(msg.GetCacheStatus()).To(Equal(message.Cached))
 					msg = nil
 				}
 				/* NOTE: We expect to get the live data message on the cache topic after the cached messges since we're
