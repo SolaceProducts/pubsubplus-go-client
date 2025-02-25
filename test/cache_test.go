@@ -1340,7 +1340,7 @@ var _ = Describe("Cache Strategy", func() {
 						id, ok := msg.GetCacheRequestID()
 						Expect(ok).To(BeFalse())
 						Expect(id).To(BeNumerically("==", 0))
-						/* EBP-21: Assert message is live. */
+						Expect(msg.GetCacheStatus()).To(Equal(message.Live))
 					}
 				}
 				var waitOnCachedMessages = func(msgChan chan message.InboundMessage) {
@@ -1352,7 +1352,7 @@ var _ = Describe("Cache Strategy", func() {
 						id, ok := msg.GetCacheRequestID()
 						Expect(ok).To(BeTrue())
 						Expect(id).To(BeNumerically("==", cacheRequestID))
-						/* EBP-21: Assert message is live. */
+						Expect(msg.GetCacheStatus()).To(Equal(message.Cached))
 					}
 				}
 
