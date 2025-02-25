@@ -196,7 +196,8 @@ var _ = Describe("Cache Strategy", func() {
 			id, ok := msg.GetCacheRequestID()
 			Expect(ok).To(BeTrue())
 			Expect(id).To(BeNumerically("==", cacheRequestID))
-			/* EBP-21: Assert this message is suspect. */
+			// assert this message is suspect
+			Expect(msg.GetCacheStatus()).To(Equal(message.Suspect))
 		})
 		It("a direct receiver should get an error when trying to send an invalid cache request", func() {
 			/* NOTE: This test also asserts that the receiver can terminate after a failed attempt to send a cache
@@ -334,8 +335,8 @@ var _ = Describe("Cache Strategy", func() {
 
 			/* NOTE: Subsequent CachedFirst fails. */
 			cacheRequestConfig = helpers.GetValidCacheRequestStrategyCachedFirstCacheRequestConfig(cacheName, topic)
-            thirdCacheRequestID := message.CacheRequestID(3)
-            thirdChannel, err := receiver.RequestCachedAsync(cacheRequestConfig, thirdCacheRequestID)
+			thirdCacheRequestID := message.CacheRequestID(3)
+			thirdChannel, err := receiver.RequestCachedAsync(cacheRequestConfig, thirdCacheRequestID)
 			Expect(err).To(BeAssignableToTypeOf(&solace.NativeError{}))
 			helpers.ValidateNativeError(err, subcode.CacheAlreadyInProgress)
 			Expect(thirdChannel).To(BeNil())
@@ -348,8 +349,8 @@ var _ = Describe("Cache Strategy", func() {
 
 			/* NOTE: Subsequent CachedOnly succeeds. */
 			cacheRequestConfig = helpers.GetValidCacheRequestStrategyCachedOnlyCacheRequestConfig(cacheName, topic)
-            fourthCacheRequestID := message.CacheRequestID(4)
-            fourthChannel, err := receiver.RequestCachedAsync(cacheRequestConfig, fourthCacheRequestID)
+			fourthCacheRequestID := message.CacheRequestID(4)
+			fourthChannel, err := receiver.RequestCachedAsync(cacheRequestConfig, fourthCacheRequestID)
 			Expect(err).To(BeNil())
 			Expect(fourthChannel).ToNot(BeNil())
 			Eventually(fourthChannel, "10s").Should(Receive(&cacheResponse1))
@@ -365,7 +366,8 @@ var _ = Describe("Cache Strategy", func() {
 				id, ok := msg.GetCacheRequestID()
 				Expect(ok).To(BeTrue())
 				Expect(id).To(BeNumerically("==", fourthCacheRequestID))
-				/* EBP-21: Assert that this message is cached. */
+				// assert that this message is cached
+				Expect(msg.GetCacheStatus()).To(Equal(message.Cached))
 			}
 			Eventually(func() uint64 { return messagingService.Metrics().GetValue(metrics.CacheRequestsSent) }).Should(BeNumerically("==", 2))
 			Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSucceeded)).To(BeNumerically("==", 1))
@@ -374,8 +376,8 @@ var _ = Describe("Cache Strategy", func() {
 			/* NOTE: Subsequent AsAvailable succeeds. */
 			var cacheResponse2 solace.CacheResponse
 			cacheRequestConfig = helpers.GetValidCacheRequestStrategyAsAvailableCacheRequestConfig(cacheName, topic)
-            fifthCacheRequestID := message.CacheRequestID(5)
-            fifthChannel, err := receiver.RequestCachedAsync(cacheRequestConfig, fifthCacheRequestID)
+			fifthCacheRequestID := message.CacheRequestID(5)
+			fifthChannel, err := receiver.RequestCachedAsync(cacheRequestConfig, fifthCacheRequestID)
 			Expect(err).To(BeNil())
 			Expect(fifthChannel).ToNot(BeNil())
 			Eventually(fifthChannel, "10s").Should(Receive(&cacheResponse2))
@@ -391,7 +393,8 @@ var _ = Describe("Cache Strategy", func() {
 				id, ok := msg.GetCacheRequestID()
 				Expect(ok).To(BeTrue())
 				Expect(id).To(BeNumerically("==", fifthCacheRequestID))
-				/* EBP-21: Assert that this message is cached. */
+				// assert that this message is cached
+				Expect(msg.GetCacheStatus()).To(Equal(message.Cached))
 			}
 			Eventually(func() uint64 { return messagingService.Metrics().GetValue(metrics.CacheRequestsSent) }).Should(BeNumerically("==", 3))
 			Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSucceeded)).To(BeNumerically("==", 2))
@@ -413,7 +416,8 @@ var _ = Describe("Cache Strategy", func() {
 				id, ok := msg.GetCacheRequestID()
 				Expect(ok).To(BeTrue())
 				Expect(id).To(BeNumerically("==", firstCacheRequestID))
-				/* EBP-21: Assert that this message is cached. */
+				// assert that this message is cached
+				Expect(msg.GetCacheStatus()).To(Equal(message.Cached))
 			}
 			Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSent)).To(BeNumerically("==", 3))
 			Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSucceeded)).To(BeNumerically("==", 3))
@@ -573,7 +577,8 @@ var _ = Describe("Cache Strategy", func() {
 			id, ok := msg.GetCacheRequestID()
 			Expect(ok).To(BeTrue())
 			Expect(id).To(BeNumerically("==", cacheRequestID))
-			/* EBP-21: Assert this is a cached message. */
+			// assert this is a cached message
+			Expect(msg.GetCacheStatus()).To(Equal(message.Cached))
 			/* NOTE: Because we waited for the cache response, we only need to poll the data message channel
 			 * instantaneously.
 			 */
@@ -613,7 +618,8 @@ var _ = Describe("Cache Strategy", func() {
 			Expect(msg.GetDestinationName()).To(Equal(cacheTopic))
 			id, ok = msg.GetCacheRequestID()
 			Expect(ok).To(BeTrue())
-			/* EBP-21: Assert this is a cached message. */
+			// assert this is a cached message
+			Expect(msg.GetCacheStatus()).To(Equal(message.Cached))
 			/* NOTE: Because we waited for the cache response, we only need to poll the data message channel
 			 * instantaneously.
 			 */
@@ -674,7 +680,8 @@ var _ = Describe("Cache Strategy", func() {
 				id, ok := msg.GetCacheRequestID()
 				Expect(ok).To(BeTrue())
 				Expect(id).To(BeNumerically("==", cacheRequestID))
-				/* EBP-21: Assert that this message is a cached message. */
+				// assert that this message is a cached message
+				Expect(msg.GetCacheStatus()).To(Equal(message.Cached))
 			}
 			/* NOTE: Check the live messages second. */
 			for i := 0; i < numExpectedLiveMessages; i++ {
@@ -687,7 +694,8 @@ var _ = Describe("Cache Strategy", func() {
 				Expect(id).To(BeNumerically("==", 0))
 				Expect(msg.GetMessageDiscardNotification().HasBrokerDiscardIndication()).To(BeFalse())
 				Expect(msg.GetMessageDiscardNotification().HasInternalDiscardIndication()).To(BeFalse())
-				/* EBP-21: Assert that this is a live message */
+				// assert that this is a live message
+				Expect(msg.GetCacheStatus()).To(Equal(message.Live))
 			}
 		},
 			Entry("with channel", helpers.ProcessCacheResponseThroughChannel),
@@ -755,7 +763,8 @@ var _ = Describe("Cache Strategy", func() {
 				id, ok := msg.GetCacheRequestID()
 				Expect(ok).To(BeTrue())
 				Expect(id).To(BeNumerically("==", firstCacheRequestID))
-				/* EBP-21: Assert that this message is cached. */
+				// assert that this message is cached
+				Expect(msg.GetCacheStatus()).To(Equal(message.Cached))
 			}
 		})
 		It("cache request requires messages from multiple clusters, but one cluster is shut down", func() {
@@ -787,7 +796,8 @@ var _ = Describe("Cache Strategy", func() {
 				id, ok := msg.GetCacheRequestID()
 				Expect(ok).To(BeTrue())
 				Expect(id).To(BeNumerically("==", cacheRequestID))
-				/* EBP-21: Assert this is a cached message */
+				// assert this is a cached message
+				Expect(msg.GetCacheStatus()).To(Equal(message.Cached))
 			}
 		})
 		DescribeTable("a cache request should retrieve at most the configured number of maxCachedMessages", func(configuredMaxMessages int32, expectedMessages int, strategy resource.CachedMessageSubscriptionStrategy) {
@@ -819,7 +829,8 @@ var _ = Describe("Cache Strategy", func() {
 				id, ok := msg.GetCacheRequestID()
 				Expect(ok).To(BeTrue())
 				Expect(id).To(BeNumerically("==", cacheRequestID))
-				/* EBP-21: Assert this is a cached message. */
+				// assert this is a cached message
+				Expect(msg.GetCacheStatus()).To(Equal(message.Cached))
 			}
 			/* NOTE: Asserts that the channel is empty, that we did not receive more cached messages than expected.
 			 * We can assume that if we were going to receive more messages they would already be in the channel
@@ -898,7 +909,8 @@ var _ = Describe("Cache Strategy", func() {
 				id, ok := msg.GetCacheRequestID()
 				Expect(ok).To(BeTrue())
 				Expect(id).To(BeNumerically("==", cacheRequestID))
-				/* EBP-21: Assert that this message is a cached message. */
+				// assert that this message is a cached message
+				Expect(msg.GetCacheStatus()).To(Equal(message.Cached))
 			}
 			/* NOTE: Check the live messages second. */
 			for i := 0; i < numExpectedLiveMessages; i++ {
@@ -909,7 +921,8 @@ var _ = Describe("Cache Strategy", func() {
 				id, ok := msg.GetCacheRequestID()
 				Expect(ok).To(BeFalse())
 				Expect(id).To(BeNumerically("==", 0))
-				/* EBP-21: Assert that this is a live message */
+				// assert that this is a live message
+				Expect(msg.GetCacheStatus()).To(Equal(message.Live))
 			}
 		},
 			Entry("with channel", helpers.ProcessCacheResponseThroughChannel),
@@ -999,7 +1012,8 @@ var _ = Describe("Cache Strategy", func() {
 					id, ok := msg.GetCacheRequestID()
 					Expect(ok).To(BeTrue())
 					Expect(id).To(BeNumerically("==", cacheRequestID))
-					/* EBP-21: Assert that this message is a cached message. */
+					// assert that this message is a cached message
+					Expect(msg.GetCacheStatus()).To(Equal(message.Cached))
 				}
 			},
 			Entry("wildcard topic 1 with channel", "MaxMsgs*/%s/data1", helpers.ProcessCacheResponseThroughChannel),
@@ -1134,7 +1148,8 @@ var _ = Describe("Cache Strategy", func() {
 					id, ok := msg.GetCacheRequestID()
 					Expect(ok).To(BeFalse())
 					Expect(id).To(BeNumerically("==", 0))
-					/* EBP-21: Assert that this message is a live message. */
+					// assert that this message is a live message
+					Expect(msg.GetCacheStatus()).To(Equal(message.Live))
 				}
 				var waitForCachedMessages = func() {
 					var msg message.InboundMessage
@@ -1145,7 +1160,8 @@ var _ = Describe("Cache Strategy", func() {
 						id, ok := msg.GetCacheRequestID()
 						Expect(ok).To(BeTrue())
 						Expect(id).To(BeNumerically("==", cacheRequestID))
-						/* EBP-21: Assert that this message is a cached message. */
+						// assert that this message is a cached message
+						Expect(msg.GetCacheStatus()).To(Equal(message.Cached))
 					}
 				}
 				switch cacheResponseProcessStrategy {
@@ -1317,7 +1333,8 @@ var _ = Describe("Cache Strategy", func() {
 					id, ok := msg.GetCacheRequestID()
 					Expect(ok).To(BeFalse())
 					Expect(id).To(BeNumerically("==", 0))
-					/* EBP-21: Assert this is a live message */
+					// assert this is a live message
+					Expect(msg.GetCacheStatus()).To(Equal(message.Live))
 				}
 				err = receiver.RemoveSubscription(resource.TopicSubscriptionOf(publishTopic))
 				Expect(err).To(BeNil())
@@ -1343,7 +1360,8 @@ var _ = Describe("Cache Strategy", func() {
 					id, ok := msg.GetCacheRequestID()
 					Expect(ok).To(BeTrue())
 					Expect(id).To(BeNumerically("==", cacheRequestID))
-					/* EBP-21: Assert this is a cached message. */
+					// assert this is a cached message
+					Expect(msg.GetCacheStatus()).To(Equal(message.Cached))
 				}
 				Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSent)).To(BeNumerically("==", 1))
 				/* NOTE: This metric is incremented by CCSMP, and appears to be incremented for every portion of the
@@ -1379,12 +1397,13 @@ var _ = Describe("Cache Strategy", func() {
 				err = messagePublisher.Publish(outboundMessage, resource.TopicOf(directTopic))
 				Expect(err).To(BeNil())
 				var msg message.InboundMessage
-				/* EBP-21: Assert that this message is a live message */
 				Eventually(receivedMsgChan).Should(Receive(&msg))
 				Expect(msg).ToNot(BeNil())
 				id, ok := msg.GetCacheRequestID()
 				Expect(ok).To(BeFalse())
 				Expect(id).To(BeNumerically("==", 0))
+				// assert that this message is a live message
+				Expect(msg.GetCacheStatus()).To(Equal(message.Live))
 				Expect(msg.GetDestinationName()).To(Equal(directTopic))
 				Consistently(receivedMsgChan, "500ms").ShouldNot(Receive())
 				msg = nil
@@ -1394,13 +1413,14 @@ var _ = Describe("Cache Strategy", func() {
 				Expect(cacheResponse).ToNot(BeNil())
 				for i := 0; i < numExpectedCachedMessages; i++ {
 					/* EBP-25: Assert that the cache request ID from these received messages matches the cache request ID received in the cache response.*/
-					/* EBP-21: Assert that these messages are cached messages.*/
 					Eventually(receivedMsgChan).Should(Receive(&msg))
 					Expect(msg).ToNot(BeNil())
 					Expect(msg.GetDestinationName()).To(Equal(cacheTopic))
 					id, ok = msg.GetCacheRequestID()
 					Expect(ok).To(BeTrue())
 					Expect(id).To(BeNumerically("==", cacheRequestID))
+					// assert that these messages are cached messages
+					Expect(msg.GetCacheStatus()).To(Equal(message.Cached))
 					msg = nil
 				}
 				/* NOTE: We expect to get the live data message on the cache topic after the cached messges since we're
@@ -1415,7 +1435,8 @@ var _ = Describe("Cache Strategy", func() {
 				Expect(ok).To(BeFalse())
 				Expect(id).To(BeNumerically("==", 0))
 				Expect(msg.GetDestinationName()).To(Equal(cacheTopic))
-				/* EBP-21: Assert that this message is a live message. */
+				// assert that this message is a live message
+				Expect(msg.GetCacheStatus()).To(Equal(message.Live))
 			})
 			DescribeTable("with no subscribe flag set the subscription is not sent before sending the cache request",
 				func(cacheResponseProcessStrategy helpers.CacheResponseProcessStrategy) {
@@ -1464,7 +1485,8 @@ var _ = Describe("Cache Strategy", func() {
 						id, ok := msg.GetCacheRequestID()
 						Expect(ok).To(BeTrue())
 						Expect(id).To(BeNumerically("==", cacheRequestID))
-						/* EBP-21: Assert this is a cached message */
+						// assert this is a cached message
+						Expect(msg.GetCacheStatus()).To(Equal(message.Cached))
 					}
 
 					/* NOTE: Check that the subscription persists after the cache request has completed. */
@@ -1475,7 +1497,8 @@ var _ = Describe("Cache Strategy", func() {
 					id, ok := msg.GetCacheRequestID()
 					Expect(ok).To(BeFalse())
 					Expect(id).To(BeNumerically("==", 0))
-					/* EBP-21: Assert this is a live message. */
+					// assert this is a live message
+					Expect(msg.GetCacheStatus()).To(Equal(message.Live))
 
 					err = receiver.RemoveSubscription(resource.TopicSubscriptionOf(topic))
 					Expect(err).To(BeNil())
