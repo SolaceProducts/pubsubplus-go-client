@@ -208,7 +208,7 @@ type CacheRequestor interface {
 	DestroyCacheRequest(CacheRequest) error
 	// SendCacheRequest sends the given cache request object, and configures CCSMP to use the given callback to handle
 	// the resulting cache event/response
-	SendCacheRequest(CacheRequest, CoreCacheEventCallback) error
+	SendCacheRequest(CacheRequest, CoreCacheEventCallback, uintptr) error
 	// ProcessCacheEvent creates a cache response from the cache event that was asynchronously returned by CCSMP, and
 	// gives this response to the application for post-processing using the method configured by the application during
 	// the call to RequestCachedAsync or RequestCachedAsyncWithCallback.
@@ -222,7 +222,15 @@ type CacheRequestor interface {
 // SendCacheRequest sends a creates a cache session and sends a cache request on that session. This method
 // assumes the receiver is in the proper state (running). The caller must guarantee this state before
 // attempting to send a cache request. Failing to do so will result in undefined behaviour.
-func (receiver *ccsmpBackedReceiver) SendCacheRequest(cacheRequest CacheRequest, cacheEventCallback CoreCacheEventCallback) error {
+// dispatchID needs to be passed because the [DirectMessageReceiver] posesses a dispatch ID that can be
+// different from the one maintained by the [ccsmpBackedReceiver]. When the [DirectMessageReceiver] is started,
+// it increments the service-wide dispatchID that is maintained by the [ccsmpBackedReceiver], and maintains a
+// copy of that dispatchID for the remainder of its lifecycle. It is not documented that this copy of the
+// dispatchID is required to be immutable, and it is the [DirectMessageReceiver]'s responsibility to
+// maintain it across network operations. If the dispatchID were not passed, and the
+// [ccsmpBackedReceiver.dispatchID] was used instead, then the data messages from the cache response would be
+// forwarded to the last created [DirectMessageReceiver] instead of to the one which sent this cache request.
+func (receiver *ccsmpBackedReceiver) SendCacheRequest(cacheRequest CacheRequest, cacheEventCallback CoreCacheEventCallback, dispatchID uintptr) error {
 	var err error
 
 	cacheSession := cacheRequest.CacheSession()
@@ -233,9 +241,9 @@ func (receiver *ccsmpBackedReceiver) SendCacheRequest(cacheRequest CacheRequest,
 		return solace.NewError(&solace.IllegalArgumentError{}, errorString, nil)
 	}
 	if logging.Default.IsDebugEnabled() {
-		logging.Default.Debug(fmt.Sprintf("Sending cache request with cache request ID %d on cache session %s", cacheRequest.ID(), cacheSession.String()))
+		logging.Default.Debug(fmt.Sprintf("Sending cache request with cache request ID %d and dispatchID 0x%x on cache session %s", cacheRequest.ID(), dispatchID, cacheSession.String()))
 	}
-	errInfo := cacheSession.SendCacheRequest(uintptr(receiver.dispatchID),
+	errInfo := cacheSession.SendCacheRequest(uintptr(dispatchID),
 		cacheRequest.RequestConfig().GetName(),
 		cacheRequest.ID(),
 		ccsmp.CachedMessageSubscriptionRequestStrategyMappingToCCSMPCacheRequestFlags[*cacheStrategy],

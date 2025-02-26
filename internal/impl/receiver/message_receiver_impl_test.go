@@ -299,7 +299,7 @@ func TestSendCacheRequestIsNotBlocking(t *testing.T) {
 		}
 	}
 	wouldBlockSubcodeNum := 1
-	var sendCacheRequestFailsWithSolClientWouldBlockFunc = func(mock *mockInternalReceiver, _ core.CacheRequest, _ core.CoreCacheEventCallback) error {
+	var sendCacheRequestFailsWithSolClientWouldBlockFunc = func(mock *mockInternalReceiver, _ core.CacheRequest, _ core.CoreCacheEventCallback, _ uintptr) error {
 		solClientErr := ccsmp.NewInternalSolClientErrorInfoWrapper(ccsmp.SolClientReturnCode(1),
 			/* NOTE: This subcode doesn't make sense, but is used so that we can assert its value
 			 * later in the test. For purposes of clarity, it matches the return code value. The
@@ -312,7 +312,7 @@ func TestSendCacheRequestIsNotBlocking(t *testing.T) {
 		return core.ToNativeError(solClientErr)
 	}
 	notReadySubcodeNum := 3
-	var sendCacheRequestFailsWithSolClientNotReadyFunc = func(_ *mockInternalReceiver, _ core.CacheRequest, _ core.CoreCacheEventCallback) error {
+	var sendCacheRequestFailsWithSolClientNotReadyFunc = func(_ *mockInternalReceiver, _ core.CacheRequest, _ core.CoreCacheEventCallback, _ uintptr) error {
 		solClientErr := ccsmp.NewInternalSolClientErrorInfoWrapper(ccsmp.SolClientReturnCode(3),
 			/* NOTE: This subcode doesn't make sense, but is used so that we can assert its value
 			 * later in the test. For purposes of clarity, it matches the return code value. The
@@ -325,11 +325,10 @@ func TestSendCacheRequestIsNotBlocking(t *testing.T) {
 		return core.ToNativeError(solClientErr)
 	}
 	var createCacheRequestFunc = func(mock *mockInternalReceiver, cacheRequestConfig resource.CachedMessageSubscriptionRequest, cacheRequestID message.CacheRequestID, cacheResponseProcessor core.CacheResponseProcessor) (core.CacheRequest, error) {
-		fmt.Printf("\nCreating cache request in test\n")
 		cacheRequest := defaultMockCacheRequest()
 		return cacheRequest, nil
 	}
-	var createCacheReceiver = func(sendCacheRequestFunc func(*mockInternalReceiver, core.CacheRequest, core.CoreCacheEventCallback) error) *directMessageReceiverImpl {
+	var createCacheReceiver = func(sendCacheRequestFunc func(*mockInternalReceiver, core.CacheRequest, core.CoreCacheEventCallback, uintptr) error) *directMessageReceiverImpl {
 		receiver := &directMessageReceiverImpl{}
 		receiver.construct(&directMessageReceiverProps{
 			internalReceiver: &mockInternalReceiver{
@@ -508,7 +507,7 @@ type mockInternalReceiver struct {
 	incrementDuplicateAckCount     func()
 	newPersistentReceiver          func(props []string, callback core.RxCallback, eventCallback core.PersistentEventCallback) (core.PersistentReceiver, *ccsmp.SolClientErrorInfoWrapper)
 	processCacheResponseFunc       func(*mockInternalReceiver, *sync.Map, core.CoreCacheEventInfo)
-	sendCacheRequestFunc           func(*mockInternalReceiver, core.CacheRequest, core.CoreCacheEventCallback) error
+	sendCacheRequestFunc           func(*mockInternalReceiver, core.CacheRequest, core.CoreCacheEventCallback, uintptr) error
 	cancelPendingCacheRequestsFunc func(*mockInternalReceiver, core.CacheRequestMapIndex, core.CacheResponseProcessor) *core.CoreCacheEventInfo
 	createCacheRequestFunc         func(*mockInternalReceiver, resource.CachedMessageSubscriptionRequest, message.CacheRequestID, core.CacheResponseProcessor) (core.CacheRequest, error)
 	destroyCacheRequestFunc        func(*mockInternalReceiver, core.CacheRequest) error
@@ -534,10 +533,9 @@ func (mock *mockInternalReceiver) DestroyCacheRequest(cacheRequest core.CacheReq
 	return nil
 }
 
-func (mock *mockInternalReceiver) SendCacheRequest(cacheRequest core.CacheRequest, cacheEventCallback core.CoreCacheEventCallback) error {
-	fmt.Printf("\nSending cache request from test\n")
+func (mock *mockInternalReceiver) SendCacheRequest(cacheRequest core.CacheRequest, cacheEventCallback core.CoreCacheEventCallback, dispatchID uintptr) error {
 	if mock.sendCacheRequestFunc != nil {
-		return mock.sendCacheRequestFunc(mock, cacheRequest, cacheEventCallback)
+		return mock.sendCacheRequestFunc(mock, cacheRequest, cacheEventCallback, dispatchID)
 	}
 	/* If not set, presume no-op is intended. */
 	return nil
