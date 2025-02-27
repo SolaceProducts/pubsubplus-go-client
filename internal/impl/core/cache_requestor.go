@@ -102,7 +102,7 @@ func (receiver *ccsmpBackedReceiver) ProcessCacheEvent(cacheRequestMap *sync.Map
 				if logging.Default.IsDebugEnabled() {
 					logging.Default.Debug(
 						fmt.Sprintf(
-							"ProcessCacheEvent: The cache request timed out.\nReturnCode = %d\nSubCode = %d\n",
+							"ProcessCacheEvent: The cache request timed out.\nReturnCode is: %d\nSubCode is: %d\n",
 							cacheEventInfo.GetReturnCode(),
 							cacheEventInfo.GetSubCode()))
 				}
@@ -121,7 +121,7 @@ func (receiver *ccsmpBackedReceiver) ProcessCacheEvent(cacheRequestMap *sync.Map
 				if logging.Default.IsDebugEnabled() {
 					logging.Default.Debug(
 						fmt.Sprintf(
-							"ProcessCacheEvent: The cache request failed.\nReturnCode = %d\nSubCode = %d\n",
+							"ProcessCacheEvent: The cache request failed.\nReturnCode is: %d\nSubCode is: %d\n",
 							cacheEventInfo.GetReturnCode(),
 							cacheEventInfo.GetSubCode()))
 				}
