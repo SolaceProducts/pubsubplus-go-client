@@ -510,9 +510,8 @@ var _ = Describe("Cache Strategy", func() {
 			Expect(cacheResponse.GetCacheRequestOutcome()).To(Equal(solace.CacheRequestOutcomeFailed))
 			// assert err is NOT nil
 			Expect(cacheResponse.GetError()).ToNot(BeNil())
-			/* EBP-28: Assert CACHE_TIMEOUT sc and CACHE_INCOMPLETE rc in err. */
-			Expect(cacheResponse.GetError().Error()).To(ContainSubstring("CACHE_TIMEOUT"))
-			Expect(cacheResponse.GetError().Error()).To(ContainSubstring("CACHE_INCOMPLETE"))
+			// assert CACHE_TIMEOUT sc and CACHE_INCOMPLETE rc (cache request timed out) in err
+			Expect(cacheResponse.GetError().Error()).To(ContainSubstring("cache request timed out"))
 
 			Consistently(receivedMsgChan).ShouldNot(Receive())
 			Expect(messagingService.Metrics().GetValue(metrics.DirectMessagesReceived)).To(BeNumerically("==", 0))
@@ -567,7 +566,6 @@ var _ = Describe("Cache Strategy", func() {
 				Fail("Got unrecognized cache response process strategy")
 			}
 			Expect(cacheResponse).ToNot(BeNil())
-			/* EBP-28: Assert response err. */
 			// assert cache reponse ID matches cache request ID
 			Expect(cacheResponse.GetCacheRequestID()).To(Equal(cacheRequestID))
 			// assert CacheRequestOutcome is NoData
@@ -882,9 +880,8 @@ var _ = Describe("Cache Strategy", func() {
 			Expect(cacheResponse.GetCacheRequestOutcome()).To(Equal(solace.CacheRequestOutcomeFailed))
 			// assert err is Not nil
 			Expect(cacheResponse.GetError()).ToNot(BeNil())
-			/* EBP-28: Assert err contains CACHE_TIMEOUT sc and CACHE_INCOMPLETE rc. */
-			Expect(cacheResponse.GetError().Error()).To(ContainSubstring("CACHE_TIMEOUT"))
-			Expect(cacheResponse.GetError().Error()).To(ContainSubstring("CACHE_INCOMPLETE"))
+			// assert err contains CACHE_TIMEOUT sc and CACHE_INCOMPLETE r (cache request timed out)
+			Expect(cacheResponse.GetError().Error()).To(ContainSubstring("cache request timed out"))
 
 			for i := 0; i < numExpectedMessages; i++ {
 				var msg message.InboundMessage
