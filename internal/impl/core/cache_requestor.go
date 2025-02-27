@@ -26,7 +26,31 @@ import (
 	"solace.dev/go/messaging/pkg/solace"
 	apimessage "solace.dev/go/messaging/pkg/solace/message"
 	"solace.dev/go/messaging/pkg/solace/resource"
+	"solace.dev/go/messaging/pkg/solace/subcode"
 )
+
+// CacheResponse provides information about the response received from the cache.
+type cacheResponse struct {
+	cacheRequestOutcome solace.CacheRequestOutcome
+	cacheRequestID      apimessage.CacheRequestID
+	err                 error
+}
+
+// GetCacheRequestOutcome retrieves the cache request outcome for the cache response
+func (cacheResp *cacheResponse) GetCacheRequestOutcome() solace.CacheRequestOutcome {
+	return cacheResp.cacheRequestOutcome
+}
+
+// GetCacheRequestID retrieves the cache request ID that generated the cache response
+func (cacheResp *cacheResponse) GetCacheRequestID() apimessage.CacheRequestID {
+	return cacheResp.cacheRequestID
+}
+
+// GetError retrieves the error field, will be nil if the cache request
+// was successful, and will be not nil if a problem was encountered.
+func (cacheResp *cacheResponse) GetError() error {
+	return cacheResp.err
+}
 
 // ProcessCacheEvent is intended to be run by any agent trying to process a cache response. This can be run from a polling go routine, or during termination to cleanup remaining resources, and possibly by other agents as well.
 func (receiver *ccsmpBackedReceiver) ProcessCacheEvent(cacheRequestMap *sync.Map, cacheEventInfo CoreCacheEventInfo) {
@@ -51,7 +75,65 @@ func (receiver *ccsmpBackedReceiver) ProcessCacheEvent(cacheRequestMap *sync.Map
 		}
 	} else {
 		cacheResponseHolder := foundCacheResponseHolder.(CacheResponseProcessor)
-		cacheResponse := solace.CacheResponse{}
+		cacheRequestInfo := cacheResponseHolder.GetCacheRequestInfo()
+
+		var cacheRespError error = nil
+		var cacheRequestOutcome solace.CacheRequestOutcome
+
+		if cacheEventInfo.GetReturnCode() == ccsmp.SolClientReturnCodeOk {
+			// request was successful, no need to check subcode
+			cacheRequestOutcome = solace.CacheRequestOutcomeOk
+			// cacheRespError should be nil since returncode is OK
+		} else if cacheEventInfo.GetReturnCode() == ccsmp.SolClientReturnCodeIncomplete {
+			// request still in progress, check subcode for actual outcome of cache request
+			if cacheEventInfo.GetSubCode() == ccsmp.SolClientSubCodeCacheSuspectData {
+				// suspect data
+				cacheRequestOutcome = solace.CacheRequestOutcomeSuspectData
+				// cacheRespError should be nil
+			} else if cacheEventInfo.GetSubCode() == ccsmp.SolClientSubCodeCacheNoData {
+				// no data
+				cacheRequestOutcome = solace.CacheRequestOutcomeNoData
+				// cacheRespError should be nil
+			} else if cacheEventInfo.GetSubCode() == ccsmp.SolClientSubCodeCacheTimeout {
+				// request timed out, failed
+				cacheRequestOutcome = solace.CacheRequestOutcomeFailed
+				// cacheRespError should be a timeout error
+				cacheRespError = solace.NewError(&solace.TimeoutError{}, "the cache request timed out", nil)
+				if logging.Default.IsDebugEnabled() {
+					logging.Default.Debug(
+						fmt.Sprintf(
+							"ProcessCacheEvent: The cache request timed out.\nReturnCode = %d\nSubCode = %d\n",
+							cacheEventInfo.GetReturnCode(),
+							cacheEventInfo.GetSubCode()))
+				}
+			} else {
+				// failed
+				cacheRequestOutcome = solace.CacheRequestOutcomeFailed
+				// cacheRespError should be nil
+			}
+		} else {
+			// request failed, no need to check subcode
+			cacheRequestOutcome = solace.CacheRequestOutcomeFailed
+			// set cacheRespError based on the returned subcode
+			if cacheEventInfo.GetSubCode() != ccsmp.SolClientSubCodeCacheSuspectData && cacheEventInfo.GetSubCode() != ccsmp.SolClientSubCodeCacheNoData {
+				// cacheRespError should be a solaceError
+				cacheRespError = solace.NewNativeError("the cache request failed", subcode.Code(cacheEventInfo.GetSubCode()))
+				if logging.Default.IsDebugEnabled() {
+					logging.Default.Debug(
+						fmt.Sprintf(
+							"ProcessCacheEvent: The cache request failed.\nReturnCode = %d\nSubCode = %d\n",
+							cacheEventInfo.GetReturnCode(),
+							cacheEventInfo.GetSubCode()))
+				}
+			}
+		}
+
+		cacheResponse := &cacheResponse{
+			cacheRequestOutcome: cacheRequestOutcome,
+			cacheRequestID:      cacheRequestInfo.GetCacheRequestID(),
+			err:                 cacheRespError,
+		}
+
 		cacheResponseHolder.ProcessCacheResponse(cacheResponse)
 	}
 	/* Lifecycle management of cache sessions */
