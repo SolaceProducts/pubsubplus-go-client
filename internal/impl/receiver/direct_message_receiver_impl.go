@@ -1030,7 +1030,7 @@ func (receiver *directMessageReceiverImpl) RequestCachedAsync(cachedMessageSubsc
 		atomic.AddInt64(&receiver.numOutstandingCacheRequests, -1)
 		return nil, err
 	}
-	err = receiver.internalReceiver.CacheRequestor().SendCacheRequest(cacheRequest, cacheEventCallback)
+	err = receiver.internalReceiver.CacheRequestor().SendCacheRequest(cacheRequest, cacheEventCallback, receiver.dispatch)
 	if err != nil {
 		atomic.AddInt64(&receiver.numOutstandingCacheRequests, -1)
 		close(applicationChannel)
@@ -1073,7 +1073,7 @@ func (receiver *directMessageReceiverImpl) RequestCachedAsyncWithCallback(cached
 		atomic.AddInt64(&receiver.numOutstandingCacheRequests, -1)
 		return err
 	}
-	err = receiver.internalReceiver.CacheRequestor().SendCacheRequest(cacheRequest, cacheEventCallback)
+	err = receiver.internalReceiver.CacheRequestor().SendCacheRequest(cacheRequest, cacheEventCallback, receiver.dispatch)
 	if err != nil {
 		atomic.AddInt64(&receiver.numOutstandingCacheRequests, -1)
 		receiver.cacheRequestMap.Delete(cacheRequest.Index())
