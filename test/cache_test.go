@@ -140,9 +140,12 @@ var _ = Describe("Cache Strategy", func() {
 				Eventually(channel, "5s").Should(Receive(&cacheResponse))
 			}
 			Expect(cacheResponse).ToNot(BeNil())
-			/* EBP-25: Assert cache reponse ID matches cache request ID. */
-			/* EBP-26: Assert CacheRequestOutcome is NoData. */
-			/* EBP-28: Assert err is nil. */
+			// assert cache reponse ID matches cache request ID
+			Expect(cacheResponse.GetCacheRequestID()).To(Equal(cacheRequestID))
+			// assert CacheRequestOutcome is NoData
+			Expect(cacheResponse.GetCacheRequestOutcome()).To(Equal(solace.CacheRequestOutcomeNoData))
+			// assert err is nil
+			Expect(cacheResponse.GetError()).To(BeNil())
 			Consistently(receivedMsgChan).ShouldNot(Receive())
 		},
 			Entry("with topic 1 with channel with CacheRequestStrategyAsAvailable", "MaxMsgs3/%s/notcached", resource.CacheRequestStrategyAsAvailable, helpers.ProcessCacheResponseThroughChannel),
@@ -186,9 +189,13 @@ var _ = Describe("Cache Strategy", func() {
 			var cacheResponse solace.CacheResponse
 			Eventually(channel, "5s").Should(Receive(&cacheResponse))
 			Expect(cacheResponse).ToNot(BeNil())
-			/* EBP-25: Assert cache response ID matches request ID. */
-			/* EBP-26: Assert CacheRequestOutcome is Suspect. */
-			/* EBP-28: Assert err is nil */
+			// assert cache reponse ID matches cache request ID
+			Expect(cacheResponse.GetCacheRequestID()).To(Equal(cacheRequestID))
+			// assert CacheRequestOutcome is SuspectData
+			Expect(cacheResponse.GetCacheRequestOutcome()).To(Equal(solace.CacheRequestOutcomeSuspectData))
+			// assert err is nil
+			Expect(cacheResponse.GetError()).To(BeNil())
+
 			var msg message.InboundMessage
 			Eventually(receivedMsgChan).Should(Receive(&msg))
 			Expect(msg).ToNot(BeNil())
@@ -355,9 +362,13 @@ var _ = Describe("Cache Strategy", func() {
 			Expect(fourthChannel).ToNot(BeNil())
 			Eventually(fourthChannel, "10s").Should(Receive(&cacheResponse1))
 			Expect(cacheResponse1).ToNot(BeNil())
-			/* EBP-25: Assert cache request ID matches cache response ID. */
-			/* EBP-26: Assert CacheRequestOutcome Ok. */
-			/* EBP-28: Assert err is nil. */
+			// assert cache reponse ID matches cache request ID
+			Expect(cacheResponse1.GetCacheRequestID()).To(Equal(fourthCacheRequestID))
+			// assert CacheRequestOutcome is Ok
+			Expect(cacheResponse1.GetCacheRequestOutcome()).To(Equal(solace.CacheRequestOutcomeOk))
+			// assert err is nil
+			Expect(cacheResponse1.GetError()).To(BeNil())
+
 			for i := 0; i < numExpectedCachedMessages; i++ {
 				var msg message.InboundMessage
 				Eventually(receivedMsgChan).Should(Receive(&msg))
@@ -382,9 +393,13 @@ var _ = Describe("Cache Strategy", func() {
 			Expect(fifthChannel).ToNot(BeNil())
 			Eventually(fifthChannel, "10s").Should(Receive(&cacheResponse2))
 			Expect(cacheResponse2).ToNot(BeNil())
-			/* EBP-25: Assert cache request ID matches cache response ID. */
-			/* EBP-26: Assert CacheRequestOutcome Ok. */
-			/* EBP-28: Assert err is nil. */
+			// assert cache reponse ID matches cache request ID
+			Expect(cacheResponse2.GetCacheRequestID()).To(Equal(fifthCacheRequestID))
+			// assert CacheRequestOutcome is Ok
+			Expect(cacheResponse2.GetCacheRequestOutcome()).To(Equal(solace.CacheRequestOutcomeOk))
+			// assert err is nil
+			Expect(cacheResponse2.GetError()).To(BeNil())
+
 			for i := 0; i < numExpectedCachedMessages; i++ {
 				var msg message.InboundMessage
 				Eventually(receivedMsgChan).Should(Receive(&msg))
@@ -404,9 +419,12 @@ var _ = Describe("Cache Strategy", func() {
 			var cacheResponse3 solace.CacheResponse
 			Eventually(firstChannel, "10s").Should(Receive(&cacheResponse3))
 			Expect(cacheResponse3).ToNot(BeNil())
-			/* EBP-25: Assert cache request ID matches cache response ID. */
-			/* EBP-26: Assert CacheRequestOutcome Ok. */
-			/* EBP-28: Assert err is nil. */
+			// assert cache reponse ID matches cache request ID
+			Expect(cacheResponse3.GetCacheRequestID()).To(Equal(firstCacheRequestID))
+			// assert CacheRequestOutcome is Ok
+			Expect(cacheResponse3.GetCacheRequestOutcome()).To(Equal(solace.CacheRequestOutcomeOk))
+			// assert err is nil
+			Expect(cacheResponse3.GetError()).To(BeNil())
 
 			for i := 0; i < numExpectedCachedMessages; i++ {
 				var msg message.InboundMessage
@@ -466,7 +484,13 @@ var _ = Describe("Cache Strategy", func() {
 			cacheRequestID := message.CacheRequestID(1)
 			cacheName := "MaxMsgs3/delay=3500"
 			topic := fmt.Sprintf("MaxMsgs3/%s/data1", testcontext.Cache().Vpn)
-			cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.CacheRequestStrategyCachedFirst, cacheName, resource.TopicSubscriptionOf(topic), 3000, helpers.ValidMaxCachedMessages, helpers.ValidCachedMessageAge)
+			cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(
+				resource.CacheRequestStrategyCachedFirst,
+				cacheName,
+				resource.TopicSubscriptionOf(topic),
+				3000,
+				helpers.ValidMaxCachedMessages,
+				helpers.ValidCachedMessageAge)
 			/* NOTE: Chan size 3 in case we get unexpected msgs to avoid hang in termination. */
 			receivedMsgChan := make(chan message.InboundMessage, 3)
 			err := receiver.ReceiveAsync(func(msg message.InboundMessage) {
@@ -480,9 +504,15 @@ var _ = Describe("Cache Strategy", func() {
 			var cacheResponse solace.CacheResponse
 			Eventually(channel, "5s").Should(Receive(&cacheResponse))
 			Expect(cacheResponse).ToNot(BeNil())
-			/* EBP-25: Assert cache request ID. */
-			/* EBP-26: Assert cache request outcome failed. */
-			/* EBP-28: Assert CACHE_TIMEOUT sc and CACHE_INCOMPLETE rc in err. */
+			// assert cache reponse ID matches cache request ID
+			Expect(cacheResponse.GetCacheRequestID()).To(Equal(cacheRequestID))
+			// assert cache request outcome failed.
+			Expect(cacheResponse.GetCacheRequestOutcome()).To(Equal(solace.CacheRequestOutcomeFailed))
+			// assert err is NOT nil
+			Expect(cacheResponse.GetError()).ToNot(BeNil())
+			// assert CACHE_TIMEOUT sc and CACHE_INCOMPLETE rc (cache request timed out) in err
+			Expect(cacheResponse.GetError().Error()).To(ContainSubstring("cache request timed out"))
+
 			Consistently(receivedMsgChan).ShouldNot(Receive())
 			Expect(messagingService.Metrics().GetValue(metrics.DirectMessagesReceived)).To(BeNumerically("==", 0))
 			Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSent)).To(BeNumerically("==", 1))
@@ -536,9 +566,12 @@ var _ = Describe("Cache Strategy", func() {
 				Fail("Got unrecognized cache response process strategy")
 			}
 			Expect(cacheResponse).ToNot(BeNil())
-			/* EBP-25: Assert response ID matches request ID. */
-			/* EBP-26: Assert cache request outcome. */
-			/* EBP-28: Assert response err. */
+			// assert cache reponse ID matches cache request ID
+			Expect(cacheResponse.GetCacheRequestID()).To(Equal(cacheRequestID))
+			// assert CacheRequestOutcome is NoData
+			Expect(cacheResponse.GetCacheRequestOutcome()).To(Equal(solace.CacheRequestOutcomeNoData))
+			// assert err is nil
+			Expect(cacheResponse.GetError()).To(BeNil())
 			Consistently(receivedMsgChan).ShouldNot(Receive())
 		},
 			Entry("with CacheRequestStrategyCachedFirst and channel", resource.CacheRequestStrategyCachedFirst, helpers.ProcessCacheResponseThroughChannel),
@@ -559,17 +592,29 @@ var _ = Describe("Cache Strategy", func() {
 			err := receiver.ReceiveAsync(func(msg message.InboundMessage) {
 				receivedMsgChan <- msg
 			})
+			// assert err returned from registering the Receive Async callback is nil
+			Expect(err).To(BeNil())
 			/* NOTE: Cache request with max age `0` should retrieve all messages, in this case 1. */
-			cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.CacheRequestStrategyAsAvailable, cacheName, resource.TopicSubscriptionOf(cacheTopic), helpers.ValidCacheAccessTimeout, helpers.ValidMaxCachedMessages, int32(0))
+			cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(
+				resource.CacheRequestStrategyAsAvailable,
+				cacheName,
+				resource.TopicSubscriptionOf(cacheTopic),
+				helpers.ValidCacheAccessTimeout,
+				helpers.ValidMaxCachedMessages,
+				int32(0))
 			channel, err := receiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
 			Expect(err).To(BeNil())
 			Expect(channel).ToNot(BeNil())
 			var cacheResponse solace.CacheResponse
 			Eventually(channel, "5s").Should(Receive(&cacheResponse))
 			Expect(cacheResponse).ToNot(BeNil())
-			/* EBP-25: Assert response ID matches request ID. */
-			/* EBP-26: Assert response CacheRequestOutcome is Ok. */
-			/* EBP-28: Assert response err is nil */
+			// assert cache reponse ID matches cache request ID
+			Expect(cacheResponse.GetCacheRequestID()).To(Equal(cacheRequestID))
+			// assert response CacheRequestOutcome is Ok
+			Expect(cacheResponse.GetCacheRequestOutcome()).To(Equal(solace.CacheRequestOutcomeOk))
+			// assert cache response err is nil
+			Expect(cacheResponse.GetError()).To(BeNil())
+
 			var msg message.InboundMessage
 			Eventually(receivedMsgChan, "5s").Should(Receive(&msg))
 			Expect(msg).ToNot(BeNil())
@@ -589,30 +634,50 @@ var _ = Describe("Cache Strategy", func() {
 			 * than 1ms. Only messages 1ms or newer should be returned, so none should be returned.
 			 */
 			time.Sleep(time.Second * 2)
-			cacheRequestConfig = resource.NewCachedMessageSubscriptionRequest(resource.CacheRequestStrategyAsAvailable, cacheName, resource.TopicSubscriptionOf(cacheTopic), helpers.ValidCacheAccessTimeout, helpers.ValidMaxCachedMessages, int32(1))
+			cacheRequestConfig = resource.NewCachedMessageSubscriptionRequest(
+				resource.CacheRequestStrategyAsAvailable,
+				cacheName,
+				resource.TopicSubscriptionOf(cacheTopic),
+				helpers.ValidCacheAccessTimeout,
+				helpers.ValidMaxCachedMessages,
+				int32(1))
 			channel, err = receiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
 			Expect(err).To(BeNil())
 			Expect(channel).ToNot(BeNil())
 			Eventually(channel, "5s").Should(Receive(&cacheResponse))
 			Expect(cacheResponse).ToNot(BeNil())
-			/* EBP-25: Assert response ID matches request ID. */
-			/* EBP-26: Assert response CacheRequestOutcome. */
-			/* EBP-28: Assert response err. */
+			// assert cache reponse ID matches cache request ID
+			Expect(cacheResponse.GetCacheRequestID()).To(Equal(cacheRequestID))
+			// assert CacheRequestOutcome is NoData
+			Expect(cacheResponse.GetCacheRequestOutcome()).To(Equal(solace.CacheRequestOutcomeNoData))
+			// assert err is nil
+			Expect(cacheResponse.GetError()).To(BeNil())
+
 			/* NOTE: Because we waited for the cache response, we only need to poll the data message channel
 			 * instantaneously.
 			 */
 			Consistently(receivedMsgChan, "1ms").ShouldNot(Receive())
 
 			/* NOTE: Cache request with max age `10000` should retrieve all messages, in this case 1. */
-			cacheRequestConfig = resource.NewCachedMessageSubscriptionRequest(resource.CacheRequestStrategyAsAvailable, cacheName, resource.TopicSubscriptionOf(cacheTopic), helpers.ValidCacheAccessTimeout, helpers.ValidMaxCachedMessages, int32(10000))
+			cacheRequestConfig = resource.NewCachedMessageSubscriptionRequest(
+				resource.CacheRequestStrategyAsAvailable,
+				cacheName,
+				resource.TopicSubscriptionOf(cacheTopic),
+				helpers.ValidCacheAccessTimeout,
+				helpers.ValidMaxCachedMessages,
+				int32(10000))
 			channel, err = receiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
 			Expect(err).To(BeNil())
 			Expect(channel).ToNot(BeNil())
 			Eventually(channel, "5s").Should(Receive(&cacheResponse))
 			Expect(cacheResponse).ToNot(BeNil())
-			/* EBP-25: Assert response ID matches request ID. */
-			/* EBP-26: Assert response CacheRequestOutcome is Ok. */
-			/* EBP-28: Assert response err is nil */
+			// assert cache reponse ID matches cache request ID
+			Expect(cacheResponse.GetCacheRequestID()).To(Equal(cacheRequestID))
+			// assert response CacheRequestOutcome is Ok
+			Expect(cacheResponse.GetCacheRequestOutcome()).To(Equal(solace.CacheRequestOutcomeOk))
+			// assert response err is nil
+			Expect(cacheResponse.GetError()).To(BeNil())
+
 			Eventually(receivedMsgChan, "5s").Should(Receive(&msg))
 			Expect(msg).ToNot(BeNil())
 			Expect(msg.GetDestinationName()).To(Equal(cacheTopic))
@@ -639,7 +704,13 @@ var _ = Describe("Cache Strategy", func() {
 			cacheName := fmt.Sprintf("MaxMsgs%d/delay=%d,msgs=%d", numExpectedCachedMessages, delay, numExpectedLiveMessages)
 			topic := fmt.Sprintf("MaxMsgs%d/%s/data1", numExpectedCachedMessages, testcontext.Cache().Vpn)
 			cacheRequestID := message.CacheRequestID(1)
-			cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.CacheRequestStrategyCachedFirst, cacheName, resource.TopicSubscriptionOf(topic), 45000, 0, 50000)
+			cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(
+				resource.CacheRequestStrategyCachedFirst,
+				cacheName,
+				resource.TopicSubscriptionOf(topic),
+				45000,
+				0,
+				50000)
 			var cacheResponse solace.CacheResponse
 			/* NOTE: We need to wait for longer than usual for the cache response (10s) since the cache response is
 			 * given to the application only after all messages related to the cache request have been received by
@@ -667,9 +738,12 @@ var _ = Describe("Cache Strategy", func() {
 				Fail("Got unexpected cache response process strategy")
 			}
 			Expect(cacheResponse).ToNot(BeNil())
-			/* EBP-25: Assert cache request ID from response is the same as the request */
-			/* EBP-26: Assert cache request Outcome is Ok. */
-			/* EBP-28: Assert error from cache response is nil */
+			// assert cache reponse ID matches cache request ID
+			Expect(cacheResponse.GetCacheRequestID()).To(Equal(cacheRequestID))
+			// assert cache request outcome is Ok
+			Expect(cacheResponse.GetCacheRequestOutcome()).To(Equal(solace.CacheRequestOutcomeOk))
+			// assert err is nil
+			Expect(cacheResponse.GetError()).To(BeNil())
 
 			/* NOTE: Check the cached messages first. */
 			for i := 0; i < numExpectedCachedMessages; i++ {
@@ -706,7 +780,13 @@ var _ = Describe("Cache Strategy", func() {
 			numExpectedCachedMessages := 3
 			cacheName := fmt.Sprintf("MaxMsgs%d/delay=5000", numExpectedCachedMessages)
 			topic := fmt.Sprintf("MaxMsgs%d/%s/data1", numExpectedCachedMessages, testcontext.Cache().Vpn)
-			cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.CacheRequestStrategyLiveCancelsCached, cacheName, resource.TopicSubscriptionOf(topic), int32(7000), int32(0), int32(0))
+			cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(
+				resource.CacheRequestStrategyLiveCancelsCached,
+				cacheName,
+				resource.TopicSubscriptionOf(topic),
+				int32(7000),
+				int32(0),
+				int32(0))
 			receivedMsgChan := make(chan message.InboundMessage, numExpectedCachedMessages)
 			receiver.ReceiveAsync(func(msg message.InboundMessage) {
 				receivedMsgChan <- msg
@@ -751,9 +831,12 @@ var _ = Describe("Cache Strategy", func() {
 			var cacheResponse solace.CacheResponse
 			Eventually(channel, "10s").Should(Receive(&cacheResponse))
 			Expect(cacheResponse).ToNot(BeNil())
-			/* EBP-25: Assert cache request ID matches cache response ID. */
-			/* EBP-26: Assert CacheRequestOutcome Ok. */
-			/* EBP-28: Assert err is nil. */
+			// assert cache reponse ID matches cache request ID
+			Expect(cacheResponse.GetCacheRequestID()).To(Equal(firstCacheRequestID))
+			// assert CacheRequestOutcome is Ok
+			Expect(cacheResponse.GetCacheRequestOutcome()).To(Equal(solace.CacheRequestOutcomeOk))
+			// assert err is nil
+			Expect(cacheResponse.GetError()).To(BeNil())
 
 			for i := 0; i < numExpectedCachedMessages; i++ {
 				var msg message.InboundMessage
@@ -772,7 +855,13 @@ var _ = Describe("Cache Strategy", func() {
 			numExpectedMessages := 3
 			cacheName := fmt.Sprintf("MaxMsgs%d/inc=badCacheCluster", numExpectedMessages)
 			topic := fmt.Sprintf("MaxMsgs%d/%s/data1", numExpectedMessages, testcontext.Cache().Vpn)
-			cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.CacheRequestStrategyCachedFirst, cacheName, resource.TopicSubscriptionOf(topic), 10000, helpers.ValidMaxCachedMessages, helpers.ValidCachedMessageAge)
+			cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(
+				resource.CacheRequestStrategyCachedFirst,
+				cacheName,
+				resource.TopicSubscriptionOf(topic),
+				10000,
+				helpers.ValidMaxCachedMessages,
+				helpers.ValidCachedMessageAge)
 			receivedMsgChan := make(chan message.InboundMessage, 3)
 			err := receiver.ReceiveAsync(func(msg message.InboundMessage) {
 				receivedMsgChan <- msg
@@ -785,9 +874,15 @@ var _ = Describe("Cache Strategy", func() {
 			var cacheResponse solace.CacheResponse
 			Eventually(channel, "15s").Should(Receive(&cacheResponse))
 			Expect(cacheResponse).ToNot(BeNil())
-			/* EBP-25: Assert response ID matched request ID. */
-			/* EBP-26: Assert CacheRequestOutcome is Failed. */
-			/* EBP-28: Assert err contains CACHE_TIMEOUT sc and CACHE_INCOMPLETE rc. */
+			// assert cache reponse ID matches cache request ID
+			Expect(cacheResponse.GetCacheRequestID()).To(Equal(cacheRequestID))
+			// assert CacheRequestOutcome is Failed
+			Expect(cacheResponse.GetCacheRequestOutcome()).To(Equal(solace.CacheRequestOutcomeFailed))
+			// assert err is Not nil
+			Expect(cacheResponse.GetError()).ToNot(BeNil())
+			// assert err contains CACHE_TIMEOUT sc and CACHE_INCOMPLETE r (cache request timed out)
+			Expect(cacheResponse.GetError().Error()).To(ContainSubstring("cache request timed out"))
+
 			for i := 0; i < numExpectedMessages; i++ {
 				var msg message.InboundMessage
 				Eventually(receivedMsgChan).Should(Receive(&msg))
@@ -809,18 +904,30 @@ var _ = Describe("Cache Strategy", func() {
 			err := receiver.ReceiveAsync(func(msg message.InboundMessage) {
 				receivedMsgChan <- msg
 			})
+			// assert err from registering receive async callback is nil
+			Expect(err).To(BeNil())
 			cacheRequestID := message.CacheRequestID(1)
 			cacheName := fmt.Sprintf("MaxMsgs%d", expectedMessages)
 			cacheTopic := fmt.Sprintf("%s/%s/data1", cacheName, testcontext.Cache().Vpn)
-			cacheReqeustConfig := resource.NewCachedMessageSubscriptionRequest(strategy, cacheName, resource.TopicSubscriptionOf(cacheTopic), helpers.ValidCacheAccessTimeout, configuredMaxMessages, helpers.ValidCachedMessageAge)
+			cacheReqeustConfig := resource.NewCachedMessageSubscriptionRequest(
+				strategy,
+				cacheName,
+				resource.TopicSubscriptionOf(cacheTopic),
+				helpers.ValidCacheAccessTimeout,
+				configuredMaxMessages,
+				helpers.ValidCachedMessageAge)
 			cacheResponseChan, err := receiver.RequestCachedAsync(cacheReqeustConfig, cacheRequestID)
 			Expect(err).To(BeNil())
-			var response solace.CacheResponse
-			Eventually(cacheResponseChan, "5s").Should(Receive(&response))
-			Expect(response).ToNot(BeNil())
-			/* EBP-25: Assert response ID matches request ID. */
-			/* EBP-26: Assert CacheRequestOutcome.Ok */
-			/* EBP-28: Assert err from response is nil */
+			var cacheResponse solace.CacheResponse
+			Eventually(cacheResponseChan, "5s").Should(Receive(&cacheResponse))
+			Expect(cacheResponse).ToNot(BeNil())
+			// assert cache reponse ID matches cache request ID
+			Expect(cacheResponse.GetCacheRequestID()).To(Equal(cacheRequestID))
+			// assert CacheRequestOutcome is Ok
+			Expect(cacheResponse.GetCacheRequestOutcome()).To(Equal(solace.CacheRequestOutcomeOk))
+			// assert err is nil
+			Expect(cacheResponse.GetError()).To(BeNil())
+
 			for i := 0; i < expectedMessages; i++ {
 				var msg message.InboundMessage
 				Eventually(receivedMsgChan, "5s").Should(Receive(&msg))
@@ -869,7 +976,13 @@ var _ = Describe("Cache Strategy", func() {
 			cacheName := fmt.Sprintf("MaxMsgs%d/delay=%d,msgs=%d", numExpectedCachedMessages, delay, numExpectedLiveMessages)
 			topic := fmt.Sprintf("MaxMsgs%d/%s/data1", numExpectedCachedMessages, testcontext.Cache().Vpn)
 			cacheRequestID := message.CacheRequestID(1)
-			cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.CacheRequestStrategyCachedFirst, cacheName, resource.TopicSubscriptionOf(topic), 45000, 0, 50000)
+			cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(
+				resource.CacheRequestStrategyCachedFirst,
+				cacheName,
+				resource.TopicSubscriptionOf(topic),
+				45000,
+				0,
+				50000)
 			var cacheResponse solace.CacheResponse
 			/* NOTE: We need to wait for longer than usual for the cache response (10s) since the cache response is
 			 * given to the application only after all messages related to the cache request have been received by
@@ -897,9 +1010,13 @@ var _ = Describe("Cache Strategy", func() {
 				Fail("Got unexpected cache response process strategy")
 			}
 			Expect(cacheResponse).ToNot(BeNil())
-			/* EBP-25: Assert cache request ID from response is the same as the request */
-			/* EBP-26: Assert cache request Outcome is Ok. */
-			/* EBP-28: Assert error from cache response is nil */
+			// assert cache reponse ID matches cache request ID
+			Expect(cacheResponse.GetCacheRequestID()).To(Equal(cacheRequestID))
+			// assert cache request outcome is Ok
+			Expect(cacheResponse.GetCacheRequestOutcome()).To(Equal(solace.CacheRequestOutcomeOk))
+			// assert err is nil
+			Expect(cacheResponse.GetError()).To(BeNil())
+
 			/* NOTE: Check the cached messages first. */
 			for i := 0; i < numExpectedCachedMessages; i++ {
 				var msg message.InboundMessage
@@ -981,6 +1098,7 @@ var _ = Describe("Cache Strategy", func() {
 				err := receiver.ReceiveAsync(func(msg message.InboundMessage) {
 					receivedMsgChan <- msg
 				})
+				Expect(err).To(BeNil())
 				var cacheResponse solace.CacheResponse
 				switch cacheResponseProcessStrategy {
 				case helpers.ProcessCacheResponseThroughChannel:
@@ -1002,9 +1120,13 @@ var _ = Describe("Cache Strategy", func() {
 					Fail("Got unrecognized cacheRequestStrategy")
 				}
 				Expect(cacheResponse).ToNot(BeNil())
-				/* EBP-25: Assert that the cache request from the response matches the request. */
-				/* EBP-26: Assert that the CacheRequestOutcome is Ok. */
-				/* EBP-28: Assert the err from the cache response is nil */
+				// assert that the cache request ID from the reponse matches the request
+				Expect(cacheResponse.GetCacheRequestID()).To(Equal(cacheRequestID))
+				// assert that the CacheRequestOutcome is Ok
+				Expect(cacheResponse.GetCacheRequestOutcome()).To(Equal(solace.CacheRequestOutcomeOk))
+				// assert err from tje cache response is nil
+				Expect(cacheResponse.GetError()).To(BeNil())
+
 				for i := 0; i < numExpectedCachedMessages; i++ {
 					var msg message.InboundMessage
 					Eventually(receivedMsgChan).Should(Receive(&msg))
@@ -1173,10 +1295,12 @@ var _ = Describe("Cache Strategy", func() {
 						for i := 0; i < numExpectedCacheResponses; i++ {
 							Eventually(cacheResponseChan, "2s").Should(Receive(&cacheResponse))
 							Expect(cacheResponse).ToNot(BeNil())
-							/* EBP-25: Assert that this cache response has the same cache request ID as the
-							 * submitted cache request.*/
-							/* EBP-26: Assert that this cache response has CachRequestOutcome.Ok. */
-							/* EBP-28: Assert that the error in this cache response is nil. */
+							// assert that this cache response has the same cache request ID as the submitted cache request
+							Expect(cacheResponse.GetCacheRequestID()).To(Equal(cacheRequestID))
+							// assert that this cache response has CachRequestOutcome.Ok
+							Expect(cacheResponse.GetCacheRequestOutcome()).To(Equal(solace.CacheRequestOutcomeOk))
+							// assert that the error in this cache response is nil
+							Expect(cacheResponse.GetError()).To(BeNil())
 						}
 					}
 				case helpers.ProcessCacheResponseThroughCallback:
@@ -1192,10 +1316,12 @@ var _ = Describe("Cache Strategy", func() {
 						for i := 0; i < numExpectedCacheResponses; i++ {
 							Eventually(cacheResponseSignalChan, "10s").Should(Receive(&cacheResponse))
 							Expect(cacheResponse).ToNot(BeNil())
-							/* EBP-25: Assert that this cache response has the same cache request ID as the
-							 * submitted cache request.*/
-							/* EBP-26: Assert that this cache response has CachRequestOutcome.Ok. */
-							/* EBP-28: Assert that the error in this cache response is nil. */
+							// assert that this cache response has the same cache request ID as the submitted cache request
+							Expect(cacheResponse.GetCacheRequestID()).To(Equal(cacheRequestID))
+							// assert that this cache response has CachRequestOutcome.Ok
+							Expect(cacheResponse.GetCacheRequestOutcome()).To(Equal(solace.CacheRequestOutcomeOk))
+							// assert that the error in this cache response is nil
+							Expect(cacheResponse.GetError()).To(BeNil())
 						}
 					}
 				default:
@@ -1378,9 +1504,13 @@ var _ = Describe("Cache Strategy", func() {
 				var cacheResponse solace.CacheResponse
 				Eventually(cacheResponseChan, "10s").Should(Receive(&cacheResponse))
 				Expect(cacheResponse).ToNot(BeNil())
-				/* EBP-25: Assert cache response ID matches request ID. */
-				/* EBP-26: Assert CacheRequestOutcomeOk. */
-				/* EBP-28: Assert err is nil. */
+				// assert cache reponse ID matches cache request ID
+				Expect(cacheResponse.GetCacheRequestID()).To(Equal(cacheRequestID))
+				// assert CacheRequestOutcome is Ok
+				Expect(cacheResponse.GetCacheRequestOutcome()).To(Equal(solace.CacheRequestOutcomeOk))
+				// assert err is nil
+				Expect(cacheResponse.GetError()).To(BeNil())
+
 				switch cacheRequestStrategy {
 				case resource.CacheRequestStrategyLiveCancelsCached:
 					waitOnLiveMessages(sanityReceiverMsgChan)
@@ -1466,6 +1596,7 @@ var _ = Describe("Cache Strategy", func() {
 				err := receiver.ReceiveAsync(func(msg message.InboundMessage) {
 					receivedMsgChan <- msg
 				})
+				Expect(err).To(BeNil())
 				outboundMessage, err := messagingService.MessageBuilder().BuildWithStringPayload(payload)
 				Expect(err).To(BeNil())
 				Expect(outboundMessage).ToNot(BeNil())
@@ -1503,9 +1634,13 @@ var _ = Describe("Cache Strategy", func() {
 				var cacheResponse solace.CacheResponse
 				Eventually(channel, "30s").Should(Receive(&cacheResponse))
 				Expect(cacheResponse).ToNot(BeNil())
-				/* EBP-25: Assert cache request ID matches cache response ID. */
-				/* EBP-26: Assert CacheRequestOutcome is Ok. */
-				/* EBP-28: Assert err from response is nil. */
+				// assert cache reponse ID matches cache request ID
+				Expect(cacheResponse.GetCacheRequestID()).To(Equal(cacheRequestID))
+				// assert CacheRequestOutcome is Ok
+				Expect(cacheResponse.GetCacheRequestOutcome()).To(Equal(solace.CacheRequestOutcomeOk))
+				// assert err is nil
+				Expect(cacheResponse.GetError()).To(BeNil())
+
 				var msg message.InboundMessage
 				for i := 0; i < numExpectedCacheMessages; i++ {
 					Eventually(receivedMsgChan, "5s").Should(Receive(&msg))
@@ -1540,6 +1675,7 @@ var _ = Describe("Cache Strategy", func() {
 				outboundMessage, err := messagingService.MessageBuilder().BuildWithStringPayload("this is a direct message")
 				Expect(err).To(BeNil())
 				err = receiver.AddSubscription(resource.TopicSubscriptionOf(directTopic))
+				Expect(err).To(BeNil())
 				receivedMsgChan := make(chan message.InboundMessage, numExpectedReceivedMessages)
 				err = receiver.ReceiveAsync(func(msg message.InboundMessage) {
 					receivedMsgChan <- msg
@@ -1563,16 +1699,22 @@ var _ = Describe("Cache Strategy", func() {
 				msg = nil
 				var cacheResponse solace.CacheResponse
 				Eventually(channel, "2s").Should(Receive(&cacheResponse))
-				/* EBP-26: Assert that the cache response contains a CacheRequestOutcome.Ok */
 				Expect(cacheResponse).ToNot(BeNil())
+				// assert that the cache response contains a CacheRequestOutcome Ok
+				Expect(cacheResponse.GetCacheRequestOutcome()).To(Equal(solace.CacheRequestOutcomeOk))
+
 				for i := 0; i < numExpectedCachedMessages; i++ {
-					/* EBP-25: Assert that the cache request ID from these received messages matches the cache request ID received in the cache response.*/
 					Eventually(receivedMsgChan).Should(Receive(&msg))
 					Expect(msg).ToNot(BeNil())
 					Expect(msg.GetDestinationName()).To(Equal(cacheTopic))
 					id, ok = msg.GetCacheRequestID()
 					Expect(ok).To(BeTrue())
 					Expect(id).To(BeNumerically("==", cacheRequestID))
+
+					// assert that the cache request ID from these received messages matches the
+					// cache request ID received in the cache response
+					Expect(id).To(Equal(cacheResponse.GetCacheRequestID()))
+
 					// assert that these messages are cached messages
 					Expect(msg.GetCacheStatus()).To(Equal(message.Cached))
 					msg = nil
@@ -1609,6 +1751,7 @@ var _ = Describe("Cache Strategy", func() {
 					Expect(err).To(BeNil())
 					Expect(outboundMessage).ToNot(BeNil())
 					err = messagePublisher.Publish(outboundMessage, resource.TopicOf(topic))
+					Expect(err).To(BeNil())
 					Consistently(receivedMsgChan).ShouldNot(Receive())
 
 					var cacheResponse solace.CacheResponse
@@ -1628,9 +1771,13 @@ var _ = Describe("Cache Strategy", func() {
 						Fail("Got unexpected cacheResponseStrategy")
 					}
 					Expect(cacheResponse).ToNot(BeNil())
-					/* EBP-25: Assert cache request ID from response matches request. */
-					/* EBP-26: Assert CacheRequestOutcome.Ok in response */
-					/* EBP-28: Assert err from response is nil. */
+					// assert cache reponse ID matches cache request ID
+					Expect(cacheResponse.GetCacheRequestID()).To(Equal(cacheRequestID))
+					// assert CacheRequestOutcome is Ok
+					Expect(cacheResponse.GetCacheRequestOutcome()).To(Equal(solace.CacheRequestOutcomeOk))
+					// assert err is nil
+					Expect(cacheResponse.GetError()).To(BeNil())
+
 					for i := 0; i < numExpectedCachedMessages; i++ {
 						var msg message.InboundMessage
 						Eventually(receivedMsgChan).Should(Receive(&msg))
@@ -1645,6 +1792,7 @@ var _ = Describe("Cache Strategy", func() {
 
 					/* NOTE: Check that the subscription persists after the cache request has completed. */
 					err = messagePublisher.Publish(outboundMessage, resource.TopicOf(topic))
+					Expect(err).To(BeNil())
 					var msg message.InboundMessage
 					Eventually(receivedMsgChan).Should(Receive(&msg))
 					Expect(msg).ToNot(BeNil())
@@ -1659,6 +1807,7 @@ var _ = Describe("Cache Strategy", func() {
 
 					/* NOTE: Check that the subscription added as a part of the cache request can be removed. */
 					err = messagePublisher.Publish(outboundMessage, resource.TopicOf(topic))
+					Expect(err).To(BeNil())
 					Consistently(receivedMsgChan).ShouldNot(Receive())
 
 					Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsFailed)).To(BeNumerically("==", 0))

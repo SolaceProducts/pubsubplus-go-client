@@ -977,7 +977,7 @@ func (receiver *directMessageReceiverImpl) addCacheSessionToMapIfNotPresent(hold
 	var err error
 	err = nil
 	if _, found := receiver.cacheRequestMap.Load(cacheRequestMapIndex); found {
-		/* Pre-existing cache session found. This error is fatal to the operation but not to the API since we can
+		/* Pre-existing cache session found. This error is fatal to the operation but not to the API since
 		 * this does not block other activities like subscribing or trying to send a distint cache request, but does
 		 * prevent the API from indexing the cache session which is necessary for tracking cache request lifecycles.
 		 */

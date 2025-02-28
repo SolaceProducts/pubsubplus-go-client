@@ -33,18 +33,7 @@ package ccsmp
 #include "solclient/solCache.h"
 #include "./ccsmp_helper.h"
 
-solClient_rxMsgCallback_returnCode_t messageReceiveCallback ( solClient_opaqueSession_pt opaqueSession_p, solClient_opaqueMsg_pt msg_p, void *user_p );
-solClient_rxMsgCallback_returnCode_t requestResponseReplyMessageReceiveCallback ( solClient_opaqueSession_pt opaqueSession_p, solClient_opaqueMsg_pt msg_p, void *user_p );
-solClient_rxMsgCallback_returnCode_t defaultMessageReceiveCallback ( solClient_opaqueSession_pt opaqueSession_p, solClient_opaqueMsg_pt msg_p, void *user_p );
 void eventCallback ( solClient_opaqueSession_pt opaqueSession_p, solClient_session_eventCallbackInfo_pt eventInfo_p, void *user_p );
-void handleLogCallback(solClient_log_callbackInfo_pt logInfo_p, void *user_p);
-
-solClient_rxMsgCallback_returnCode_t flowMessageReceiveCallback ( solClient_opaqueFlow_pt opaqueFlow_p, solClient_opaqueMsg_pt msg_p, void *user_p );
-solClient_rxMsgCallback_returnCode_t defaultFlowMessageReceiveCallback ( solClient_opaqueFlow_pt opaqueFlow_p, solClient_opaqueMsg_pt msg_p, void *user_p );
-void flowEventCallback ( solClient_opaqueFlow_pt opaqueFlow_p, solClient_flow_eventCallbackInfo_pt eventInfo_p, void *user_p );
-
-// Prototypes for C API internal interfaces available only to wrapper APIs.
-solClient_returnCode_t _solClient_version_set(solClient_version_info_pt version_p);
 */
 import "C"
 import (
@@ -72,6 +61,23 @@ func (cacheSession *SolClientCacheSession) String() string {
 func WrapSolClientCacheSessionPt(cacheSessionP SolClientCacheSessionPt) SolClientCacheSession {
 	return SolClientCacheSession{pointer: cacheSessionP}
 }
+
+// Error helpers
+
+// SolClientSubCodeOK is assigned a value
+const SolClientSubCodeOK = C.SOLCLIENT_SUBCODE_OK
+
+// SolClientSubCodeCacheRequestCancelled is assigned a value
+const SolClientSubCodeCacheRequestCancelled = C.SOLCLIENT_SUBCODE_CACHE_REQUEST_CANCELLED
+
+// SolClientSubCodeCacheSuspectData is assigned a value
+const SolClientSubCodeCacheSuspectData = C.SOLCLIENT_SUBCODE_CACHE_SUSPECT_DATA
+
+// SolClientSubCodeCacheNoData is assigned a value
+const SolClientSubCodeCacheNoData = C.SOLCLIENT_SUBCODE_CACHE_NO_DATA
+
+// SolClientSubCodeCacheTimeout is assigned a value
+const SolClientSubCodeCacheTimeout = C.SOLCLIENT_SUBCODE_CACHE_TIMEOUT
 
 func ConvertCachedMessageSubscriptionRequestToCcsmpPropsList(cachedMessageSubscriptionRequest resource.CachedMessageSubscriptionRequest) []string {
 	return []string{
@@ -198,6 +204,22 @@ type CacheEventInfo struct {
 	err            error
 }
 
+func (eventInfo *CacheEventInfo) GetCacheSessionPointer() SolClientCacheSessionPt {
+	return eventInfo.cacheSessionP
+}
+
+func (eventInfo *CacheEventInfo) GetReturnCode() SolClientReturnCode {
+	return eventInfo.returnCode
+}
+
+func (eventInfo *CacheEventInfo) GetSubCode() SolClientSubCode {
+	return eventInfo.subCode
+}
+
+func (eventInfo *CacheEventInfo) GetError() error {
+	return eventInfo.err
+}
+
 func (eventInfo *CacheEventInfo) String() string {
 	var errString string
 	if eventInfo.err != nil {
@@ -222,10 +244,6 @@ func NewCacheEventInfoForCancellation(cacheSession SolClientCacheSession, cacheR
 		cacheRequestID: cacheRequestID,
 		err:            err,
 	}
-}
-
-func (i *CacheEventInfo) GetCacheSessionPointer() SolClientCacheSessionPt {
-	return i.cacheSessionP
 }
 
 func CacheEventInfoFromCoreCacheEventInfo(eventCallbackInfo CacheEventInfoPt, userP uintptr) CacheEventInfo {
