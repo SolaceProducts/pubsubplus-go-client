@@ -28,9 +28,32 @@ import (
 	"solace.dev/go/messaging/pkg/solace/message"
 	apimessage "solace.dev/go/messaging/pkg/solace/message"
 	"solace.dev/go/messaging/pkg/solace/resource"
+	"solace.dev/go/messaging/pkg/solace/subcode"
 )
 
 type SubscribeFlags = ccsmp.SolClientSubscribeFlags
+// CacheResponse provides information about the response received from the cache.
+type cacheResponse struct {
+	cacheRequestOutcome solace.CacheRequestOutcome
+	cacheRequestID      apimessage.CacheRequestID
+	err                 error
+}
+
+// GetCacheRequestOutcome retrieves the cache request outcome for the cache response
+func (cacheResp *cacheResponse) GetCacheRequestOutcome() solace.CacheRequestOutcome {
+	return cacheResp.cacheRequestOutcome
+}
+
+// GetCacheRequestID retrieves the cache request ID that generated the cache response
+func (cacheResp *cacheResponse) GetCacheRequestID() apimessage.CacheRequestID {
+	return cacheResp.cacheRequestID
+}
+
+// GetError retrieves the error field, will be nil if the cache request
+// was successful, and will be not nil if a problem was encountered.
+func (cacheResp *cacheResponse) GetError() error {
+	return cacheResp.err
+}
 
 // ProcessCacheEvent is intended to be run by any agent trying to process a cache response. This can be run from a polling go routine, or during termination to cleanup remaining resources, and possibly by other agents as well.
 func (receiver *ccsmpBackedReceiver) ProcessCacheEvent(cacheRequestMap *sync.Map, cacheEventInfo CoreCacheEventInfo) {
@@ -41,7 +64,6 @@ func (receiver *ccsmpBackedReceiver) ProcessCacheEvent(cacheRequestMap *sync.Map
 	cacheSession := ccsmp.WrapSolClientCacheSessionPt(cacheSessionP)
 	cacheRequestIndex := GetCacheRequestMapIndexFromCacheSession(cacheSession)
 	foundCacheRequest, found := cacheRequestMap.Load(cacheRequestIndex)
-	//foundCacheResponseHolder, found := cacheRequestMap.Load(cacheRequestIndex)
 	if !found {
 		if logging.Default.IsDebugEnabled() {
 			/* NOTE: This can occur when there has been a duplicate event, where for some reason CCSMP was able
@@ -56,13 +78,66 @@ func (receiver *ccsmpBackedReceiver) ProcessCacheEvent(cacheRequestMap *sync.Map
 		}
 	} else {
 		cacheRequest := foundCacheRequest.(CacheRequest)
-		//cacheResponseHolder := foundCacheResponseHolder.(CacheResponseProcessor)
-		cacheResponse := solace.CacheResponse{}
+
+		var cacheRespError error = nil
+		var cacheRequestOutcome solace.CacheRequestOutcome
+
+		if cacheEventInfo.GetReturnCode() == ccsmp.SolClientReturnCodeOk {
+			// request was successful, no need to check subcode
+			cacheRequestOutcome = solace.CacheRequestOutcomeOk
+			// cacheRespError should be nil since returncode is OK
+		} else if cacheEventInfo.GetReturnCode() == ccsmp.SolClientReturnCodeIncomplete {
+			// request still in progress, check subcode for actual outcome of cache request
+			if cacheEventInfo.GetSubCode() == ccsmp.SolClientSubCodeCacheSuspectData {
+				// suspect data
+				cacheRequestOutcome = solace.CacheRequestOutcomeSuspectData
+				// cacheRespError should be nil
+			} else if cacheEventInfo.GetSubCode() == ccsmp.SolClientSubCodeCacheNoData {
+				// no data
+				cacheRequestOutcome = solace.CacheRequestOutcomeNoData
+				// cacheRespError should be nil
+			} else if cacheEventInfo.GetSubCode() == ccsmp.SolClientSubCodeCacheTimeout {
+				// request timed out, failed
+				cacheRequestOutcome = solace.CacheRequestOutcomeFailed
+				// cacheRespError should be a timeout error
+				cacheRespError = solace.NewError(&solace.TimeoutError{}, "the cache request timed out", nil)
+				if logging.Default.IsDebugEnabled() {
+					logging.Default.Debug(
+						fmt.Sprintf(
+							"ProcessCacheEvent: The cache request timed out.\nReturnCode is: %d\nSubCode is: %d\n",
+							cacheEventInfo.GetReturnCode(),
+							cacheEventInfo.GetSubCode()))
+				}
+			} else {
+				// failed
+				cacheRequestOutcome = solace.CacheRequestOutcomeFailed
+				// cacheRespError should be nil
+			}
+		} else {
+			// request failed, no need to check subcode
+			cacheRequestOutcome = solace.CacheRequestOutcomeFailed
+			// set cacheRespError based on the returned subcode
+			if cacheEventInfo.GetSubCode() != ccsmp.SolClientSubCodeCacheSuspectData && cacheEventInfo.GetSubCode() != ccsmp.SolClientSubCodeCacheNoData {
+				// cacheRespError should be a solaceError
+				cacheRespError = solace.NewNativeError("the cache request failed", subcode.Code(cacheEventInfo.GetSubCode()))
+				if logging.Default.IsDebugEnabled() {
+					logging.Default.Debug(
+						fmt.Sprintf(
+							"ProcessCacheEvent: The cache request failed.\nReturnCode is: %d\nSubCode is: %d\n",
+							cacheEventInfo.GetReturnCode(),
+							cacheEventInfo.GetSubCode()))
+				}
+			}
+		}
+
+		cacheResponse := &cacheResponse{
+			cacheRequestOutcome: cacheRequestOutcome,
+			cacheRequestID:      cacheRequest.ID(),
+			err:                 cacheRespError,
+		}
+
 		cacheRequest.Processor().ProcessCacheResponse(cacheResponse)
-		/* EBP-22: See if we need to pass this error to the application through the cache response. */
 		receiver.CleanupCacheRequestSubscriptions(cacheRequest)
-		//cacheRequestReceivedMessageFilter := cacheRequest.(ReceivedMessageFilter)
-		//cacheRequestReceivedMessageFilter.CleanupFiltering()
 		if messageFilter := cacheRequest.MessageFilter(); messageFilter != nil {
 			/* NOTE: Not all cache requests require filtering. So, we only cleanup resources associated with
 			 * message filtering if the cache request was configured to require that they be allocated.
@@ -115,6 +190,8 @@ type CacheRequestMapIndex = ccsmp.SolClientCacheSessionPt
 // in response to a cache request concluding.
 type CoreCacheEventInfo = ccsmp.CacheEventInfo
 
+type CoreCacheSession = ccsmp.SolClientCacheSession
+
 // CoreCacheEventCallback is a type alias for the callback that CCSMP will call on the context thread to pass the
 // cache event info corresponding to a cache response to the Go API.
 type CoreCacheEventCallback = ccsmp.SolClientCacheEventCallback
@@ -128,8 +205,8 @@ type CacheRequest interface {
 	// Processor returns the method through which the application decided to handle the cache response that will result
 	// from this cache request.
 	Processor() CacheResponseProcessor
-	// CacheSession returns the [SolClientCacheSession] that was created to service this cache request.
-	CacheSession() ccsmp.SolClientCacheSession
+	// CacheSession returns the [CoreCacheSession] that was created to service this cache request.
+	CacheSession() CoreCacheSession
 	// Index returns the [CacheRequestMapIndex] used to associate this cache request with its processor in the
 	// receiver's internal map.
 	Index() CacheRequestMapIndex
@@ -203,7 +280,7 @@ type CacheRequestImpl struct {
 	messageFilter                    ReceivedMessageFilter
 }
 
-func GetCacheSessionFromCacheRequestIndex(cacheRequestMapIndex CacheRequestMapIndex) ccsmp.SolClientCacheSession {
+func GetCacheSessionFromCacheRequestIndex(cacheRequestMapIndex CacheRequestMapIndex) CoreCacheSession {
 	return ccsmp.WrapSolClientCacheSessionPt(ccsmp.SolClientCacheSessionPt(cacheRequestMapIndex))
 }
 
@@ -320,7 +397,7 @@ type CacheRequestor interface {
 	DestroyCacheRequest(CacheRequest) error
 	// SendCacheRequest sends the given cache request object, and configures CCSMP to use the given callback to handle
 	// the resulting cache event/response
-	SendCacheRequest(CacheRequest, CoreCacheEventCallback) error
+	SendCacheRequest(CacheRequest, CoreCacheEventCallback, uintptr) error
 	// ProcessCacheEvent creates a cache response from the cache event that was asynchronously returned by CCSMP, and
 	// gives this response to the application for post-processing using the method configured by the application during
 	// the call to RequestCachedAsync or RequestCachedAsyncWithCallback.
@@ -362,7 +439,15 @@ func (receiver *ccsmpBackedReceiver) CleanupCacheRequestSubscriptions(cacheReque
 // SendCacheRequest sends a creates a cache session and sends a cache request on that session. This method
 // assumes the receiver is in the proper state (running). The caller must guarantee this state before
 // attempting to send a cache request. Failing to do so will result in undefined behaviour.
-func (receiver *ccsmpBackedReceiver) SendCacheRequest(cacheRequest CacheRequest, cacheEventCallback CoreCacheEventCallback) error {
+// dispatchID needs to be passed because the [DirectMessageReceiver] posesses a dispatch ID that can be
+// different from the one maintained by the [ccsmpBackedReceiver]. When the [DirectMessageReceiver] is started,
+// it increments the service-wide dispatchID that is maintained by the [ccsmpBackedReceiver], and maintains a
+// copy of that dispatchID for the remainder of its lifecycle. It is not documented that this copy of the
+// dispatchID is required to be immutable, and it is the [DirectMessageReceiver]'s responsibility to
+// maintain it across network operations. If the dispatchID were not passed, and the
+// [ccsmpBackedReceiver.dispatchID] was used instead, then the data messages from the cache response would be
+// forwarded to the last created [DirectMessageReceiver] instead of to the one which sent this cache request.
+func (receiver *ccsmpBackedReceiver) SendCacheRequest(cacheRequest CacheRequest, cacheEventCallback CoreCacheEventCallback, dispatchID uintptr) error {
 	var err error
 
 	cacheSession := cacheRequest.CacheSession()
@@ -373,7 +458,7 @@ func (receiver *ccsmpBackedReceiver) SendCacheRequest(cacheRequest CacheRequest,
 		return solace.NewError(&solace.IllegalArgumentError{}, errorString, nil)
 	}
 	if logging.Default.IsDebugEnabled() {
-		logging.Default.Debug(fmt.Sprintf("Sending cache request with cache request ID %d on cache session %s", cacheRequest.ID(), cacheSession.String()))
+		logging.Default.Debug(fmt.Sprintf("Sending cache request with cache request ID %d and dispatchID 0x%x on cache session %s", cacheRequest.ID(), dispatchID, cacheSession.String()))
 	}
 
 	var filterConfig MessageFilterConfig = defaultMessageFilterConfigValue
@@ -383,7 +468,7 @@ func (receiver *ccsmpBackedReceiver) SendCacheRequest(cacheRequest CacheRequest,
 	}
 	fmt.Printf("filterConfig is 0x%x\n", uintptr(unsafe.Pointer(filterConfig)))
 
-	errInfo := cacheSession.SendCacheRequest(uintptr(receiver.dispatchID),
+	errInfo := cacheSession.SendCacheRequest(uintptr(dispatchID),
 		cacheRequest.RequestConfig().GetName(),
 		cacheRequest.ID(),
 		ccsmp.CachedMessageSubscriptionRequestStrategyMappingToCCSMPCacheRequestFlags[*cacheStrategy],

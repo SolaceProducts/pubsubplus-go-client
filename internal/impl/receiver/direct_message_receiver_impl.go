@@ -979,7 +979,7 @@ func (receiver *directMessageReceiverImpl) addCacheSessionToMapIfNotPresent(cach
 	var err error
 	err = nil
 	if _, found := receiver.cacheRequestMap.Load(cacheRequestMapIndex); found {
-		/* Pre-existing cache session found. This error is fatal to the operation but not to the API since we can
+		/* Pre-existing cache session found. This error is fatal to the operation but not to the API since
 		 * this does not block other activities like subscribing or trying to send a distint cache request, but does
 		 * prevent the API from indexing the cache session which is necessary for tracking cache request lifecycles.
 		 */
@@ -1034,7 +1034,7 @@ func (receiver *directMessageReceiverImpl) RequestCachedAsync(cachedMessageSubsc
 		atomic.AddInt64(&receiver.numOutstandingCacheRequests, -1)
 		return nil, err
 	}
-	err = receiver.internalReceiver.CacheRequestor().SendCacheRequest(cacheRequest, cacheEventCallback)
+	err = receiver.internalReceiver.CacheRequestor().SendCacheRequest(cacheRequest, cacheEventCallback, receiver.dispatch)
 	if err != nil {
 		atomic.AddInt64(&receiver.numOutstandingCacheRequests, -1)
 		close(applicationChannel)
@@ -1078,7 +1078,7 @@ func (receiver *directMessageReceiverImpl) RequestCachedAsyncWithCallback(cached
 		atomic.AddInt64(&receiver.numOutstandingCacheRequests, -1)
 		return err
 	}
-	err = receiver.internalReceiver.CacheRequestor().SendCacheRequest(cacheRequest, cacheEventCallback)
+	err = receiver.internalReceiver.CacheRequestor().SendCacheRequest(cacheRequest, cacheEventCallback, receiver.dispatch)
 	if err != nil {
 		atomic.AddInt64(&receiver.numOutstandingCacheRequests, -1)
 		receiver.cacheRequestMap.Delete(cacheRequest.Index())

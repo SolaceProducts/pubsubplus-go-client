@@ -32,17 +32,8 @@ package ccsmp
 #include "./ccsmp_helper.h"
 
 solClient_rxMsgCallback_returnCode_t messageReceiveCallback ( solClient_opaqueSession_pt opaqueSession_p, solClient_opaqueMsg_pt msg_p, void *user_p );
-solClient_rxMsgCallback_returnCode_t requestResponseReplyMessageReceiveCallback ( solClient_opaqueSession_pt opaqueSession_p, solClient_opaqueMsg_pt msg_p, void *user_p );
-solClient_rxMsgCallback_returnCode_t defaultMessageReceiveCallback ( solClient_opaqueSession_pt opaqueSession_p, solClient_opaqueMsg_pt msg_p, void *user_p );
-void eventCallback ( solClient_opaqueSession_pt opaqueSession_p, solClient_session_eventCallbackInfo_pt eventInfo_p, void *user_p );
 void handleLogCallback(solClient_log_callbackInfo_pt logInfo_p, void *user_p);
-
-solClient_rxMsgCallback_returnCode_t flowMessageReceiveCallback ( solClient_opaqueFlow_pt opaqueFlow_p, solClient_opaqueMsg_pt msg_p, void *user_p );
-solClient_rxMsgCallback_returnCode_t defaultFlowMessageReceiveCallback ( solClient_opaqueFlow_pt opaqueFlow_p, solClient_opaqueMsg_pt msg_p, void *user_p );
-void flowEventCallback ( solClient_opaqueFlow_pt opaqueFlow_p, solClient_flow_eventCallbackInfo_pt eventInfo_p, void *user_p );
-
 void debugStatement(char *);
-
 // Prototypes for C API internal interfaces available only to wrapper APIs.
 solClient_returnCode_t _solClient_version_set(solClient_version_info_pt version_p);
 */
@@ -194,12 +185,6 @@ type SolClientReturnCode = C.solClient_returnCode_t
 
 // SolClientSubCode is assigned a value
 type SolClientSubCode = C.solClient_subCode_t
-
-// SolClientSubCodeOK is assigned a value
-const SolClientSubCodeOK = C.SOLCLIENT_SUBCODE_OK
-
-// SolClientSubCodeCacheRequestCancelled is assigned a value
-const SolClientSubCodeCacheRequestCancelled = C.SOLCLIENT_SUBCODE_CACHE_REQUEST_CANCELLED
 
 // SolClientResponseCode is assigned a value
 type SolClientResponseCode = C.solClient_session_responseCode_t

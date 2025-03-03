@@ -171,6 +171,27 @@ func (inboundMessage *InboundMessageImpl) GetCacheRequestID() (message.CacheRequ
 	return message.CacheRequestID(cacheID), true
 }
 
+// GetCacheStatus retrieves the [CacheStatus] of the message, indicating its provenance.
+func (inboundMessage *InboundMessageImpl) GetCacheStatus() message.CacheStatus {
+	cacheStatus := ccsmp.SolClientMessageIsCachedMessage(inboundMessage.messagePointer)
+
+	switch cacheStatus {
+	// live messages
+	case ccsmp.SolClientCacheStatusLiveMessage:
+		return message.Live
+		// cache messages
+	case ccsmp.SolClientCacheStatusCacheMessage:
+		return message.Cached
+		// suspect messages
+	case ccsmp.SolClientCacheStatusSuspectMessage:
+		return message.Suspect
+		// invalid messages, error
+	default:
+		logging.Default.Error(fmt.Sprintf("Encountered error retrieving Cache status: %d", int(cacheStatus)))
+	}
+	return message.CacheStatus(cacheStatus) // error cache status
+}
+
 type discardNotification struct {
 	internalDiscard, brokerDiscard bool
 }

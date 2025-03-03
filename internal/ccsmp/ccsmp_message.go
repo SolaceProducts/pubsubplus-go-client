@@ -42,6 +42,9 @@ type SolClientDestination = C.solClient_destination_t
 // SolClientMessageID is assigned a value
 type SolClientMessageID = C.solClient_msgId_t
 
+// SolClientCacheStatus is assigned a value
+type SolClientCacheStatus = C.solClient_cacheStatus_t
+
 // SolClientDeliveryModeDirect is assigned a value
 const SolClientDeliveryModeDirect = C.SOLCLIENT_DELIVERY_MODE_DIRECT
 
@@ -50,6 +53,18 @@ const SolClientDeliveryModeNonPersistent = C.SOLCLIENT_DELIVERY_MODE_NONPERSISTE
 
 // SolClientDeliveryModePersistent is assigned a value
 const SolClientDeliveryModePersistent = C.SOLCLIENT_DELIVERY_MODE_PERSISTENT
+
+// SolClientCacheStatusInvalidMessage is assigned a value
+const SolClientCacheStatusInvalidMessage = C.SOLCLIENT_CACHE_INVALID_MESSAGE
+
+// SolClientCacheStatusLiveMessage is assigned a value
+const SolClientCacheStatusLiveMessage = C.SOLCLIENT_CACHE_LIVE_MESSAGE
+
+// SolClientCacheStatusCacheMessage is assigned a value
+const SolClientCacheStatusCacheMessage = C.SOLCLIENT_CACHE_MESSAGE
+
+// SolClientCacheStatusSuspectMessage is assigned a value
+const SolClientCacheStatusSuspectMessage = C.SOLCLIENT_CACHE_SUSPECT_MESSAGE
 
 // TODO the calls to handleCcsmpError are slow since they lock the thread.
 // Ideally, we wrap these calls in C such that the golang scheduler cannot
@@ -523,6 +538,12 @@ func SolClientMessageGetCacheRequestID(messageP SolClientMessagePt) (uint64, *So
 		return C.solClient_msg_getCacheRequestId(messageP, &cuint64)
 	})
 	return uint64(cuint64), errorInfo
+}
+
+// SolClientMessageIsCachedMessage function
+func SolClientMessageIsCachedMessage(messageP SolClientMessagePt) SolClientCacheStatus {
+	var cacheMessageStatus C.solClient_cacheStatus_t = C.solClient_msg_isCacheMsg(messageP)
+	return *(*SolClientCacheStatus)(unsafe.Pointer(&cacheMessageStatus))
 }
 
 // Write only properties
