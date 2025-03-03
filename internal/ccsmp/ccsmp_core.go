@@ -41,6 +41,8 @@ solClient_rxMsgCallback_returnCode_t flowMessageReceiveCallback ( solClient_opaq
 solClient_rxMsgCallback_returnCode_t defaultFlowMessageReceiveCallback ( solClient_opaqueFlow_pt opaqueFlow_p, solClient_opaqueMsg_pt msg_p, void *user_p );
 void flowEventCallback ( solClient_opaqueFlow_pt opaqueFlow_p, solClient_flow_eventCallbackInfo_pt eventInfo_p, void *user_p );
 
+void debugStatement(char *);
+
 // Prototypes for C API internal interfaces available only to wrapper APIs.
 solClient_returnCode_t _solClient_version_set(solClient_version_info_pt version_p);
 */
@@ -113,6 +115,7 @@ var sessionToEventCallbackMap sync.Map
 
 //export goMessageReceiveCallback
 func goMessageReceiveCallback(sessionP SolClientSessionPt, msgP SolClientMessagePt, userP unsafe.Pointer) C.solClient_rxMsgCallback_returnCode_t {
+	logging.Default.Debug("Got to goMessageReceiveCallback")
 	if callback, ok := sessionToRXCallbackMap.Load(sessionP); ok {
 		if callback.(SolClientMessageCallback)(msgP, userP) {
 			return C.SOLCLIENT_CALLBACK_TAKE_MSG

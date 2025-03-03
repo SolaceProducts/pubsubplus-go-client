@@ -170,6 +170,465 @@ var _ = Describe("Cache Strategy", func() {
 			Entry("with topic 3 with channel with CacheRequestStrategyLiveCancelsCached", "MaxMsgs3/%s/nodata", resource.CacheRequestStrategyLiveCancelsCached, helpers.ProcessCacheResponseThroughChannel),
 			Entry("with topic 3 with callback with CacheRequestStrategyLiveCancelsCached", "MaxMsgs3/%s/nodata", resource.CacheRequestStrategyLiveCancelsCached, helpers.ProcessCacheResponseThroughCallback),
 		)
+		DescribeTable("CachedOnly cache requests on different topics on the same receiver concurrent", func(cacheRequestStrategy resource.CachedMessageSubscriptionStrategy, withLiveMessages bool) {
+			numConfiguredCachedMessages := 3
+			numConfiguredLiveMessages := 1
+			delay := 2000
+			delayAsTime := time.Second * time.Duration((delay / 1000))
+			concurrentCacheRequestID := message.CacheRequestID(1)
+			cachedOnlyCacheRequestID := message.CacheRequestID(2)
+			var concurrentCacheName string
+			cachedOnlyCacheName := fmt.Sprintf("MaxMsgs%d", numConfiguredCachedMessages)
+			if withLiveMessages {
+				concurrentCacheName = fmt.Sprintf("%s/delay=%d,msgs=%d", cachedOnlyCacheName, delay, numConfiguredLiveMessages)
+			} else {
+				concurrentCacheName = fmt.Sprintf("%s/delay=%d", cachedOnlyCacheName, delay)
+			}
+			concurrentCacheTopic := fmt.Sprintf("MaxMsgs%d/%s/data1", numConfiguredCachedMessages, testcontext.Cache().Vpn)
+			cachedOnlyCacheTopic := fmt.Sprintf("MaxMsgs%d/%s/data2", numConfiguredCachedMessages, testcontext.Cache().Vpn)
+			cachedOnlyCacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.CacheRequestStrategyCachedOnly, cachedOnlyCacheName, resource.TopicSubscriptionOf(cachedOnlyCacheTopic), int32(5000), int32(5000), int32(5000))
+			concurrentCacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(cacheRequestStrategy, concurrentCacheName, resource.TopicSubscriptionOf(concurrentCacheTopic), int32(5000), int32(5000), int32(5000))
+
+			/* Channel size of 10 is an arbitrary number over the anticipated 7 received messages. */
+			receivedMsgChan := make(chan message.InboundMessage, 10)
+			err := receiver.ReceiveAsync(func(msg message.InboundMessage) {
+				receivedMsgChan <- msg
+			})
+			Expect(err).To(BeNil())
+
+			concurrentChannel, err := receiver.RequestCachedAsync(concurrentCacheRequestConfig, concurrentCacheRequestID)
+			Expect(err).To(BeNil())
+			Expect(concurrentChannel).ToNot(BeNil())
+			if withLiveMessages && (cacheRequestStrategy == resource.CacheRequestStrategyLiveCancelsCached || cacheRequestStrategy == resource.CacheRequestStrategyAsAvailable) {
+				/* NOTE: We delay before sending the second cache request to mitigate the risk of cached messages
+				 * from the second request arriving before live messages from the first request. This allows us
+				 * to test received message ordering later. This only matters for LiveCancelsCached and
+				 * AsAvailable, because those strategies do not dictate ordering of received messages. If
+				 * CachedOnly or CachedFirst requests are being sent, any received live messages will be
+				 * deferred or ignored.
+				 */
+				time.Sleep(time.Millisecond * 500)
+			}
+			cachedOnlyChannel, err := receiver.RequestCachedAsync(cachedOnlyCacheRequestConfig, cachedOnlyCacheRequestID)
+			Expect(err).To(BeNil())
+			Expect(cachedOnlyChannel).ToNot(BeNil())
+			/* NOTE: We only wait for a cache response for as much as the delay because the point of the test is to
+			 * receive the CachedOnly response while the other request is still in-flight. The proxy will ensure
+			 * that the other request is not received by the cache instance for at least `delay` seconds. If the
+			 * CachedOnly response is received after that delay has expired, the test results may no longer be
+			 * reliable.
+			 */
+			var cacheResponse solace.CacheResponse
+			Eventually(cachedOnlyChannel, delayAsTime).Should(Receive(&cacheResponse))
+			Expect(cacheResponse).ToNot(BeNil())
+			/* EBP-25: Assert cache request ID */
+			/* EBP-26: Assert CacheRequestOutcome */
+			/* EBP-28: Assert err */
+			/* NOTE: If using LiveCancelsCached */
+			if cacheRequestStrategy != resource.CacheRequestStrategyLiveCancelsCached || !withLiveMessages {
+				/* NOTE: Ideally, the cachedOnlyChannel received a response before the concurrent cache request was
+				 * received by the cache instance, and the API should still not have received a response. However, it is
+				 * possible that latency in test infrastructure causes the response from the first cache request to be
+				 * received prematurely, in which case we should fail because the test is not behaving as intended and
+				 * the test results are no longer reliable.
+				 */
+				Consistently(concurrentChannel, "1ms").ShouldNot(Receive())
+			}
+			/* NOTE: Now that we have asserted the concurrent cache response was not received prematurely, we can
+			 * wait for it to be delivered.
+			 */
+			Eventually(concurrentChannel, delayAsTime+(time.Second*1)).Should(Receive(&cacheResponse))
+			Expect(cacheResponse).ToNot(BeNil())
+			/* EBP-25: Assert cache request ID */
+			/* EBP-26: Assert CacheRequestOutcome */
+			/* EBP-28: Assert err */
+			var waitForLiveMessages = func(numExpectedLiveMessages int) {
+				for i := 0; i < numExpectedLiveMessages; i++ {
+					fmt.Printf("waiting on live messages")
+					var msg message.InboundMessage
+					Eventually(receivedMsgChan).Should(Receive(&msg))
+					Expect(msg).ToNot(BeNil())
+					Expect(msg.GetDestinationName()).To(Equal(concurrentCacheTopic))
+					id, ok := msg.GetCacheRequestID()
+					Expect(ok).To(BeFalse())
+					Expect(id).To(BeNumerically("==", 0))
+					/* EBP-21: Assert live message. */
+				}
+			}
+			var waitForCachedMessages = func(numExpectedCachedMessages int, expectedCacheRequestId message.CacheRequestID) {
+				var expectedTopic string
+				switch expectedCacheRequestId {
+				case cachedOnlyCacheRequestID:
+					fmt.Println("waiting on cachedOnly messages")
+					expectedTopic = cachedOnlyCacheTopic
+				case concurrentCacheRequestID:
+					fmt.Println("waiting on concurrent messages")
+					expectedTopic = concurrentCacheTopic
+				default:
+					Fail("Got unexpected cache request ID")
+				}
+				for i := 0; i < numExpectedCachedMessages; i++ {
+					fmt.Printf("waiting on message %d of %d\n", i, numExpectedCachedMessages)
+					var msg message.InboundMessage
+					Eventually(receivedMsgChan).Should(Receive(&msg))
+					Expect(msg).ToNot(BeNil())
+					Expect(msg.GetDestinationName()).To(Equal(expectedTopic))
+					id, ok := msg.GetCacheRequestID()
+					Expect(ok).To(BeTrue())
+					Expect(id).To(BeNumerically("==", expectedCacheRequestId))
+					/* EBP-21: Assert live message. */
+				}
+			}
+			numExpectedCachedMessages := numConfiguredCachedMessages
+			switch cacheRequestStrategy {
+			case resource.CacheRequestStrategyLiveCancelsCached:
+				if withLiveMessages {
+					numExpectedLiveMessages := numConfiguredLiveMessages
+					waitForLiveMessages(numExpectedLiveMessages)
+					waitForCachedMessages(numExpectedCachedMessages, cachedOnlyCacheRequestID)
+				} else {
+					waitForCachedMessages(numExpectedCachedMessages, cachedOnlyCacheRequestID)
+					waitForCachedMessages(numExpectedCachedMessages, concurrentCacheRequestID)
+				}
+			case resource.CacheRequestStrategyAsAvailable:
+				if withLiveMessages {
+					numExpectedLiveMessages := numConfiguredLiveMessages
+					waitForLiveMessages(numExpectedLiveMessages)
+				}
+				waitForCachedMessages(numExpectedCachedMessages, cachedOnlyCacheRequestID)
+				waitForCachedMessages(numExpectedCachedMessages, concurrentCacheRequestID)
+			case resource.CacheRequestStrategyCachedFirst:
+				waitForCachedMessages(numExpectedCachedMessages, cachedOnlyCacheRequestID)
+				waitForCachedMessages(numExpectedCachedMessages, concurrentCacheRequestID)
+				if withLiveMessages {
+					numExpectedLiveMessages := numConfiguredLiveMessages
+					waitForLiveMessages(numExpectedLiveMessages)
+				}
+			case resource.CacheRequestStrategyCachedOnly:
+				waitForCachedMessages(numExpectedCachedMessages, cachedOnlyCacheRequestID)
+				waitForCachedMessages(numExpectedCachedMessages, concurrentCacheRequestID)
+			default:
+				Fail("Got unrecognized cacheRequestStrategy")
+			}
+			/* NOTE: Assert the receiver did not receive further messages. */
+			Consistently(receivedMsgChan, "1ms").ShouldNot(Receive())
+		},
+			Entry("with a LiveCancelsCached without live messages", resource.CacheRequestStrategyLiveCancelsCached, false),
+			Entry("with a LiveCancelsCached with live messages", resource.CacheRequestStrategyLiveCancelsCached, true),
+			Entry("with a AsAvailable without live messages", resource.CacheRequestStrategyAsAvailable, false),
+			Entry("with a AsAvailable with live messages", resource.CacheRequestStrategyAsAvailable, true),
+			Entry("with a CachedFirst without live messages", resource.CacheRequestStrategyCachedFirst, false),
+			Entry("with a CachedFirst with live messages", resource.CacheRequestStrategyCachedFirst, true),
+			Entry("with a CachedOnly without live messages", resource.CacheRequestStrategyCachedOnly, false),
+			Entry("with a CachedOnly with live messages", resource.CacheRequestStrategyCachedOnly, true),
+		)
+		DescribeTable("CachedOnly cache requests on the same topic on the same receiver concurrent", func(cacheRequestStrategy resource.CachedMessageSubscriptionStrategy, withLiveMessages bool) {
+			numConfiguredCachedMessages := 3
+			numConfiguredLiveMessages := 1
+			delay := 2000
+			delayAsTime := time.Second * time.Duration((delay / 1000))
+			concurrentCacheRequestID := message.CacheRequestID(1)
+			cachedOnlyCacheRequestID := message.CacheRequestID(2)
+			var concurrentCacheName string
+			cachedOnlyCacheName := fmt.Sprintf("MaxMsgs%d", numConfiguredCachedMessages)
+			/*
+			   MaxMsgs3         MaxMsgs3/delay=2000,msgs=1               Does not Fail
+
+			   MaxMsgs3         MaxMsgs3/delay=2000                      Fails with `identical request outstanding`
+			*/
+			if withLiveMessages {
+				concurrentCacheName = fmt.Sprintf("%s/delay=%d,msgs=%d", cachedOnlyCacheName, delay, numConfiguredLiveMessages)
+			} else {
+				concurrentCacheName = fmt.Sprintf("%s/delay=%d", cachedOnlyCacheName, delay)
+			}
+			cacheTopic := fmt.Sprintf("MaxMsgs%d/%s/data1", numConfiguredCachedMessages, testcontext.Cache().Vpn)
+			cachedOnlyCacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.CacheRequestStrategyCachedOnly, cachedOnlyCacheName, resource.TopicSubscriptionOf(cacheTopic), int32(5000), int32(5000), int32(5000))
+			concurrentCacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(cacheRequestStrategy, concurrentCacheName, resource.TopicSubscriptionOf(cacheTopic), int32(5000), int32(5000), int32(5000))
+
+			/* Channel size of 10 is an arbitrary number over the anticipated 7 received messages. */
+			receivedMsgChan := make(chan message.InboundMessage, 100)
+			err := receiver.ReceiveAsync(func(msg message.InboundMessage) {
+				fmt.Printf("application calllback got msg:\n%s\n", msg.String())
+				receivedMsgChan <- msg
+			})
+			Expect(err).To(BeNil())
+
+			concurrentChannel, err := receiver.RequestCachedAsync(concurrentCacheRequestConfig, concurrentCacheRequestID)
+			Expect(err).To(BeNil())
+			Expect(concurrentChannel).ToNot(BeNil())
+			if withLiveMessages && (cacheRequestStrategy == resource.CacheRequestStrategyLiveCancelsCached || cacheRequestStrategy == resource.CacheRequestStrategyAsAvailable) {
+				/* NOTE: We delay before sending the second cache request to mitigate the risk of cached messages
+				 * from the second request arriving before live messages from the first request. This allows us
+				 * to test received message ordering later. This only matters for LiveCancelsCached and
+				 * AsAvailable, because those strategies do not dictate ordering of received messages. If
+				 * CachedOnly or CachedFirst requests are being sent, any received live messages will be
+				 * deferred or ignored.
+				 */
+				time.Sleep(time.Millisecond * 500)
+			}
+			cachedOnlyChannel, err := receiver.RequestCachedAsync(cachedOnlyCacheRequestConfig, cachedOnlyCacheRequestID)
+			Expect(err).To(BeNil())
+			Expect(cachedOnlyChannel).ToNot(BeNil())
+			/* NOTE: We only wait for a cache response for as much as the delay because the point of the test is to
+			 * receive the CachedOnly response while the other request is still in-flight. The proxy will ensure
+			 * that the other request is not received by the cache instance for at least `delay` seconds. If the
+			 * CachedOnly response is received after that delay has expired, the test results may no longer be
+			 * reliable.
+			 */
+			var cacheResponse solace.CacheResponse
+			Eventually(cachedOnlyChannel, delayAsTime).Should(Receive(&cacheResponse))
+			Expect(cacheResponse).ToNot(BeNil())
+			/* EBP-25: Assert cache request ID */
+			/* EBP-26: Assert CacheRequestOutcome */
+			/* EBP-28: Assert err */
+			/* NOTE: If using LiveCancelsCached */
+			if cacheRequestStrategy != resource.CacheRequestStrategyLiveCancelsCached || !withLiveMessages {
+				/* NOTE: Ideally, the cachedOnlyChannel received a response before the concurrent cache request was
+				 * received by the cache instance, and the API should still not have received a response. However, it is
+				 * possible that latency in test infrastructure causes the response from the first cache request to be
+				 * received prematurely, in which case we should fail because the test is not behaving as intended and
+				 * the test results are no longer reliable.
+				 */
+				Consistently(concurrentChannel, "1ms").ShouldNot(Receive())
+			}
+			/* NOTE: Now that we have asserted the concurrent cache response was not received prematurely, we can
+			 * wait for it to be delivered.
+			 */
+			Eventually(concurrentChannel, delayAsTime+(time.Second*1)).Should(Receive(&cacheResponse))
+			Expect(cacheResponse).ToNot(BeNil())
+			/* EBP-25: Assert cache request ID */
+			/* EBP-26: Assert CacheRequestOutcome */
+			/* EBP-28: Assert err */
+			var waitForLiveMessages = func(numExpectedLiveMessages int) {
+				fmt.Printf("waiting on live messages\n")
+				for i := 0; i < numExpectedLiveMessages; i++ {
+					fmt.Printf("waiting on message %d of %d\n", i, numExpectedLiveMessages)
+					var msg message.InboundMessage
+					Eventually(receivedMsgChan).Should(Receive(&msg))
+					Expect(msg).ToNot(BeNil())
+					Expect(msg.GetDestinationName()).To(Equal(cacheTopic))
+					id, ok := msg.GetCacheRequestID()
+					Expect(ok).To(BeFalse())
+					Expect(id).To(BeNumerically("==", 0))
+					/* EBP-21: Assert live message. */
+				}
+			}
+			var waitForCachedMessages = func(numExpectedCachedMessages int, expectedCacheRequestId message.CacheRequestID) {
+				fmt.Printf("waiting on cached messages\n")
+				for i := 0; i < numExpectedCachedMessages; i++ {
+					fmt.Printf("waiting on message %d of %d\n", i, numExpectedCachedMessages)
+					var msg message.InboundMessage
+					Eventually(receivedMsgChan).Should(Receive(&msg))
+					Expect(msg).ToNot(BeNil())
+					Expect(msg.GetDestinationName()).To(Equal(cacheTopic))
+					id, ok := msg.GetCacheRequestID()
+					Expect(ok).To(BeTrue())
+					Expect(id).To(BeNumerically("==", expectedCacheRequestId))
+					/* EBP-21: Assert live message. */
+				}
+			}
+			numExpectedCachedMessages := numConfiguredCachedMessages
+			switch cacheRequestStrategy {
+			case resource.CacheRequestStrategyLiveCancelsCached:
+				if withLiveMessages {
+					numExpectedLiveMessages := numConfiguredLiveMessages
+					waitForLiveMessages(numExpectedLiveMessages)
+					waitForCachedMessages(numExpectedCachedMessages, cachedOnlyCacheRequestID)
+				} else {
+					waitForCachedMessages(numExpectedCachedMessages, cachedOnlyCacheRequestID)
+					waitForCachedMessages(numExpectedCachedMessages, concurrentCacheRequestID)
+				}
+			case resource.CacheRequestStrategyAsAvailable:
+				if withLiveMessages {
+					numExpectedLiveMessages := numConfiguredLiveMessages
+					waitForLiveMessages(numExpectedLiveMessages)
+				}
+				/* NOTE: We expect twice as many cached messages matching the CachedOnly ID because
+				 * there will be one set of messages from that the corresponding cache response that
+				 * is given to the application through the topic dispatch associated with the
+				 * CachedOnly request, and one set of messges given to the application through the
+				 * topic dispatch associated with the concurrent request. This is due to overlapping
+				 * subscriptions on identical topics but with different callbacks.
+				 */
+				waitForCachedMessages(numExpectedCachedMessages*2, cachedOnlyCacheRequestID)
+				waitForCachedMessages(numExpectedCachedMessages, concurrentCacheRequestID)
+			case resource.CacheRequestStrategyCachedFirst:
+				waitForCachedMessages(numExpectedCachedMessages, cachedOnlyCacheRequestID)
+				waitForCachedMessages(numExpectedCachedMessages, concurrentCacheRequestID)
+				if withLiveMessages {
+					numExpectedLiveMessages := numConfiguredLiveMessages
+					waitForLiveMessages(numExpectedLiveMessages)
+				}
+			case resource.CacheRequestStrategyCachedOnly:
+				waitForCachedMessages(numExpectedCachedMessages, cachedOnlyCacheRequestID)
+				waitForCachedMessages(numExpectedCachedMessages, concurrentCacheRequestID)
+			default:
+				Fail("Got unrecognized cacheRequestStrategy")
+			}
+			/* NOTE: Assert the receiver did not receive further messages. */
+			Consistently(receivedMsgChan, "1ms").ShouldNot(Receive())
+		},
+			//Entry("with a LiveCancelsCached without live messages", resource.CacheRequestStrategyLiveCancelsCached, false),
+			//Entry("with a LiveCancelsCached with live messages", resource.CacheRequestStrategyLiveCancelsCached, true),
+			Entry("with a AsAvailable without live messages", resource.CacheRequestStrategyAsAvailable, false),
+			Entry("with a AsAvailable with live messages", resource.CacheRequestStrategyAsAvailable, true),
+			Entry("with a CachedFirst without live messages", resource.CacheRequestStrategyCachedFirst, false),
+			Entry("with a CachedFirst with live messages", resource.CacheRequestStrategyCachedFirst, true),
+			Entry("with a CachedOnly without live messages", resource.CacheRequestStrategyCachedOnly, false),
+			Entry("with a CachedOnly with live messages", resource.CacheRequestStrategyCachedOnly, true),
+		)
+		DescribeTable("CachedOnly cache requests on different topics on different receivers concurrent", func(cacheRequestStrategy resource.CachedMessageSubscriptionStrategy, withLiveMessages bool) {
+			numConfiguredCachedMessages := 3
+			numConfiguredLiveMessages := 1
+			delay := 2000
+			delayAsTime := time.Second * time.Duration((delay / 1000))
+			concurrentCacheRequestID := message.CacheRequestID(1)
+			cachedOnlyCacheRequestID := message.CacheRequestID(2)
+			var concurrentCacheName string
+			cachedOnlyCacheName := fmt.Sprintf("MaxMsgs%d", numConfiguredCachedMessages)
+			if withLiveMessages {
+				concurrentCacheName = fmt.Sprintf("%s/delay=%d,msgs=%d", cachedOnlyCacheName, delay, numConfiguredLiveMessages)
+			} else {
+				concurrentCacheName = fmt.Sprintf("%s/delay=%d", cachedOnlyCacheName, delay)
+			}
+			concurrentCacheTopic := fmt.Sprintf("MaxMsgs%d/%s/data1", numConfiguredCachedMessages, testcontext.Cache().Vpn)
+			cachedOnlyCacheTopic := fmt.Sprintf("MaxMsgs%d/%s/data2", numConfiguredCachedMessages, testcontext.Cache().Vpn)
+			cachedOnlyCacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.CacheRequestStrategyCachedOnly, cachedOnlyCacheName, resource.TopicSubscriptionOf(cachedOnlyCacheTopic), int32(5000), int32(5000), int32(5000))
+			concurrentCacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(cacheRequestStrategy, concurrentCacheName, resource.TopicSubscriptionOf(concurrentCacheTopic), int32(5000), int32(5000), int32(5000))
+
+			/* Channel size of 10 is an arbitrary number over the anticipated 7 received messages. */
+			receivedMsgChan := make(chan message.InboundMessage, 10)
+			err := receiver.ReceiveAsync(func(msg message.InboundMessage) {
+				receivedMsgChan <- msg
+			})
+			Expect(err).To(BeNil())
+
+			concurrentChannel, err := receiver.RequestCachedAsync(concurrentCacheRequestConfig, concurrentCacheRequestID)
+			Expect(err).To(BeNil())
+			Expect(concurrentChannel).ToNot(BeNil())
+			if withLiveMessages && (cacheRequestStrategy == resource.CacheRequestStrategyLiveCancelsCached || cacheRequestStrategy == resource.CacheRequestStrategyAsAvailable) {
+				/* NOTE: We delay before sending the second cache request to mitigate the risk of cached messages
+				 * from the second request arriving before live messages from the first request. This allows us
+				 * to test received message ordering later. This only matters for LiveCancelsCached and
+				 * AsAvailable, because those strategies do not dictate ordering of received messages. If
+				 * CachedOnly or CachedFirst requests are being sent, any received live messages will be
+				 * deferred or ignored.
+				 */
+				time.Sleep(time.Millisecond * 500)
+			}
+			cachedOnlyChannel, err := receiver.RequestCachedAsync(cachedOnlyCacheRequestConfig, cachedOnlyCacheRequestID)
+			Expect(err).To(BeNil())
+			Expect(cachedOnlyChannel).ToNot(BeNil())
+			/* NOTE: We only wait for a cache response for as much as the delay because the point of the test is to
+			 * receive the CachedOnly response while the other request is still in-flight. The proxy will ensure
+			 * that the other request is not received by the cache instance for at least `delay` seconds. If the
+			 * CachedOnly response is received after that delay has expired, the test results may no longer be
+			 * reliable.
+			 */
+			var cacheResponse solace.CacheResponse
+			Eventually(cachedOnlyChannel, delayAsTime).Should(Receive(&cacheResponse))
+			Expect(cacheResponse).ToNot(BeNil())
+			/* EBP-25: Assert cache request ID */
+			/* EBP-26: Assert CacheRequestOutcome */
+			/* EBP-28: Assert err */
+			/* NOTE: If using LiveCancelsCached */
+			if cacheRequestStrategy != resource.CacheRequestStrategyLiveCancelsCached || !withLiveMessages {
+				/* NOTE: Ideally, the cachedOnlyChannel received a response before the concurrent cache request was
+				 * received by the cache instance, and the API should still not have received a response. However, it is
+				 * possible that latency in test infrastructure causes the response from the first cache request to be
+				 * received prematurely, in which case we should fail because the test is not behaving as intended and
+				 * the test results are no longer reliable.
+				 */
+				Consistently(concurrentChannel, "1ms").ShouldNot(Receive())
+			}
+			/* NOTE: Now that we have asserted the concurrent cache response was not received prematurely, we can
+			 * wait for it to be delivered.
+			 */
+			Eventually(concurrentChannel, delayAsTime+(time.Second*1)).Should(Receive(&cacheResponse))
+			Expect(cacheResponse).ToNot(BeNil())
+			/* EBP-25: Assert cache request ID */
+			/* EBP-26: Assert CacheRequestOutcome */
+			/* EBP-28: Assert err */
+			var waitForLiveMessages = func(numExpectedLiveMessages int) {
+				for i := 0; i < numExpectedLiveMessages; i++ {
+					fmt.Printf("waiting on live messages")
+					var msg message.InboundMessage
+					Eventually(receivedMsgChan).Should(Receive(&msg))
+					Expect(msg).ToNot(BeNil())
+					Expect(msg.GetDestinationName()).To(Equal(concurrentCacheTopic))
+					id, ok := msg.GetCacheRequestID()
+					Expect(ok).To(BeFalse())
+					Expect(id).To(BeNumerically("==", 0))
+					/* EBP-21: Assert live message. */
+				}
+			}
+			var waitForCachedMessages = func(numExpectedCachedMessages int, expectedCacheRequestId message.CacheRequestID) {
+				var expectedTopic string
+				switch expectedCacheRequestId {
+				case cachedOnlyCacheRequestID:
+					fmt.Println("waiting on cachedOnly messages")
+					expectedTopic = cachedOnlyCacheTopic
+				case concurrentCacheRequestID:
+					fmt.Println("waiting on concurrent messages")
+					expectedTopic = concurrentCacheTopic
+				default:
+					Fail("Got unexpected cache request ID")
+				}
+				for i := 0; i < numExpectedCachedMessages; i++ {
+					fmt.Printf("waiting on message %d of %d\n", i, numExpectedCachedMessages)
+					var msg message.InboundMessage
+					Eventually(receivedMsgChan).Should(Receive(&msg))
+					Expect(msg).ToNot(BeNil())
+					Expect(msg.GetDestinationName()).To(Equal(expectedTopic))
+					id, ok := msg.GetCacheRequestID()
+					Expect(ok).To(BeTrue())
+					Expect(id).To(BeNumerically("==", expectedCacheRequestId))
+					/* EBP-21: Assert live message. */
+				}
+			}
+			numExpectedCachedMessages := numConfiguredCachedMessages
+			switch cacheRequestStrategy {
+			case resource.CacheRequestStrategyLiveCancelsCached:
+				if withLiveMessages {
+					numExpectedLiveMessages := numConfiguredLiveMessages
+					waitForLiveMessages(numExpectedLiveMessages)
+					waitForCachedMessages(numExpectedCachedMessages, cachedOnlyCacheRequestID)
+				} else {
+					waitForCachedMessages(numExpectedCachedMessages, cachedOnlyCacheRequestID)
+					waitForCachedMessages(numExpectedCachedMessages, concurrentCacheRequestID)
+				}
+			case resource.CacheRequestStrategyAsAvailable:
+				if withLiveMessages {
+					numExpectedLiveMessages := numConfiguredLiveMessages
+					waitForLiveMessages(numExpectedLiveMessages)
+				}
+				waitForCachedMessages(numExpectedCachedMessages, cachedOnlyCacheRequestID)
+				waitForCachedMessages(numExpectedCachedMessages, concurrentCacheRequestID)
+			case resource.CacheRequestStrategyCachedFirst:
+				waitForCachedMessages(numExpectedCachedMessages, cachedOnlyCacheRequestID)
+				waitForCachedMessages(numExpectedCachedMessages, concurrentCacheRequestID)
+				if withLiveMessages {
+					numExpectedLiveMessages := numConfiguredLiveMessages
+					waitForLiveMessages(numExpectedLiveMessages)
+				}
+			case resource.CacheRequestStrategyCachedOnly:
+				waitForCachedMessages(numExpectedCachedMessages, cachedOnlyCacheRequestID)
+				waitForCachedMessages(numExpectedCachedMessages, concurrentCacheRequestID)
+			default:
+				Fail("Got unrecognized cacheRequestStrategy")
+			}
+			/* NOTE: Assert the receiver did not receive further messages. */
+			Consistently(receivedMsgChan, "1ms").ShouldNot(Receive())
+		},
+			Entry("with a LiveCancelsCached without live messages", resource.CacheRequestStrategyLiveCancelsCached, false),
+			Entry("with a LiveCancelsCached with live messages", resource.CacheRequestStrategyLiveCancelsCached, true),
+			Entry("with a AsAvailable without live messages", resource.CacheRequestStrategyAsAvailable, false),
+			Entry("with a AsAvailable with live messages", resource.CacheRequestStrategyAsAvailable, true),
+			Entry("with a CachedFirst without live messages", resource.CacheRequestStrategyCachedFirst, false),
+			Entry("with a CachedFirst with live messages", resource.CacheRequestStrategyCachedFirst, true),
+			Entry("with a CachedOnly without live messages", resource.CacheRequestStrategyCachedOnly, false),
+			Entry("with a CachedOnly with live messages", resource.CacheRequestStrategyCachedOnly, true),
+		)
 		It("a direct receiver should get CacheRequestOutcome.Suspect when there is at least one suspect message in the cache response", func() {
 			cacheRequestID := message.CacheRequestID(1)
 			cacheName := "UnitTestSuspect"
@@ -334,8 +793,8 @@ var _ = Describe("Cache Strategy", func() {
 
 			/* NOTE: Subsequent CachedFirst fails. */
 			cacheRequestConfig = helpers.GetValidCacheRequestStrategyCachedFirstCacheRequestConfig(cacheName, topic)
-            thirdCacheRequestID := message.CacheRequestID(3)
-            thirdChannel, err := receiver.RequestCachedAsync(cacheRequestConfig, thirdCacheRequestID)
+			thirdCacheRequestID := message.CacheRequestID(3)
+			thirdChannel, err := receiver.RequestCachedAsync(cacheRequestConfig, thirdCacheRequestID)
 			Expect(err).To(BeAssignableToTypeOf(&solace.NativeError{}))
 			helpers.ValidateNativeError(err, subcode.CacheAlreadyInProgress)
 			Expect(thirdChannel).To(BeNil())
@@ -348,8 +807,8 @@ var _ = Describe("Cache Strategy", func() {
 
 			/* NOTE: Subsequent CachedOnly succeeds. */
 			cacheRequestConfig = helpers.GetValidCacheRequestStrategyCachedOnlyCacheRequestConfig(cacheName, topic)
-            fourthCacheRequestID := message.CacheRequestID(4)
-            fourthChannel, err := receiver.RequestCachedAsync(cacheRequestConfig, fourthCacheRequestID)
+			fourthCacheRequestID := message.CacheRequestID(4)
+			fourthChannel, err := receiver.RequestCachedAsync(cacheRequestConfig, fourthCacheRequestID)
 			Expect(err).To(BeNil())
 			Expect(fourthChannel).ToNot(BeNil())
 			Eventually(fourthChannel, "10s").Should(Receive(&cacheResponse1))
@@ -374,8 +833,8 @@ var _ = Describe("Cache Strategy", func() {
 			/* NOTE: Subsequent AsAvailable succeeds. */
 			var cacheResponse2 solace.CacheResponse
 			cacheRequestConfig = helpers.GetValidCacheRequestStrategyAsAvailableCacheRequestConfig(cacheName, topic)
-            fifthCacheRequestID := message.CacheRequestID(5)
-            fifthChannel, err := receiver.RequestCachedAsync(cacheRequestConfig, fifthCacheRequestID)
+			fifthCacheRequestID := message.CacheRequestID(5)
+			fifthChannel, err := receiver.RequestCachedAsync(cacheRequestConfig, fifthCacheRequestID)
 			Expect(err).To(BeNil())
 			Expect(fifthChannel).ToNot(BeNil())
 			Eventually(fifthChannel, "10s").Should(Receive(&cacheResponse2))
@@ -795,6 +1254,9 @@ var _ = Describe("Cache Strategy", func() {
 			 * messages they will immediately be available and not race with the channel read at the end of the
 			 * test.
 			 */
+			if strategy == resource.CacheRequestStrategyCachedOnly {
+				fmt.Printf("running CachedOnly test")
+			}
 			receivedMsgChan := make(chan message.InboundMessage, expectedMessages*2)
 			err := receiver.ReceiveAsync(func(msg message.InboundMessage) {
 				receivedMsgChan <- msg
@@ -828,22 +1290,22 @@ var _ = Describe("Cache Strategy", func() {
 			 */
 			Consistently(receivedMsgChan, "10ms").ShouldNot(Receive())
 		},
-			Entry("with maxMessages 1", int32(1), 1, resource.CacheRequestStrategyAsAvailable),
-			Entry("with maxMessages 3", int32(3), 3, resource.CacheRequestStrategyAsAvailable),
-			Entry("with maxMessages 10", int32(10), 10, resource.CacheRequestStrategyAsAvailable),
-			Entry("with maxMessages 0", int32(0), 10, resource.CacheRequestStrategyAsAvailable),
-			Entry("with maxMessages 1", int32(1), 1, resource.CacheRequestStrategyCachedFirst),
-			Entry("with maxMessages 3", int32(3), 3, resource.CacheRequestStrategyCachedFirst),
-			Entry("with maxMessages 10", int32(10), 10, resource.CacheRequestStrategyCachedFirst),
-			Entry("with maxMessages 0", int32(0), 10, resource.CacheRequestStrategyCachedFirst),
-			Entry("with maxMessages 1", int32(1), 1, resource.CacheRequestStrategyCachedOnly),
-			Entry("with maxMessages 3", int32(3), 3, resource.CacheRequestStrategyCachedOnly),
-			Entry("with maxMessages 10", int32(10), 10, resource.CacheRequestStrategyCachedOnly),
-			Entry("with maxMessages 0", int32(0), 10, resource.CacheRequestStrategyCachedOnly),
-			Entry("with maxMessages 1", int32(1), 1, resource.CacheRequestStrategyLiveCancelsCached),
-			Entry("with maxMessages 3", int32(3), 3, resource.CacheRequestStrategyLiveCancelsCached),
-			Entry("with maxMessages 10", int32(10), 10, resource.CacheRequestStrategyLiveCancelsCached),
-			Entry("with maxMessages 0", int32(0), 10, resource.CacheRequestStrategyLiveCancelsCached),
+			Entry("with maxMessages 1 and strategy AsAvailable", int32(1), 1, resource.CacheRequestStrategyAsAvailable),
+			Entry("with maxMessages 3 and strategy AsAvailable", int32(3), 3, resource.CacheRequestStrategyAsAvailable),
+			Entry("with maxMessages 10 and strategy AsAvailable", int32(10), 10, resource.CacheRequestStrategyAsAvailable),
+			Entry("with maxMessages 0 and strategy AsAvailable", int32(0), 10, resource.CacheRequestStrategyAsAvailable),
+			Entry("with maxMessages 1 and strategy CachedFirst", int32(1), 1, resource.CacheRequestStrategyCachedFirst),
+			Entry("with maxMessages 3 and strategy CachedFirst", int32(3), 3, resource.CacheRequestStrategyCachedFirst),
+			Entry("with maxMessages 10 and strategy CachedFirst", int32(10), 10, resource.CacheRequestStrategyCachedFirst),
+			Entry("with maxMessages 0 and strategy CachedFirst", int32(0), 10, resource.CacheRequestStrategyCachedFirst),
+			Entry("with maxMessages 1 and strategy CachedOnly", int32(1), 1, resource.CacheRequestStrategyCachedOnly),
+			Entry("with maxMessages 3 and strategy CachedOnly", int32(3), 3, resource.CacheRequestStrategyCachedOnly),
+			Entry("with maxMessages 10 and strategy CachedOnly", int32(10), 10, resource.CacheRequestStrategyCachedOnly),
+			Entry("with maxMessages 0 and strategy CachedOnly", int32(0), 10, resource.CacheRequestStrategyCachedOnly),
+			Entry("with maxMessages 1 and strategy LiveCancelsCached", int32(1), 1, resource.CacheRequestStrategyLiveCancelsCached),
+			Entry("with maxMessages 3 and strategy LiveCancelsCached", int32(3), 3, resource.CacheRequestStrategyLiveCancelsCached),
+			Entry("with maxMessages 10 and strategy LiveCancelsCached", int32(10), 10, resource.CacheRequestStrategyLiveCancelsCached),
+			Entry("with maxMessages 0 and strategy LiveCancelsCached", int32(0), 10, resource.CacheRequestStrategyLiveCancelsCached),
 		)
 		DescribeTable("long running cache requests with live data queue and live data to fill", func(cacheResponseProcessStrategy helpers.CacheResponseProcessStrategy) {
 			numExpectedCachedMessages := 3

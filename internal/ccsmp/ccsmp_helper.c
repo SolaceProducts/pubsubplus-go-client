@@ -18,6 +18,8 @@
 #include "solclient/solClient.h"
 #include "solclient/solClientMsg.h"
 #include "solclient/solCache.h"
+#include <stdint.h>
+#include <stdlib.h>
 
 //
 // external callbacks defined in ccsmp_callbacks.c
@@ -40,6 +42,36 @@ void flowEventCallback(solClient_opaqueFlow_pt opaqueFlow_p, solClient_flow_even
 
 void cacheEventCallback(solClient_opaqueSession_pt opaqueSession_p, solCache_eventCallbackInfo_pt eventInfo_p, void *user_p);
 
+void solClientgo_freeFilteringConfig(solClientgo_msgDispatchCacheRequestIdFilterInfo_pt filteringConfig_pt) {
+        const int CHAR_POINTER_LEN = 1000;
+        char charPointer[CHAR_POINTER_LEN];
+        snprintf(charPointer, CHAR_POINTER_LEN, "freeFilteringConfig::freeing memory..");
+        debugStatement(charPointer);
+        free(filteringConfig_pt);
+        snprintf(charPointer, CHAR_POINTER_LEN, "freeFilteringConfig::Finished freeing memory.");
+        debugStatement(charPointer);
+}
+
+void solClientgo_createAndConfigureMessageFiltering(solClientgo_msgDispatchCacheRequestIdFilterInfo_pt * filteringConfig_pt, uintptr_t dispatchId, solClient_uint64_t cacheRequestId) {
+        const int CHAR_POINTER_LEN = 1000;
+        char charPointer[CHAR_POINTER_LEN];
+        snprintf(charPointer, CHAR_POINTER_LEN, "createAndConfigureMessageFilter::Creating message filter config");
+        debugStatement(charPointer);
+
+        *filteringConfig_pt = (solClientgo_msgDispatchCacheRequestIdFilterInfo_t *)malloc(sizeof(solClientgo_msgDispatchCacheRequestIdFilterInfo_t));
+        (*filteringConfig_pt)->callback_p = messageReceiveCallback;
+        (*filteringConfig_pt)->dispatchID = dispatchId;
+        (*filteringConfig_pt)->cacheRequestId = cacheRequestId;
+        snprintf(charPointer, CHAR_POINTER_LEN, "createAndConfigureMessageFilter::filteringConfig_pt is: %p, dispatchId is %ld, cacheRequestId is %lld", *filteringConfig_pt, (**filteringConfig_pt).dispatchID, (**filteringConfig_pt).cacheRequestId);
+        debugStatement(charPointer);
+}
+
+
+//void debugStatement(char * charPointer);
+
+solClient_rxMsgCallback_returnCode_t
+cacheFilterCallback(solClient_opaqueSession_pt opaqueSession_p, solClient_opaqueMsg_pt msg_p, void * user_p);
+
 solClient_returnCode_t
 solClientgo_msg_isRequestReponseMsg(solClient_opaqueMsg_pt msg_p, char **correlationId_p) {
     solClient_returnCode_t rc = SOLCLIENT_FAIL;
@@ -60,6 +92,61 @@ solClientgo_msg_isRequestReponseMsg(solClient_opaqueMsg_pt msg_p, char **correla
     *correlationId_p = (char *)correlationId;
     return SOLCLIENT_OK;
 }
+
+//typedef solClient_uint64_t solClientgo_cachedMessageFilterMethodId_t;
+
+//typedef struct solClientgo_msgDispatchCacheRequestIdFilterInfo {
+//        solClient_uint64_t cacheRequestId;
+//        solClient_session_rxMsgCallbackFunc_t callback_p;
+//        uintptr dispatchID;
+//        solClientgo_cachedMessageFilterMethodId_t filterMethodId;
+//} solClientgo_msgDispatchCacheRequestIdFilterInfo_t;
+
+solClient_returnCode_t
+solClientgo_filterCachedMessageByCacheRequestId(solClient_opaqueSession_pt opaqueSession_p, solClient_opaqueMsg_pt msg_p, void * user_p) {
+        const int CHAR_POINTER_LEN = 1000;
+        char charPointer[CHAR_POINTER_LEN];
+        solClient_uint64_t foundCacheRequestId = 0;
+        solClient_returnCode_t ret = SOLCLIENT_FAIL;
+        solClientgo_msgDispatchCacheRequestIdFilterInfo_t * info_p = (solClientgo_msgDispatchCacheRequestIdFilterInfo_t *)user_p;
+        if ( solClient_msg_getCacheRequestId(msg_p, &foundCacheRequestId) != SOLCLIENT_OK) {
+                /* Failed operation so inform API message can be discarded. */
+                printf("Failed to retrieve cacheRequestId from msg\n");
+                return SOLCLIENT_FAIL;
+        }
+        snprintf(charPointer, CHAR_POINTER_LEN, "Successfully found cacheRequestId from msg");
+        debugStatement(charPointer);
+        snprintf(charPointer, CHAR_POINTER_LEN, "info_p->cacheRequestId is %lld, foundCacheRequestId is: %lld", info_p->cacheRequestId, foundCacheRequestId);
+        debugStatement(charPointer);
+        if ( info_p->cacheRequestId != foundCacheRequestId ) {
+                printf("Failed to match cacheRequestId from msg\n");
+                return SOLCLIENT_NOT_FOUND;
+        }
+        snprintf(charPointer, CHAR_POINTER_LEN, "Successfully matched cacheRequestId from msg");
+        debugStatement(charPointer);
+        return SOLCLIENT_OK;
+}
+/*
+solClient_returnCode_t
+solClientgo_getCachedMessageFilterMethod(solClientgo_cachedMessageFilterMethodId_t methodId, void ** callback_pt_pt) {
+        solClient_returnCode_t ret = SOLCLIENT_FAIL;
+        switch ( methodId ) {
+                case DO_NOT_FILTER_CACHED_MESSAGES:
+                        ret = SOLCLIENT_OK;
+                        break;
+                case FILTER_CACHED_MESSAGE_BY_CACHE_REQUEST_ID:
+                        ret = SOLCLIENT_OK;
+                        *callback_pt_pt = (void *)&solClientgo_filterCachedMessageByCacheRequestId;
+                        break;
+                default:
+                        ret = SOLCLIENT_NOT_FOUND;
+                        break;
+        }
+        return ret;
+}
+*/
+//const solClientgo_cachedMessageFilterMethodId_t DO_NOT_FILTER_CACHED_MESSAGES = 0;
+//const solClientgo_cachedMessageFilterMethodId_t FILTER_CACHED_MESSAGE_BY_CACHE_REQUEST_ID = 1;
 
 solClient_returnCode_t
 SessionCreate( solClient_propertyArray_pt sessionPropsP,
@@ -209,6 +296,22 @@ _SessionTopicUnsubscribeWithFlags(   solClient_opaqueSession_pt opaqueSession_p,
                                                             (void *)correlationTag);
 }
 
+solClient_returnCode_t
+SessionCacheTopicUnsubscribeWithFlags(solClient_opaqueSession_pt opaqueSession_p,
+                const char *topicSubscription_p,
+                solClient_subscribeFlags_t flags,
+                solClient_uint64_t dispatchId,
+                solClient_uint64_t correlationTag)
+{
+        return _SessionTopicUnsubscribeWithFlags (opaqueSession_p,
+                        topicSubscription_p,
+                        flags,
+                        cacheFilterCallback,
+                        dispatchId,
+                        correlationTag);
+}
+
+
 solClient_returnCode_t 
 SessionTopicUnsubscribeWithFlags(   solClient_opaqueSession_pt opaqueSession_p,
                                     const char                *topicSubscription_p,
@@ -290,17 +393,63 @@ SessionCreateCacheSession(
 
 solClient_returnCode_t
 CacheSessionSendCacheRequest(
-        solClient_uint64_t dispatchId,
+        uintptr_t dispatchId,
         solClient_opaqueCacheSession_pt opaqueCacheSession_p,
         const char * topic_p,
         solClient_uint64_t cacheRequestId,
         solClient_cacheRequestFlags_t cacheFlags,
-        solClient_subscribeFlags_t subscribeFlags)
+        solClient_subscribeFlags_t subscribeFlags,
+        solClientgo_msgDispatchCacheRequestIdFilterInfo_pt filterConfig_p)
+        //solClient_bool_t withFiltering)
 {
+        const int CHAR_POINTER_LEN = 1000;
+        char charPointer[CHAR_POINTER_LEN];
+        snprintf(charPointer, CHAR_POINTER_LEN, "Got to CacheSessionSendCacheRequest");
+        debugStatement(charPointer);
         solClient_session_rxMsgDispatchFuncInfo_t dispatchInfo;      /* msg dispatch callback to set */
+        if ( filterConfig_p != NULL ) {
+                /* NOTE: If the filter config is not NULL, we take its configuration to mean that
+                 * it should be taken into account when sending the cache request.
+                 */
+
+//                solClientgo_msgDispatchCacheRequestIdFilterInfo_t * cacheFilterInfo_pt = (solClientgo_msgDispatchCacheRequestIdFilterInfo_t *)malloc(sizeof(solClientgo_msgDispatchCacheRequestIdFilterInfo_t));
+//                cacheFilterInfo_pt->callback_p = messageReceiveCallback;
+//                cacheFilterInfo_pt->dispatchID = dispatchId;
+//                cacheFilterInfo_pt->cacheRequestId = cacheRequestId;
+
+                dispatchInfo.callback_p = cacheFilterCallback;
+                //dispatchInfo.user_p = (void *)&cacheFilterInfo;
+                dispatchInfo.user_p = (void *)filterConfig_p;
+                snprintf(charPointer,
+                         CHAR_POINTER_LEN,
+                         "CacheSessionSendCacheRequest::messageReceiveCallback is %p",
+                         messageReceiveCallback);
+                debugStatement(charPointer);
+
+                snprintf(charPointer,
+                         CHAR_POINTER_LEN,
+                         "CacheSessionSendCacheRequest::cacheFilterCallback is %p",
+                         cacheFilterCallback);
+                debugStatement(charPointer);
+
+                snprintf(charPointer,
+                         CHAR_POINTER_LEN,
+                         "CacheSessionSendCacheRequest::cacheFilterInfo.callback_p is %p",
+                         filterConfig_p->callback_p);
+                         //cacheFilterInfo.callback_p);
+                debugStatement(charPointer);
+
+                snprintf(charPointer,
+                         CHAR_POINTER_LEN,
+                         "CacheSessionSendCacheRequest::user_p is: %p",
+                         dispatchInfo.user_p);
+                debugStatement(charPointer);
+
+        } else {
+                dispatchInfo.callback_p = messageReceiveCallback;
+                dispatchInfo.user_p = (void *)dispatchId;
+        }
         dispatchInfo.dispatchType = SOLCLIENT_DISPATCH_TYPE_CALLBACK;
-        dispatchInfo.callback_p = messageReceiveCallback;
-        dispatchInfo.user_p = (void *)dispatchId;
         dispatchInfo.rfu_p = NULL;
 
         return solClient_cacheSession_sendCacheRequestWithDispatch(
@@ -335,3 +484,5 @@ solClient_returnCode_t
 CacheSessionCancelRequests(solClient_opaqueCacheSession_pt opaqueCacheSession_p) {
         return solClient_cacheSession_cancelCacheRequests(opaqueCacheSession_p);
 }
+
+

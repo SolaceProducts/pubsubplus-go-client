@@ -57,6 +57,15 @@ func ToCArray(arr []string, nullTerminated bool) (cArray **C.char, freeArray fun
 	return (**C.char)(unsafe.Pointer(&cArr[0])), freeFunction
 }
 
+type SolClientBool = C.solClient_bool_t
+
+func ToCBool(input bool) SolClientBool {
+	if input {
+		return C.solClient_bool_t(1)
+	}
+	return C.solClient_bool_t(0)
+}
+
 // NewInternalSolClientErrorInfoWrapper manually creates a Go representation of the error struct usually passed to the
 // Go API by CCSMP. This function is intended to be used only when such an error struct is required but cannot be
 // provided by CCSMP.
