@@ -47,14 +47,10 @@ typedef struct solClient_errorInfo_wrapper
  * definition.
  */
 
-
-void debugStatement(char * charPointer);
-
 typedef struct solClientgo_msgDispatchCacheRequestIdFilterInfo {
         solClient_uint64_t cacheRequestId;
         solClient_session_rxMsgCallbackFunc_t callback_p;
         uintptr_t dispatchID;
-//        solClientgo_cachedMessageFilterMethodId_t filterMethodId;
 } solClientgo_msgDispatchCacheRequestIdFilterInfo_t, *solClientgo_msgDispatchCacheRequestIdFilterInfo_pt;
 
 void solClientgo_freeFilteringConfig(solClientgo_msgDispatchCacheRequestIdFilterInfo_pt filteringConfig_pt);
@@ -157,7 +153,6 @@ solClient_returnCode_t  CacheSessionSendCacheRequest(
                         solClient_cacheRequestFlags_t cacheFlags,
                         solClient_subscribeFlags_t subscribeFlags,
                         solClientgo_msgDispatchCacheRequestIdFilterInfo_pt configFilter_pt);
-                        //solClient_bool_t withFiltering);
 
 
 solClient_returnCode_t
@@ -181,22 +176,10 @@ solClient_returnCode_t
                         solClient_subscribeFlags_t                  subscribeFlags,
                         solClient_session_rxMsgDispatchFuncInfo_t * dispatchInfo_p);
 
-//typedef solClient_session_rxMsgCallbackFunc_t cacheFilterCallbackFunc_t;
 
 solClient_returnCode_t
 solClientgo_filterCachedMessageByCacheRequestId(solClient_opaqueSession_pt opaqueSession_p, solClient_opaqueMsg_pt msg_p, void * user_p);
 
-/*
-typedef enum solClientgo_cachedMessageFilterMethodId {
-        DO_NOT_FILTER_CACHED_MESSAGES = 0,
-        FILTER_CACHED_MESSAGE_BY_CACHE_REQUEST_ID = 1,
-} solClientgo_cachedMessageFilterMethodId_t;
-*/
-
-/*
-solClient_returnCode_t
-solClientgo_getCachedMessageFilterMethod(solClientgo_cachedMessageFilterMethodId_t methodId, void ** callback_pt_pt);
-*/
 
 /**
  * Definition of solclientgo correlation prefix

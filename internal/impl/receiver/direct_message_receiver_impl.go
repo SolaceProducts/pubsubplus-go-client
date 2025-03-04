@@ -81,8 +81,7 @@ type directMessageReceiverImpl struct {
 	rxCallback    unsafe.Pointer
 	isDiscard     int32
 
-	dispatch           uintptr
-	cacheLocalDispatch uintptr
+	dispatch uintptr
 
 	terminationHandlerID uint
 
@@ -1015,7 +1014,6 @@ func (receiver *directMessageReceiverImpl) RequestCachedAsync(cachedMessageSubsc
 		applicationChannel <- cacheResponse
 	}
 	cacheResponseProcessor := core.NewCacheResponseProcessor(applicationCallback)
-	//cacheResponseProcessor := core.NewCacheResponseProcessor(applicationCallback, core.NewCacheRequestInfo(cacheRequestID, cachedMessageSubscriptionRequest.GetName()))
 
 	var cacheEventCallback = func(cacheEventInfo core.CoreCacheEventInfo) {
 		receiver.cacheResponseChan <- cacheEventInfo
@@ -1062,7 +1060,6 @@ func (receiver *directMessageReceiverImpl) RequestCachedAsyncWithCallback(cached
 	receiver.cacheResourceLock.Unlock()
 
 	cacheResponseProcessor := core.NewCacheResponseProcessor(callback)
-	//cacheResponseProcessor := core.NewCacheResponseProcessor(callback, core.NewCacheRequestInfo(cacheRequestID, cachedMessageSubscriptionRequest.GetName()))
 
 	var cacheEventCallback = func(cacheEventInfo core.CoreCacheEventInfo) {
 		receiver.cacheResponseChan <- cacheEventInfo

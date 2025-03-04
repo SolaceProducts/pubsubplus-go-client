@@ -34,7 +34,6 @@ package ccsmp
 #include "./ccsmp_helper.h"
 
 void eventCallback ( solClient_opaqueSession_pt opaqueSession_p, solClient_session_eventCallbackInfo_pt eventInfo_p, void *user_p );
-void debugStatement(char *);
 */
 import "C"
 import (
@@ -162,7 +161,6 @@ func (cacheSession *SolClientCacheSession) SendCacheRequest(
 	cacheToEventCallbackMap.Store(cacheSession.pointer, eventCallback)
 
 	topicP := C.CString(topic)
-	fmt.Printf("Calling CacheSessionSendCacheRequest with:\ndispatchId 0x%x\ntopic %s\n cacheRequestId %d\ncacheRequestFlags 0x%x\nsubscribeFlags 0x%x\nwithFiltering 0x%x\n", dispatchID, topic, cacheRequestID, cacheRequestFlags, subscribeFlags, uintptr(unsafe.Pointer(messageFilterConfig)))
 	errorInfo := handleCcsmpError(func() SolClientReturnCode {
 		return C.CacheSessionSendCacheRequest(
 			C.uintptr_t(dispatchID),
@@ -197,7 +195,8 @@ func (cacheSession *SolClientCacheSession) CancelCacheRequest() *SolClientErrorI
 	})
 }
 
-// solClientSessionSubscribeWithFlags wraps solClient_session_topicSubscribeWithDispatch
+// UnsubscribeFromCacheRequestTopic removes the subscription from the dispatch table that was previously added by a
+// cache request. This is only intended to be used for cache requests that used local dispatch subscriptions.
 func (session *SolClientSession) UnsubscribeFromCacheRequestTopic(topic string, flags C.solClient_subscribeFlags_t, userP uintptr, correlationID uintptr) *SolClientErrorInfoWrapper {
 	return handleCcsmpError(func() SolClientReturnCode {
 		cString := C.CString(topic)
@@ -271,7 +270,6 @@ func NewCacheEventInfoForCancellation(cacheSession SolClientCacheSession, cacheR
 
 func CacheEventInfoFromCoreCacheEventInfo(eventCallbackInfo CacheEventInfoPt, userP uintptr) CacheEventInfo {
 	return CacheEventInfo{
-		/* FIX: Does getting the cache session from the userP work if the userP set for the cache request was either the filter info struct or dispatch ID? */
 		cacheSessionP:  SolClientCacheSessionPt(userP),
 		event:          SolClientCacheEvent(eventCallbackInfo.cacheEvent),
 		topic:          C.GoString(eventCallbackInfo.topic),
@@ -290,7 +288,6 @@ func goCacheEventCallback( /*opaqueSessionP*/ _ SolClientSessionPt, eventCallbac
 	 */
 	if callback, ok := cacheToEventCallbackMap.Load(SolClientCacheSessionPt(uintptr(userP))); ok {
 		eventInfo := CacheEventInfoFromCoreCacheEventInfo(eventCallbackInfo, uintptr(userP))
-		fmt.Printf("Got to goCacheEventCallback with cacheEventInfo:\n%s\n", eventInfo.String())
 		callback.(SolClientCacheEventCallback)(eventInfo)
 		/* NOTE: We remove the cache session pointer from the map before we destroy the cache session
 		 * so that map access using that pointer as an index won't collide with another cache session
@@ -303,18 +300,10 @@ func goCacheEventCallback( /*opaqueSessionP*/ _ SolClientSessionPt, eventCallbac
 	}
 }
 
-//export goPrint
-func goPrint(charPointer *C.char) {
-	fmt.Printf("%s\n", C.GoString(charPointer))
-}
-
 type SolClientMessageFilteringConfigPt = C.solClientgo_msgDispatchCacheRequestIdFilterInfo_pt
 
-func AllocMessageFilteringConfigForCacheRequests(filteringConfigP SolClientMessageFilteringConfigPt, dispatchId uintptr, cacheRequestId message.CacheRequestID) SolClientMessageFilteringConfigPt {
-	fmt.Printf("AllocMessageFilteringConfigForCacheRequests::filter.pointer before ccsmp call is 0x%x\n", uintptr(unsafe.Pointer(filteringConfigP)))
-	C.solClientgo_createAndConfigureMessageFiltering(&filteringConfigP, C.uintptr_t(dispatchId), C.solClient_uint64_t(cacheRequestId))
-	fmt.Printf("AllocMessageFilteringConfigForCacheRequests::filter.pointer after ccsmp call is 0x%x\n", uintptr(unsafe.Pointer(filteringConfigP)))
-	fmt.Printf("AllocMessageFilteringConfigForCacheRequests::&filter.pointer after ccsmp call is 0x%x\n", uintptr(unsafe.Pointer(&filteringConfigP)))
+func AllocMessageFilteringConfigForCacheRequests(filteringConfigP SolClientMessageFilteringConfigPt, dispatchID uintptr, cacheRequestID message.CacheRequestID) SolClientMessageFilteringConfigPt {
+	C.solClientgo_createAndConfigureMessageFiltering(&filteringConfigP, C.uintptr_t(dispatchID), C.solClient_uint64_t(cacheRequestID))
 	return filteringConfigP
 }
 
