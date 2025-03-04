@@ -1202,10 +1202,6 @@ var _ = Describe("Cache Strategy", func() {
 				waitForCachedMessages(numExpectedCachedMessages*2, cachedOnlyCacheRequestID)
 			case resource.CacheRequestStrategyCachedFirst:
 				waitForCachedMessages(numExpectedCachedMessages, cachedOnlyCacheRequestID)
-				//				if withLiveMessages {
-				//					numExpectedLiveMessages := numConfiguredLiveMessages
-				//					waitForLiveMessages(numExpectedLiveMessages)
-				//				}
 			case resource.CacheRequestStrategyCachedOnly:
 				waitForCachedMessages(numExpectedCachedMessages, concurrentCacheRequestID)
 				waitForCachedMessages(numExpectedCachedMessages, cachedOnlyCacheRequestID)
@@ -1270,16 +1266,6 @@ var _ = Describe("Cache Strategy", func() {
 			cachedOnlyChannel, err := cachedOnlyReceiver.RequestCachedAsync(cachedOnlyCacheRequestConfig, cachedOnlyCacheRequestID)
 			Expect(err).To(BeNil())
 			Expect(cachedOnlyChannel).ToNot(BeNil())
-			///			if withLiveMessages && (cacheRequestStrategy == resource.CacheRequestStrategyLiveCancelsCached || cacheRequestStrategy == resource.CacheRequestStrategyAsAvailable) {
-			///				/* NOTE: We delay before sending the second cache request to mitigate the risk of cached messages
-			///				 * from the second request arriving before live messages from the first request. This allows us
-			///				 * to test received message ordering later. This only matters for LiveCancelsCached and
-			///				 * AsAvailable, because those strategies do not dictate ordering of received messages. If
-			///				 * CachedOnly or CachedFirst requests are being sent, any received live messages will be
-			///				 * deferred or ignored.
-			///				 */
-			///				time.Sleep(time.Millisecond * 500)
-			///			}
 			concurrentChannel, err := receiver.RequestCachedAsync(concurrentCacheRequestConfig, concurrentCacheRequestID)
 			Expect(err).To(BeNil())
 			Expect(concurrentChannel).ToNot(BeNil())
@@ -1585,6 +1571,10 @@ var _ = Describe("Cache Strategy", func() {
 			// assert err is nil
 			Expect(cacheResponse1.GetError()).To(BeNil())
 
+			/* NOTE: We end up getting twice the number of expected cache messages because the cached messages from
+			 * the CachedOnly request have the cache request ID expected to match the CachedOnly request, but also
+			 * match the topic of the AsAvailable request, so they get forwarded twice.
+			 */
 			for i := 0; i < numExpectedCachedMessages*2; i++ {
 				var msg message.InboundMessage
 				Eventually(receivedMsgChan).Should(Receive(&msg))
@@ -2116,8 +2106,6 @@ var _ = Describe("Cache Strategy", func() {
 			 * messages they will immediately be available and not race with the channel read at the end of the
 			 * test.
 			 */
-			if strategy == resource.CacheRequestStrategyCachedOnly {
-			}
 			receivedMsgChan := make(chan message.InboundMessage, expectedMessages*2)
 			err := receiver.ReceiveAsync(func(msg message.InboundMessage) {
 				receivedMsgChan <- msg

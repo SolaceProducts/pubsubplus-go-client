@@ -55,7 +55,6 @@ type CacheRequestor interface {
 
 // CancelPendingCacheRequests will cancel all pending cache requests for a given cache session and potentially block
 // until all cancellations are pushed to the cacheResponse channel.
-// func (receiver *ccsmpBackedReceiver) CancelPendingCacheRequests(cacheRequestIndex CacheRequestMapIndex, cacheResponseProcessor CacheResponseProcessor) *CoreCacheEventInfo {
 func (receiver *ccsmpBackedReceiver) CancelPendingCacheRequests(cacheRequestIndex CacheRequestMapIndex, cacheRequest CacheRequest) *CoreCacheEventInfo {
 	var generatedEvent CoreCacheEventInfo
 	cacheSession := GetCacheSessionFromCacheRequestIndex(cacheRequestIndex)
@@ -67,13 +66,11 @@ func (receiver *ccsmpBackedReceiver) CancelPendingCacheRequests(cacheRequestInde
 			 * the application that something went wrong and defer destroying the cache
 			 * session to a later point.*/
 			logging.Default.Info(fmt.Sprintf("Failed to cancel cache request %s %d and %s %s.", constants.WithCacheRequestID, cacheRequest.ID(), constants.WithCacheSessionPointer, cacheSession.String()))
-			//logging.Default.Info(fmt.Sprintf("Failed to cancel cache request %s %d and %s %s.", constants.WithCacheRequestID, cacheResponseProcessor.GetCacheRequestInfo().GetCacheRequestID(), constants.WithCacheSessionPointer, cacheSession.String()))
 			if logging.Default.IsDebugEnabled() {
 				logging.Default.Debug("Attempting to generate a cache request cancellation event now.")
 			}
 
 			generatedEvent = ccsmp.NewCacheEventInfoForCancellation(cacheSession, cacheRequest.ID(), cacheRequest.RequestConfig().GetName(), ToNativeError(errorInfo, "Failed to cancel cache request."))
-			//generatedEvent = ccsmp.NewCacheEventInfoForCancellation(cacheSession, cacheResponseProcessor.GetCacheRequestInfo().GetCacheRequestID(), cacheResponseProcessor.GetCacheRequestInfo().GetTopic(), ToNativeError(errorInfo, "Failed to cancel cache request."))
 		}
 	}
 	return &generatedEvent
@@ -108,8 +105,6 @@ func (receiver *ccsmpBackedReceiver) CreateCacheRequest(cachedMessageSubscriptio
 		logging.Default.Debug(fmt.Sprintf("Created cache session %s", cacheSession.String()))
 	}
 	cacheRequest := NewCacheRequest(cachedMessageSubscriptionRequest, cacheRequestID, cacheResponseHandler, cacheSession, dispatchID)
-	//cacheRequestReceivedMessageFilter := cacheRequest.(ReceivedMessageFilter)
-	//cacheRequestReceivedMessageFilter.SetupFiltering()
 	return cacheRequest, nil
 
 }

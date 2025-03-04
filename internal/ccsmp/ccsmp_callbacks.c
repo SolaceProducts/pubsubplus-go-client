@@ -29,8 +29,6 @@
 solClient_rxMsgCallback_returnCode_t
 messageReceiveCallback(solClient_opaqueSession_pt opaqueSession_p, solClient_opaqueMsg_pt msg_p, void *user_p)
 {
-        solClient_uint64_t cacheRequestId;
-        solClient_returnCode_t ret = solClient_msg_getCacheRequestId(msg_p, &cacheRequestId);
         solClient_rxMsgCallback_returnCode_t goMessageReceiveCallback(solClient_opaqueSession_pt, solClient_opaqueMsg_pt, void *);
         return goMessageReceiveCallback(opaqueSession_p, msg_p, user_p);
 }
@@ -40,13 +38,10 @@ cacheFilterCallback(solClient_opaqueSession_pt opaqueSession_p, solClient_opaque
 {
         solClientgo_msgDispatchCacheRequestIdFilterInfo_t * info_p = (solClientgo_msgDispatchCacheRequestIdFilterInfo_t *) user_p;
         if ( solClientgo_filterCachedMessageByCacheRequestId(opaqueSession_p, msg_p, user_p) != SOLCLIENT_OK) {
+                /* NOTE: We were unable to find the expected cache request ID in the message, so we discard it. */
                 return SOLCLIENT_CALLBACK_OK;
         }
-        void * dispatchID = (void *)(info_p->dispatchID);
-        solClient_rxMsgCallback_returnCode_t (*messageCallback_pt)(solClient_opaqueSession_pt, solClient_opaqueMsg_pt, void *);
-        messageCallback_pt = info_p->callback_p;
-
-        return messageCallback_pt(opaqueSession_p, msg_p, dispatchID);
+        return info_p->callback_p(opaqueSession_p, msg_p, info_p->dispatchID);
 }
 
 solClient_rxMsgCallback_returnCode_t

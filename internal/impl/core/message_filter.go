@@ -23,6 +23,7 @@ import (
 
 type MessageFilterConfig = ccsmp.SolClientMessageFilteringConfigPt
 
+// defaultMessageFilterConfigValue provides a nil pointer to indicate that message filtering is not needed.
 var defaultMessageFilterConfigValue MessageFilterConfig = nil
 
 type cacheRequestMessageFilter struct {

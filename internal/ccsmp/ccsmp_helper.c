@@ -395,5 +395,3 @@ solClient_returnCode_t
 CacheSessionCancelRequests(solClient_opaqueCacheSession_pt opaqueCacheSession_p) {
         return solClient_cacheSession_cancelCacheRequests(opaqueCacheSession_p);
 }
-
-
