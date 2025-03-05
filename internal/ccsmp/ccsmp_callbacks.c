@@ -41,7 +41,7 @@ cacheFilterCallback(solClient_opaqueSession_pt opaqueSession_p, solClient_opaque
                 /* NOTE: We were unable to find the expected cache request ID in the message, so we discard it. */
                 return SOLCLIENT_CALLBACK_OK;
         }
-        return info_p->callback_p(opaqueSession_p, msg_p, info_p->dispatchID);
+        return info_p->callback_p(opaqueSession_p, msg_p, (void *)info_p->dispatchID);
 }
 
 solClient_rxMsgCallback_returnCode_t
