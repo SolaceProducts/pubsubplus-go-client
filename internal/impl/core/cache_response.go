@@ -90,7 +90,7 @@ func (receiver *ccsmpBackedReceiver) ProcessCacheEvent(cacheRequestMap *sync.Map
 			/* NOTE: This can occur when there has been a duplicate event, where for some reason CCSMP was able
 			 * produce an event, but PSPGo thought CCSMP was not, so PSPGo generated an event on CCSMP's
 			 * behalf, but after CCSMP's event was put on the channel. This would result in the CCSMP-
-			 * generated event being processed and its cache session pointer being removed from the tabel
+			 * generated event being processed and its cache session pointer being removed from the table
 			 * and the duplicate event that was processed afterwards having the same cache session pointer,
 			 * but no matching entry in the table since it was already removed by the original entry. This
 			 * is not a bug, and the application doesn't need to be concerned about this, so we log it as
