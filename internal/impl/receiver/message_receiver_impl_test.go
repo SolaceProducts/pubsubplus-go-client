@@ -324,7 +324,7 @@ func TestSendCacheRequestIsNotBlocking(t *testing.T) {
 			"This is a generated error info")
 		return core.ToNativeError(solClientErr)
 	}
-	var createCacheRequestFunc = func(mock *mockInternalReceiver, cacheRequestConfig resource.CachedMessageSubscriptionRequest, cacheRequestID message.CacheRequestID, cacheResponseProcessor core.CacheResponseProcessor) (core.CacheRequest, error) {
+	var createCacheRequestFunc = func(mock *mockInternalReceiver, cacheRequestConfig resource.CachedMessageSubscriptionRequest, cacheRequestID message.CacheRequestID, cacheResponseProcessor core.CacheResponseProcessor, dispatchID uintptr) (core.CacheRequest, error) {
 		cacheRequest := defaultMockCacheRequest()
 		return cacheRequest, nil
 	}
@@ -394,12 +394,7 @@ func TestSendCacheRequestIsNotBlocking(t *testing.T) {
 }
 
 type mockCacheResponseProcessor struct {
-	handlerFunc          func(solace.CacheResponse)
-	cacheRequestInfoFunc func(*mockCacheResponseProcessor) *core.CacheRequestInfo
-}
-
-func (mock *mockCacheResponseProcessor) GetCallback() func(solace.CacheResponse) {
-	return mock.handlerFunc
+	handlerFunc func(solace.CacheResponse)
 }
 
 func (mock *mockCacheResponseProcessor) ProcessCacheResponse(cacheResponse solace.CacheResponse) {
@@ -408,14 +403,7 @@ func (mock *mockCacheResponseProcessor) ProcessCacheResponse(cacheResponse solac
 	}
 }
 
-func (mock *mockCacheResponseProcessor) GetCacheRequestInfo() *core.CacheRequestInfo {
-	if mock.cacheRequestInfoFunc != nil {
-		return mock.cacheRequestInfoFunc(mock)
-	}
-	return nil
-}
-
-func newMockCacheRequest(cacheRequestConfig resource.CachedMessageSubscriptionRequest, cacheRequestID message.CacheRequestID, cacheResponseHandler core.CacheResponseProcessor, index core.CacheRequestMapIndex) core.CacheRequest {
+func newMockCacheRequest(cacheRequestConfig resource.CachedMessageSubscriptionRequest, cacheRequestID message.CacheRequestID, cacheResponseHandler core.CacheResponseProcessor, index core.CacheRequestMapIndex, usesLocalDispatch bool, messageFilter *core.ReceivedMessageFilter) core.CacheRequest {
 	return mockCacheRequest{
 		requestConfigFunc: func(_ *mockCacheRequest) resource.CachedMessageSubscriptionRequest {
 			return cacheRequestConfig
@@ -432,6 +420,12 @@ func newMockCacheRequest(cacheRequestConfig resource.CachedMessageSubscriptionRe
 		indexFunc: func(_ *mockCacheRequest) core.CacheRequestMapIndex {
 			return core.CacheRequestMapIndex(index)
 		},
+		usesLocalDispatchFunc: func(_ *mockCacheRequest) bool {
+			return usesLocalDispatch
+		},
+		messageFilterFunc: func(_ *mockCacheRequest) *core.ReceivedMessageFilter {
+			return messageFilter
+		},
 	}
 }
 
@@ -440,7 +434,7 @@ func defaultMockCacheRequest() core.CacheRequest {
 	cacheRequestID := defaultCacheRequestID
 	index := defaultCacheRequestMapIndex
 	cacheResponseHandler := &mockCacheResponseProcessor{}
-	return newMockCacheRequest(cacheRequestConfig, cacheRequestID, cacheResponseHandler, index)
+	return newMockCacheRequest(cacheRequestConfig, cacheRequestID, cacheResponseHandler, index, false, nil)
 }
 
 var defaultCacheRequestMapIndex = core.CacheRequestMapIndex(0)
@@ -453,6 +447,8 @@ type mockCacheRequest struct {
 	cacheResponseHandlerFunc func(*mockCacheRequest) core.CacheResponseProcessor
 	cacheSessionFunc         func(*mockCacheRequest) core.CoreCacheSession
 	indexFunc                func(*mockCacheRequest) core.CacheRequestMapIndex
+	usesLocalDispatchFunc    func(*mockCacheRequest) bool
+	messageFilterFunc        func(*mockCacheRequest) *core.ReceivedMessageFilter
 }
 
 func (mock mockCacheRequest) RequestConfig() resource.CachedMessageSubscriptionRequest {
@@ -490,36 +486,51 @@ func (mock mockCacheRequest) Index() core.CacheRequestMapIndex {
 	return defaultCacheRequestMapIndex
 }
 
+func (mock mockCacheRequest) MessageFilter() *core.ReceivedMessageFilter {
+	if mock.messageFilterFunc != nil {
+		return mock.messageFilterFunc(&mock)
+	}
+	return nil
+}
+
+func (mock mockCacheRequest) UsesLocalDispatch() bool {
+	if mock.usesLocalDispatchFunc != nil {
+		return mock.usesLocalDispatchFunc(&mock)
+	}
+	return false
+}
+
 type result struct {
 	proceed bool
 	err     error
 }
 
 type mockInternalReceiver struct {
-	events                         func() core.Events
-	replier                        func() core.Replier
-	isRunning                      func() bool
-	registerRxCallback             func(callback core.RxCallback) uintptr
-	unregisterRxCallback           func(ptr uintptr)
-	subscribe                      func(topic string, ptr uintptr) (core.SubscriptionCorrelationID, <-chan core.SubscriptionEvent, core.ErrorInfo)
-	unsubscribe                    func(topic string, ptr uintptr) (core.SubscriptionCorrelationID, <-chan core.SubscriptionEvent, core.ErrorInfo)
-	incrementMetric                func(metric core.NextGenMetric, amount uint64)
-	incrementDuplicateAckCount     func()
-	newPersistentReceiver          func(props []string, callback core.RxCallback, eventCallback core.PersistentEventCallback) (core.PersistentReceiver, *ccsmp.SolClientErrorInfoWrapper)
-	processCacheResponseFunc       func(*mockInternalReceiver, *sync.Map, core.CoreCacheEventInfo)
-	sendCacheRequestFunc           func(*mockInternalReceiver, core.CacheRequest, core.CoreCacheEventCallback, uintptr) error
-	cancelPendingCacheRequestsFunc func(*mockInternalReceiver, core.CacheRequestMapIndex, core.CacheResponseProcessor) *core.CoreCacheEventInfo
-	createCacheRequestFunc         func(*mockInternalReceiver, resource.CachedMessageSubscriptionRequest, message.CacheRequestID, core.CacheResponseProcessor) (core.CacheRequest, error)
-	destroyCacheRequestFunc        func(*mockInternalReceiver, core.CacheRequest) error
+	events                               func() core.Events
+	replier                              func() core.Replier
+	isRunning                            func() bool
+	registerRxCallback                   func(callback core.RxCallback) uintptr
+	unregisterRxCallback                 func(ptr uintptr)
+	subscribe                            func(topic string, ptr uintptr) (core.SubscriptionCorrelationID, <-chan core.SubscriptionEvent, core.ErrorInfo)
+	unsubscribe                          func(topic string, ptr uintptr) (core.SubscriptionCorrelationID, <-chan core.SubscriptionEvent, core.ErrorInfo)
+	incrementMetric                      func(metric core.NextGenMetric, amount uint64)
+	incrementDuplicateAckCount           func()
+	newPersistentReceiver                func(props []string, callback core.RxCallback, eventCallback core.PersistentEventCallback) (core.PersistentReceiver, *ccsmp.SolClientErrorInfoWrapper)
+	processCacheResponseFunc             func(*mockInternalReceiver, *sync.Map, core.CoreCacheEventInfo)
+	sendCacheRequestFunc                 func(*mockInternalReceiver, core.CacheRequest, core.CoreCacheEventCallback, uintptr) error
+	cancelPendingCacheRequestsFunc       func(*mockInternalReceiver, core.CacheRequestMapIndex, core.CacheRequest) *core.CoreCacheEventInfo
+	createCacheRequestFunc               func(*mockInternalReceiver, resource.CachedMessageSubscriptionRequest, message.CacheRequestID, core.CacheResponseProcessor, uintptr) (core.CacheRequest, error)
+	destroyCacheRequestFunc              func(*mockInternalReceiver, core.CacheRequest) error
+	cleanupCacheRequestSubscriptionsFunc func(*mockInternalReceiver, core.CacheRequest) error
 }
 
 func (mock *mockInternalReceiver) CacheRequestor() core.CacheRequestor {
 	return mock
 }
 
-func (mock *mockInternalReceiver) CreateCacheRequest(cachedMessageSubscriptionRequest resource.CachedMessageSubscriptionRequest, cacheRequestID message.CacheRequestID, cacheResponseHandler core.CacheResponseProcessor) (core.CacheRequest, error) {
+func (mock *mockInternalReceiver) CreateCacheRequest(cachedMessageSubscriptionRequest resource.CachedMessageSubscriptionRequest, cacheRequestID message.CacheRequestID, cacheResponseHandler core.CacheResponseProcessor, dispatchID uintptr) (core.CacheRequest, error) {
 	if mock.createCacheRequestFunc != nil {
-		return mock.createCacheRequestFunc(mock, cachedMessageSubscriptionRequest, cacheRequestID, cacheResponseHandler)
+		return mock.createCacheRequestFunc(mock, cachedMessageSubscriptionRequest, cacheRequestID, cacheResponseHandler, dispatchID)
 	}
 	/* If not set, presume no-op is intended. */
 	return nil, nil
@@ -548,11 +559,18 @@ func (mock *mockInternalReceiver) ProcessCacheEvent(cacheRequestMap *sync.Map, e
 	/* If not set, presume no-op is intended. */
 }
 
-func (mock *mockInternalReceiver) CancelPendingCacheRequests(cacheRequestIndex core.CacheRequestMapIndex, cacheResponseProcessor core.CacheResponseProcessor) *core.CoreCacheEventInfo {
+func (mock *mockInternalReceiver) CancelPendingCacheRequests(cacheRequestIndex core.CacheRequestMapIndex, cacheRequest core.CacheRequest) *core.CoreCacheEventInfo {
 	if mock.cancelPendingCacheRequestsFunc != nil {
-		return mock.cancelPendingCacheRequestsFunc(mock, cacheRequestIndex, cacheResponseProcessor)
+		return mock.cancelPendingCacheRequestsFunc(mock, cacheRequestIndex, cacheRequest)
 	}
 	/* If not set, presume no-op is intended. */
+	return nil
+}
+
+func (mock *mockInternalReceiver) CleanupCacheRequestSubscriptions(cacheRequest core.CacheRequest) error {
+	if mock.cleanupCacheRequestSubscriptionsFunc != nil {
+		return mock.cleanupCacheRequestSubscriptionsFunc(mock, cacheRequest)
+	}
 	return nil
 }
 

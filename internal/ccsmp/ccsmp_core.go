@@ -33,7 +33,6 @@ package ccsmp
 
 solClient_rxMsgCallback_returnCode_t messageReceiveCallback ( solClient_opaqueSession_pt opaqueSession_p, solClient_opaqueMsg_pt msg_p, void *user_p );
 void handleLogCallback(solClient_log_callbackInfo_pt logInfo_p, void *user_p);
-
 // Prototypes for C API internal interfaces available only to wrapper APIs.
 solClient_returnCode_t _solClient_version_set(solClient_version_info_pt version_p);
 */

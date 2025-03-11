@@ -104,6 +104,12 @@ var CachedMessageSubscriptionRequestStrategyMappingToCCSMPSubscribeFlags = map[r
 	resource.CacheRequestStrategyCachedOnly:        C.SOLCLIENT_SUBSCRIBE_FLAGS_LOCAL_DISPATCH_ONLY,
 }
 
+type SolClientSubscribeFlags = C.solClient_subscribeFlags_t
+
+func LocalDispatchFlags() SolClientSubscribeFlags {
+	return C.SOLCLIENT_SUBSCRIBE_FLAGS_LOCAL_DISPATCH_ONLY
+}
+
 /* NOTE: sessionToCacheEventCallbackMap is required as a global var even though cache sessions etc. are scoped to a
  * single receiver. This is required because the event callback that is passed to CCSMP when performing an async cache
  * request cannot have a pointer into Go-managed memory by being associated with receiver. If it did, and CCSMP the
@@ -149,6 +155,7 @@ func (cacheSession *SolClientCacheSession) SendCacheRequest(
 	cacheRequestFlags C.solClient_cacheRequestFlags_t,
 	subscribeFlags C.solClient_subscribeFlags_t,
 	eventCallback SolClientCacheEventCallback,
+	messageFilterConfig SolClientMessageFilteringConfigPt,
 ) *SolClientErrorInfoWrapper {
 
 	cacheToEventCallbackMap.Store(cacheSession.pointer, eventCallback)
@@ -156,12 +163,13 @@ func (cacheSession *SolClientCacheSession) SendCacheRequest(
 	topicP := C.CString(topic)
 	errorInfo := handleCcsmpError(func() SolClientReturnCode {
 		return C.CacheSessionSendCacheRequest(
-			C.solClient_uint64_t(dispatchID),
+			C.uintptr_t(dispatchID),
 			cacheSession.pointer,
 			topicP,
 			C.solClient_uint64_t(cacheRequestID), // This is done elsewhere such as in SolClientMessgeSetSequenceNumber
 			cacheRequestFlags,
 			subscribeFlags,
+			messageFilterConfig,
 		)
 	})
 	return errorInfo
@@ -184,6 +192,20 @@ func (cacheSession *SolClientCacheSession) DestroyCacheSession() *SolClientError
 func (cacheSession *SolClientCacheSession) CancelCacheRequest() *SolClientErrorInfoWrapper {
 	return handleCcsmpError(func() SolClientReturnCode {
 		return C.CacheSessionCancelRequests(cacheSession.pointer)
+	})
+}
+
+// UnsubscribeFromCacheRequestTopic removes the subscription from the dispatch table that was previously added by a
+// cache request. This is only intended to be used for cache requests that used local dispatch subscriptions.
+func (session *SolClientSession) UnsubscribeFromCacheRequestTopic(topic string, flags C.solClient_subscribeFlags_t, userP uintptr, correlationID uintptr) *SolClientErrorInfoWrapper {
+	return handleCcsmpError(func() SolClientReturnCode {
+		cString := C.CString(topic)
+		defer C.free(unsafe.Pointer(cString))
+		return C.SessionCacheTopicUnsubscribeWithFlags(session.pointer,
+			cString,
+			flags,
+			C.solClient_uint64_t(userP),
+			C.solClient_uint64_t(correlationID))
 	})
 }
 
@@ -276,4 +298,15 @@ func goCacheEventCallback( /*opaqueSessionP*/ _ SolClientSessionPt, eventCallbac
 			logging.Default.Debug("Received event callback from core API without an associated cache event callback")
 		}
 	}
+}
+
+type SolClientMessageFilteringConfigPt = C.solClientgo_msgDispatchCacheRequestIdFilterInfo_pt
+
+func AllocMessageFilteringConfigForCacheRequests(filteringConfigP SolClientMessageFilteringConfigPt, dispatchID uintptr, cacheRequestID message.CacheRequestID) SolClientMessageFilteringConfigPt {
+	C.solClientgo_createAndConfigureMessageFiltering(&filteringConfigP, C.uintptr_t(dispatchID), C.solClient_uint64_t(cacheRequestID))
+	return filteringConfigP
+}
+
+func CleanMessageFilteringConfigForCacheRequests(filteringConfigP SolClientMessageFilteringConfigPt) {
+	C.solClientgo_freeFilteringConfig(filteringConfigP)
 }

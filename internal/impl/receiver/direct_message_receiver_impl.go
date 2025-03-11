@@ -962,7 +962,7 @@ func (receiver *directMessageReceiverImpl) checkStateForCacheRequest() error {
 
 // addCacheSessionToMapIfNotPresent adds a cache session to the map and associates it with a CacheResponseProcessor if
 // it is not already present. If the cache session is already present, this function returns an IllegalStateError.
-func (receiver *directMessageReceiverImpl) addCacheSessionToMapIfNotPresent(holder core.CacheResponseProcessor, cacheRequestMapIndex core.CacheRequestMapIndex) error {
+func (receiver *directMessageReceiverImpl) addCacheSessionToMapIfNotPresent(cacheRequest core.CacheRequest) error {
 	/* NOTE: There is a race condition in the function where we read one state of the map, and then
 		 * update the state after the map has been mutated. This is because the lock is managed by the map accessor
 		 * functions. This should not happen, since it would require duplicate pointers in CCSMP. The alternative is
@@ -976,17 +976,17 @@ func (receiver *directMessageReceiverImpl) addCacheSessionToMapIfNotPresent(hold
 	*/
 	var err error
 	err = nil
-	if _, found := receiver.cacheRequestMap.Load(cacheRequestMapIndex); found {
+	if _, found := receiver.cacheRequestMap.Load(cacheRequest.Index()); found {
 		/* Pre-existing cache session found. This error is fatal to the operation but not to the API since
 		 * this does not block other activities like subscribing or trying to send a distint cache request, but does
 		 * prevent the API from indexing the cache session which is necessary for tracking cache request lifecycles.
 		 */
 		err = solace.NewError(&solace.IllegalStateError{},
-			fmt.Sprintf("The application API to create a new cache request using cache session pointer [0x%x] but another cache request's cache session under that pointer already exists.", cacheRequestMapIndex), nil)
+			fmt.Sprintf("The application API to create a new cache request using cache session pointer [0x%x] but another cache request's cache session under that pointer already exists.", cacheRequest.Index()), nil)
 		return err
 	}
 	/* No pre-existing cache session found, we can index the current one and continue. */
-	receiver.cacheRequestMap.Store(cacheRequestMapIndex, holder)
+	receiver.cacheRequestMap.Store(cacheRequest.Index(), cacheRequest)
 	return err
 }
 
@@ -1011,7 +1011,7 @@ func (receiver *directMessageReceiverImpl) RequestCachedAsync(cachedMessageSubsc
 	var applicationCallback = func(cacheResponse solace.CacheResponse) {
 		applicationChannel <- cacheResponse
 	}
-	cacheResponseProcessor := core.NewCacheResponseProcessor(applicationCallback, core.NewCacheRequestInfo(cacheRequestID, cachedMessageSubscriptionRequest.GetName()))
+	cacheResponseProcessor := core.NewCacheResponseProcessor(applicationCallback)
 
 	var cacheEventCallback = func(cacheEventInfo core.CoreCacheEventInfo) {
 		receiver.cacheResponseChan <- cacheEventInfo
@@ -1019,14 +1019,14 @@ func (receiver *directMessageReceiverImpl) RequestCachedAsync(cachedMessageSubsc
 
 	/* We don't need to check the channel that is returned here since this functionality is tested through unit
 	 * testing and because we just instantiated the channel ourselves. */
-	cacheRequest, err := receiver.internalReceiver.CacheRequestor().CreateCacheRequest(cachedMessageSubscriptionRequest, cacheRequestID, cacheResponseProcessor)
+	cacheRequest, err := receiver.internalReceiver.CacheRequestor().CreateCacheRequest(cachedMessageSubscriptionRequest, cacheRequestID, cacheResponseProcessor, receiver.dispatch)
 	if err != nil {
 		atomic.AddInt64(&receiver.numOutstandingCacheRequests, -1)
 		close(applicationChannel)
 		return nil, err
 	}
 	/* store cache session in table with channel */
-	if err = receiver.addCacheSessionToMapIfNotPresent(cacheRequest.Processor(), cacheRequest.Index()); err != nil {
+	if err = receiver.addCacheSessionToMapIfNotPresent(cacheRequest); err != nil {
 		atomic.AddInt64(&receiver.numOutstandingCacheRequests, -1)
 		return nil, err
 	}
@@ -1057,19 +1057,19 @@ func (receiver *directMessageReceiverImpl) RequestCachedAsyncWithCallback(cached
 	receiver.StartAndInitCacheRequestorIfNotDoneAlready()
 	receiver.cacheResourceLock.Unlock()
 
-	cacheResponseProcessor := core.NewCacheResponseProcessor(callback, core.NewCacheRequestInfo(cacheRequestID, cachedMessageSubscriptionRequest.GetName()))
+	cacheResponseProcessor := core.NewCacheResponseProcessor(callback)
 
 	var cacheEventCallback = func(cacheEventInfo core.CoreCacheEventInfo) {
 		receiver.cacheResponseChan <- cacheEventInfo
 	}
 
-	cacheRequest, err := receiver.internalReceiver.CacheRequestor().CreateCacheRequest(cachedMessageSubscriptionRequest, cacheRequestID, cacheResponseProcessor)
+	cacheRequest, err := receiver.internalReceiver.CacheRequestor().CreateCacheRequest(cachedMessageSubscriptionRequest, cacheRequestID, cacheResponseProcessor, receiver.dispatch)
 	if err != nil {
 		atomic.AddInt64(&receiver.numOutstandingCacheRequests, -1)
 		return err
 	}
 	/* store cache session in table with channel */
-	if err = receiver.addCacheSessionToMapIfNotPresent(cacheRequest.Processor(), cacheRequest.Index()); err != nil {
+	if err = receiver.addCacheSessionToMapIfNotPresent(cacheRequest); err != nil {
 		atomic.AddInt64(&receiver.numOutstandingCacheRequests, -1)
 		return err
 	}
@@ -1117,7 +1117,7 @@ func (receiver *directMessageReceiverImpl) teardownCache() {
 
 	/* INFO: For all cache sessions remaining in the map, issue CCSMP cancellation.*/
 	receiver.cacheRequestMap.Range(func(key, value interface{}) bool {
-		generatedEvent := receiver.internalReceiver.CacheRequestor().CancelPendingCacheRequests(key.(core.CacheRequestMapIndex), value.(core.CacheResponseProcessor))
+		generatedEvent := receiver.internalReceiver.CacheRequestor().CancelPendingCacheRequests(key.(core.CacheRequestMapIndex), value.(core.CacheRequest))
 		/* NOTE: If generatedEvent is nil, that means CCSMP was able to cancel the request and push its own event
 		 * to the buffer. If it is not nil, CCSMP was unable to cancel the cache request, an event was generated,
 		 * and that event now needs to be pushed to the buffer.*/
