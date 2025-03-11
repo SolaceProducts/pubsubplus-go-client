@@ -191,6 +191,13 @@ const (
 	CacheRequestStrategyCachedFirst
 
 	// CachedOnly provides a configuration for passing only cached messages and no live messages to the application.
+    //
+    // Note: Cache requests configured using CacheRequestStrategyCachedOnly are limited to be used with subscribers
+    // without live data subscriptions. When used with matching live data subscriptions, cached messages will be
+    // delivered for both the cache outcome and live subscription leading to duplicate message delivery. When needing
+    // cache data when live data subscriptions are already present, it is recommended to use other
+    // CachedMessageSubscriptionStrategy types such as CacheRequestStrategyLiveCancelsCached or
+    // CacheRequestStrategyAsAvailable.
 	CacheRequestStrategyCachedOnly
 )
 
@@ -208,7 +215,7 @@ type CachedMessageSubscriptionRequest interface {
 	// GetCacheAccessTimeout retrieves the timeout for the cache request.
 	GetCacheAccessTimeout() int32
 
-	// GetMaxCachedMessages retrieves the max number of cached messages to be retrived in a request.
+	// GetMaxCachedMessages retrieves the max number of cached messages to be retrieved in a request.
 	GetMaxCachedMessages() int32
 
 	// GetCachedMessageAge retrieves the max age of cached messages to be retrieved in a request.
@@ -245,7 +252,7 @@ func (request *cachedMessageSubscriptionRequest) GetCacheAccessTimeout() int32 {
 	return request.cacheAccessTimeout
 }
 
-// GetMaxCachedMessages retrieves the max number of cached messages to be retrived in a request.
+// GetMaxCachedMessages retrieves the max number of cached messages to be retrieved in a request.
 func (request *cachedMessageSubscriptionRequest) GetMaxCachedMessages() int32 {
 	return request.maxCachedMessages
 }
@@ -260,24 +267,25 @@ func (request *cachedMessageSubscriptionRequest) GetCachedMessageSubscriptionReq
 	return request.cachedMessageSubscriptionStrategy
 }
 
-// NewCachedMessageSubscriptionRequest returns a CachedMessageSubscriptionRequest that can be used to configure a cache request.
-// The cachedMessageSubscriptionStrategy indicates how the API should pass received cached/live messages to the API after a cache
-// request has been sent. Refer to [CachedMessageSubscriptionStrategy] for details on what behaviour each strategy configures.
-// The cacheName parameter indicates the name of the cache to retrieve messages from.
-// The subscription parameter indicates what topic the cache request should match against
-// The cacheAccessTimeout parameter indicates how long in milliseconds a cache request is permitted to take before it is internally
-// cancelled. The valid range for this timeout is between 3000 and signed int 32 max. This value specifies a timer for the internal
-// requests that occur between this API and a PubSub+ cache. A single call to a [ReceiverCacheRequest] interface method
-// can lead to one or more of these internal requests. As long as each of these internal requests
-// complete before the specified time-out, the timeout value is satisfied.
-// The maxCachedMessages parameter indicates the max number of messages expected to be returned as a part of a cache response. The range
-// of this paramater is between 0 and signed int32 max, with 0 indicating that there should be no restrictions on the number of messages
-// received as a part of a cache request.
-// The cachedMessageAge parameter indicates the max age in seconds of the messages to be retrieved from a cache. The range
-// of this parameter is between 0 and signed int 32 max, with 0 indicating that there should be no restrictions on the age of messages
-// to be retrieved.
+// NewCachedMessageSubscriptionRequest returns a CachedMessageSubscriptionRequest that can be used to configure a
+// cache request. The cachedMessageSubscriptionStrategy indicates how the API should pass received cached/live
+// messages to the application after a cache request has been sent. Refer to [CachedMessageSubscriptionStrategy] for
+// details on what behaviour each strategy configures.
+//   - cacheName: The name of the cache to retrieve messages from.
+//   - subscription: What topic the cache request should match against.
+//   - cacheAccessTimeout: How long in milliseconds a cache request is permitted to take before it is internally
+//     cancelled. The valid range for this timeout is between 3000 and signed int 32 max. This value specifies a
+//     timer for the internal requests that occur between this API and a PubSub+ cache. A single call to a
+//     [solace.dev/go/messaging/pkg/solace.ReceiverCacheRequests] interface method can lead to one or more of these internal requests. As long
+//     as each of these internal requests complete before the specified time-out, the timeout value is satisfied.
+//   - maxCachedMessages: The max number of messages expected to be returned as a part of a
+//     cache response. The range of this paramater is between 0 and signed int32 max, with 0 indicating that there
+//     should be no restrictions on the number of messages received as a part of a cache request.
+//   - cachedMessageAge: the max age in seconds of the messages to be retrieved from a cache.
+//     The range of this parameter is between 0 and signed int 32 max, with 0 indicating that there should be no
+//     restrictions on the age of messages to be retrieved.
 // The construction of NewCachedMessageSubscriptionRequest does not validate these parameter values. Instead, they are validated
-// when the cache request is sent after a call to a [ReceiverCacheRequest] interface method.
+// when the cache request is sent after a call to a [solace.dev/go/messaging/pkg/solace.ReceiverCacheRequests] interface method.
 func NewCachedMessageSubscriptionRequest(cachedMessageSubscriptionStrategy CachedMessageSubscriptionStrategy,
 	cacheName string,
 	subscription *TopicSubscription,
