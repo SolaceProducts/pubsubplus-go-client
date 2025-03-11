@@ -191,13 +191,13 @@ const (
 	CacheRequestStrategyCachedFirst
 
 	// CachedOnly provides a configuration for passing only cached messages and no live messages to the application.
-    //
-    // Note: Cache requests configured using CacheRequestStrategyCachedOnly are limited to be used with subscribers
-    // without live data subscriptions. When used with matching live data subscriptions, cached messages will be
-    // delivered for both the cache outcome and live subscription leading to duplicate message delivery. When needing
-    // cache data when live data subscriptions are already present, it is recommended to use other
-    // CachedMessageSubscriptionStrategy types such as CacheRequestStrategyLiveCancelsCached or
-    // CacheRequestStrategyAsAvailable.
+	//
+	// Note: Cache requests configured using CacheRequestStrategyCachedOnly are limited to be used with subscribers
+	// without live data subscriptions. When used with matching live data subscriptions, cached messages will be
+	// delivered for both the cache outcome and live subscription leading to duplicate message delivery. When needing
+	// cache data when live data subscriptions are already present, it is recommended to use other
+	// CachedMessageSubscriptionStrategy types such as CacheRequestStrategyLiveCancelsCached or
+	// CacheRequestStrategyAsAvailable.
 	CacheRequestStrategyCachedOnly
 )
 
@@ -284,6 +284,7 @@ func (request *cachedMessageSubscriptionRequest) GetCachedMessageSubscriptionReq
 //   - cachedMessageAge: the max age in seconds of the messages to be retrieved from a cache.
 //     The range of this parameter is between 0 and signed int 32 max, with 0 indicating that there should be no
 //     restrictions on the age of messages to be retrieved.
+//
 // The construction of NewCachedMessageSubscriptionRequest does not validate these parameter values. Instead, they are validated
 // when the cache request is sent after a call to a [solace.dev/go/messaging/pkg/solace.ReceiverCacheRequests] interface method.
 func NewCachedMessageSubscriptionRequest(cachedMessageSubscriptionStrategy CachedMessageSubscriptionStrategy,
