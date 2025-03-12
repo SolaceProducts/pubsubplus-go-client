@@ -202,7 +202,7 @@ const (
 )
 
 // CachedMessageSubscriptionRequest provides an interface through which cache request configurations can be constructed. These
-// configurations can then be passed to a call to a [RequestCached] interface method to request cached data. Refer to each of the below
+// configurations can then be passed to a call to a [solace.dev/go/messaging/pkg/solace.RequestCached] interface method to request cached data. Refer to each of the below
 // factory methods for details on what configuration they provide.
 type CachedMessageSubscriptionRequest interface {
 
@@ -269,8 +269,9 @@ func (request *cachedMessageSubscriptionRequest) GetCachedMessageSubscriptionReq
 
 // NewCachedMessageSubscriptionRequest returns a CachedMessageSubscriptionRequest that can be used to configure a
 // cache request. The cachedMessageSubscriptionStrategy indicates how the API should pass received cached/live
-// messages to the application after a cache request has been sent. Refer to [CachedMessageSubscriptionStrategy] for
-// details on what behaviour each strategy configures.
+// messages to the application after a cache request has been sent. Refer to
+// [solace.dev/go/messaging/pkg/solace/resource.CachedMessageSubscriptionStrategy] for details on what behaviour
+// each strategy configures.
 //   - cacheName: The name of the cache to retrieve messages from.
 //   - subscription: What topic the cache request should match against.
 //   - cacheAccessTimeout: How long in milliseconds a cache request is permitted to take before it is internally

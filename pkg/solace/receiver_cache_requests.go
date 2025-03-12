@@ -23,19 +23,19 @@ import (
 
 // ReceiverCacheRequests provides an interface through which the application can request cached messages from a cache.
 //   - cachedMessageSubscriptionRequest: Configuration for the submitted cache request. Refer to
-//     [resource.CachedMessageSubscriptionRequest] for more details.
+//     [solace.dev/go/messaging/pkg/solace/resource.CachedMessageSubscriptionRequest] for more details.
 //   - cacheRequestID: An identifier that can be used to correlate received cached messages with a cache
 //     request and response. This cache request ID MUST be unique for the duration of application execution, and
 //     it is the responsibility of the application to ensure this. This ID will be returned to the application through
-//     the [solace.CacheResponse] provided to the application after the cache request has completed.
+//     the [solace.dev/go/messaging/pkg/solace.CacheResponse] provided to the application after the cache request has completed.
 //
 // The provided function callback or returned channel will provide to the application only the cache responses
 // resulting from outstanding cache requests. Data messages related to the cache response will be passed through the
-// conventional [solace.DirectMessageReceiver] interfaces of Receive() and ReceiveAsync().
+// conventional [solace.dev/go/messaging/pkg/solace.DirectMessageReceiver] interfaces of Receive() and ReceiveAsync().
 //
 // In cases where the application does not immediately process the cache response, it may appear that the application
 // does not receive the expected cache response within the timeout configured through
-// [resource.NewCachedMessageSubscriptionRequest]. It is important to note that the configured timeout applies only to
+// [solace.dev/go/messaging/pkg/solace/resource.NewCachedMessageSubscriptionRequest]. It is important to note that the configured timeout applies only to
 // the network, so if the API receives the cache response before the timeout expires, but the application does not
 // process the response until after the timeout expires, the cache response will still be marked as complete.
 type ReceiverCacheRequests interface {
