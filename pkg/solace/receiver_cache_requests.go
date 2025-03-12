@@ -23,15 +23,15 @@ import (
 
 // ReceiverCacheRequests provides an interface through which the application can request cached messages from a cache.
 //   - cachedMessageSubscriptionRequest: Configuration for the submitted cache request. Refer to
-//     [solace.dev/go/messaging/pkg/resource.CachedMessageSubscriptionRequest] for more details.
+//     [resource.CachedMessageSubscriptionRequest] for more details.
 //   - cacheRequestID: An identifier that can be used to correlate received cached messages with a cache
 //     request and response. This cache request ID MUST be unique for the duration of application execution, and
 //     it is the responsibility of the application to ensure this. This ID will be returned to the application through
-//     the [CacheResponse] provided to the application after the cache request has completed.
+//     the [solace.CacheResponse] provided to the application after the cache request has completed.
 //
 // The provided function callback or returned channel will provide to the application only the cache responses
 // resulting from outstanding cache requests. Data messages related to the cache response will be passed through the
-// conventional [DirectMessageReceiver] interfaces of Receive() and ReceiveAsync().
+// conventional [solace.DirectMessageReceiver] interfaces of Receive() and ReceiveAsync().
 //
 // In cases where the application does not immediately process the cache response, it may appear that the application
 // does not receive the expected cache response within the timeout configured through
@@ -43,12 +43,12 @@ type ReceiverCacheRequests interface {
 	// RequestCachedAsync asynchronously requests cached data from a cache and defers processing of the resulting
 	// cache response to the application through the returned channel.
 	// Returns IllegalStateError if the service is not connected or the receiver is not running.
-	// Returns InvalidConfigurationError if an invalid [resource.CachedMessageSubscriptionRequest] was passed.
+	// Returns InvalidConfigurationError if an invalid CachedMessageSubscriptionRequest was passed.
 	RequestCachedAsync(cachedMessageSubscriptionRequest resource.CachedMessageSubscriptionRequest, cacheRequestID message.CacheRequestID) (<-chan CacheResponse, error)
 
 	// RequestCachedAsyncWithCallback asynchronously requests cached data from a cache and processes the resulting
 	// cache response through the provided function callback.
 	// Returns IllegalStateError if the service is not connected or the receiver is not running.
-	// Returns InvalidConfigurationError if an invalid [resource.CachedMessageSubscriptionRequest] was passed.
+	// Returns InvalidConfigurationError if an invalid CachedMessageSubscriptionRequest was passed.
 	RequestCachedAsyncWithCallback(cachedMessageSubscriptionRequest resource.CachedMessageSubscriptionRequest, cacheRequestID message.CacheRequestID, callback func(CacheResponse)) error
 }
