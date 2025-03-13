@@ -202,7 +202,7 @@ const (
 )
 
 // CachedMessageSubscriptionRequest provides an interface through which cache request configurations can be constructed. These
-// configurations can then be passed to a call to a [solace.dev/go/messaging/pkg/solace.RequestCached] interface method to request cached data. Refer to each of the below
+// configurations can then be passed to a call to a [solace.dev/go/messaging/pkg/solace.ReceiverCacheRequests] interface method to request cached data. Refer to each of the below
 // factory methods for details on what configuration they provide.
 type CachedMessageSubscriptionRequest interface {
 
