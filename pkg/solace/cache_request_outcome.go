@@ -32,7 +32,7 @@ const (
 	CacheRequestOutcomeSuspectData
 
 	// Failed indicates that the cache request failed in some way.
-	// Refer to the 'error' associated with this outcome through the RequestCached interface.
+	// Refer to the 'error' associated with this outcome through the CacheResponse interface.
 	CacheRequestOutcomeFailed
 )
 
@@ -46,6 +46,6 @@ type CacheResponse interface {
 	GetCacheRequestID() message.CacheRequestID
 
 	// GetError retrieves the error field, will be nil if the cache request
-	// was successful, and will be not nil if a problem was encountered.
+	// was successful, and will be not nil if a problem has occurred.
 	GetError() error
 }
