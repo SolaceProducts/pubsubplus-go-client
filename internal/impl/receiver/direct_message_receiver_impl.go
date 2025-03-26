@@ -1047,6 +1047,9 @@ func (receiver *directMessageReceiverImpl) RequestCachedAsync(cachedMessageSubsc
 }
 
 func (receiver *directMessageReceiverImpl) RequestCachedAsyncWithCallback(cachedMessageSubscriptionRequest resource.CachedMessageSubscriptionRequest, cacheRequestID apimessage.CacheRequestID, callback func(solace.CacheResponse)) error {
+	if receiver.logger.IsDebugEnabled() {
+		receiver.logger.Debug(fmt.Sprintf("numOustandingCacheRequests before RequestCachedCalled: %d", atomic.LoadInt64(&receiver.numOutstandingCacheRequests)))
+	}
 	receiver.cacheResourceLock.Lock()
 	err := receiver.checkStateForCacheRequest()
 	if err != nil {
@@ -1149,6 +1152,7 @@ func (receiver *directMessageReceiverImpl) PollAndProcessCacheResponseChannel() 
 		cacheEventInfo, channelIsOpen = <-receiver.cacheResponseChan
 		/* NOTE: Decrement the counter after popping an element from the channel so the application can submit more
 		 * requests.*/
+		receiver.logger.Debug(fmt.Sprintf("numOutstandingCacheRequests before popping from cacheResponseChane is %d", atomic.LoadInt64(&receiver.numOutstandingCacheRequests)))
 		atomic.AddInt64(&receiver.numOutstandingCacheRequests, -1)
 		if !channelIsOpen {
 			// If channel is closed, we can stop polling. In this case we don't need to handle
