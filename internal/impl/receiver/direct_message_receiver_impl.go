@@ -998,11 +998,19 @@ func (receiver *directMessageReceiverImpl) RequestCachedAsync(cachedMessageSubsc
 	 * 2. Multiple threads submitting cache requests when the receiver is approaching MaxOutstandingCacheRequests
 	 *    outstanding requests, where the threads would race between checking the numOutstandingCacheRequests
 	 *    counter and incrementing this counter.*/
+	if receiver.logger.IsDebugEnabled() {
+		receiver.logger.Debug(fmt.Sprintf("numOutstandingCacheRequests before RequestCachedCalled: %d", atomic.LoadInt64(&receiver.numOutstandingCacheRequests)))
+	}
+
 	receiver.cacheResourceLock.Lock()
+
 	err := receiver.checkStateForCacheRequest()
 	if err != nil {
 		receiver.cacheResourceLock.Unlock()
 		return nil, err
+	}
+	if receiver.logger.IsDebugEnabled() {
+		receiver.logger.Debug("Adding to numOutstandingCacheRequests")
 	}
 	atomic.AddInt64(&receiver.numOutstandingCacheRequests, 1)
 	receiver.StartAndInitCacheRequestorIfNotDoneAlready()
@@ -1024,17 +1032,26 @@ func (receiver *directMessageReceiverImpl) RequestCachedAsync(cachedMessageSubsc
 	 * testing and because we just instantiated the channel ourselves. */
 	cacheRequest, err := receiver.internalReceiver.CacheRequestor().CreateCacheRequest(cachedMessageSubscriptionRequest, cacheRequestID, cacheResponseProcessor, receiver.dispatch)
 	if err != nil {
+		if receiver.logger.IsDebugEnabled() {
+			receiver.logger.Debug("Subtracting from numOutstandingCacheRequests")
+		}
 		atomic.AddInt64(&receiver.numOutstandingCacheRequests, -1)
 		close(applicationChannel)
 		return nil, err
 	}
 	/* store cache session in table with channel */
 	if err = receiver.addCacheSessionToMapIfNotPresent(cacheRequest); err != nil {
+		if receiver.logger.IsDebugEnabled() {
+			receiver.logger.Debug("Subtracting from numOutstandingCacheRequests")
+		}
 		atomic.AddInt64(&receiver.numOutstandingCacheRequests, -1)
 		return nil, err
 	}
 	err = receiver.internalReceiver.CacheRequestor().SendCacheRequest(cacheRequest, cacheEventCallback, receiver.dispatch)
 	if err != nil {
+		if receiver.logger.IsDebugEnabled() {
+			receiver.logger.Debug("Subtracting from numOutstandingCacheRequests")
+		}
 		atomic.AddInt64(&receiver.numOutstandingCacheRequests, -1)
 		close(applicationChannel)
 		receiver.cacheRequestMap.Delete(cacheRequest.Index())
@@ -1051,7 +1068,7 @@ func (receiver *directMessageReceiverImpl) RequestCachedAsync(cachedMessageSubsc
 
 func (receiver *directMessageReceiverImpl) RequestCachedAsyncWithCallback(cachedMessageSubscriptionRequest resource.CachedMessageSubscriptionRequest, cacheRequestID apimessage.CacheRequestID, callback func(solace.CacheResponse)) error {
 	if receiver.logger.IsDebugEnabled() {
-		receiver.logger.Debug(fmt.Sprintf("numOustandingCacheRequests before RequestCachedCalled: %d", atomic.LoadInt64(&receiver.numOutstandingCacheRequests)))
+		receiver.logger.Debug(fmt.Sprintf("numOutstandingCacheRequests before RequestCachedCalled: %d", atomic.LoadInt64(&receiver.numOutstandingCacheRequests)))
 	}
 	receiver.cacheResourceLock.Lock()
 	err := receiver.checkStateForCacheRequest()
@@ -1059,6 +1076,10 @@ func (receiver *directMessageReceiverImpl) RequestCachedAsyncWithCallback(cached
 		receiver.cacheResourceLock.Unlock()
 		return err
 	}
+	if receiver.logger.IsDebugEnabled() {
+		receiver.logger.Debug("Adding to numOutstandingCacheRequests")
+	}
+
 	atomic.AddInt64(&receiver.numOutstandingCacheRequests, 1)
 	receiver.StartAndInitCacheRequestorIfNotDoneAlready()
 	receiver.cacheResourceLock.Unlock()
@@ -1067,20 +1088,37 @@ func (receiver *directMessageReceiverImpl) RequestCachedAsyncWithCallback(cached
 
 	var cacheEventCallback = func(cacheEventInfo core.CoreCacheEventInfo) {
 		receiver.cacheResponseChan <- cacheEventInfo
+		if receiver.logger.IsDebugEnabled() {
+			receiver.logger.Debug(fmt.Sprintf("receiver.cacheResponseChan length after pushing is %d", len(receiver.cacheResponseChan)))
+			receiver.logger.Debug(fmt.Sprintf("numOutstandingCacheRequests after pushing cache response is %d", len(receiver.cacheResponseChan)))
+		}
+
 	}
 
 	cacheRequest, err := receiver.internalReceiver.CacheRequestor().CreateCacheRequest(cachedMessageSubscriptionRequest, cacheRequestID, cacheResponseProcessor, receiver.dispatch)
 	if err != nil {
+		if receiver.logger.IsDebugEnabled() {
+			receiver.logger.Debug("Subtracting from numOutstandingCacheRequests")
+		}
+
 		atomic.AddInt64(&receiver.numOutstandingCacheRequests, -1)
 		return err
 	}
 	/* store cache session in table with channel */
 	if err = receiver.addCacheSessionToMapIfNotPresent(cacheRequest); err != nil {
+		if receiver.logger.IsDebugEnabled() {
+			receiver.logger.Debug("Subtracting from numOutstandingCacheRequests")
+		}
+
 		atomic.AddInt64(&receiver.numOutstandingCacheRequests, -1)
 		return err
 	}
 	err = receiver.internalReceiver.CacheRequestor().SendCacheRequest(cacheRequest, cacheEventCallback, receiver.dispatch)
 	if err != nil {
+		if receiver.logger.IsDebugEnabled() {
+			receiver.logger.Debug("Subtracting from numOutstandingCacheRequests")
+		}
+
 		atomic.AddInt64(&receiver.numOutstandingCacheRequests, -1)
 		receiver.cacheRequestMap.Delete(cacheRequest.Index())
 		_ = receiver.internalReceiver.CacheRequestor().DestroyCacheRequest(cacheRequest)
@@ -1148,6 +1186,9 @@ func (receiver *directMessageReceiverImpl) teardownCache() {
 // PollAndProcessCacheResponseChannel is intended to be run as a go routine.
 func (receiver *directMessageReceiverImpl) PollAndProcessCacheResponseChannel() {
 	receiver.setCachePollingRunning(true)
+	if receiver.logger.IsDebugEnabled() {
+		receiver.logger.Debug("Starting PollAndProcessCacheResponseChannel")
+	}
 	var cacheEventInfo core.CoreCacheEventInfo
 	channelIsOpen := true
 	/* poll cacheventinfo channel */
