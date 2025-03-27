@@ -1519,7 +1519,6 @@ var _ = Describe("Cache Strategy", func() {
 			cacheRequestConfig := helpers.GetValidCacheRequestConfig(resource.CacheRequestStrategyAsAvailable, cacheName, topic)
 			cacheResponseSignalChan := make(chan solace.CacheResponse)
 			callback := func(cacheResponse solace.CacheResponse) {
-				fmt.Printf("In application callback for 1024 test\n")
 				cacheResponseSignalChan <- cacheResponse
 			}
 			for i := 0; i <= maxCacheRequests; i++ {

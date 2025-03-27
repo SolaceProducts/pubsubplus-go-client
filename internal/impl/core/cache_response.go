@@ -157,6 +157,9 @@ func (receiver *ccsmpBackedReceiver) ProcessCacheEvent(cacheRequestMap *sync.Map
 			err:                 cacheRespError,
 		}
 
+		if logging.Default.IsDebugEnabled() {
+			logging.Default.Debug("Processing cache response callback/channel")
+		}
 		cacheRequest.Processor().ProcessCacheResponse(cacheResponse)
 		receiver.CleanupCacheRequestSubscriptions(cacheRequest)
 		if messageFilter := cacheRequest.MessageFilter(); messageFilter != nil {

@@ -1015,6 +1015,9 @@ func (receiver *directMessageReceiverImpl) RequestCachedAsync(cachedMessageSubsc
 
 	var cacheEventCallback = func(cacheEventInfo core.CoreCacheEventInfo) {
 		receiver.cacheResponseChan <- cacheEventInfo
+		if receiver.logger.IsDebugEnabled() {
+			receiver.logger.Debug(fmt.Sprintf("receiver.cacheResponseChan length after pushing is %d", len(receiver.cacheResponseChan)))
+		}
 	}
 
 	/* We don't need to check the channel that is returned here since this functionality is tested through unit
@@ -1150,10 +1153,13 @@ func (receiver *directMessageReceiverImpl) PollAndProcessCacheResponseChannel() 
 	/* poll cacheventinfo channel */
 	for channelIsOpen {
 		cacheEventInfo, channelIsOpen = <-receiver.cacheResponseChan
+		atomic.AddInt64(&receiver.numOutstandingCacheRequests, -1)
 		/* NOTE: Decrement the counter after popping an element from the channel so the application can submit more
 		 * requests.*/
-		receiver.logger.Debug(fmt.Sprintf("numOutstandingCacheRequests before popping from cacheResponseChane is %d", atomic.LoadInt64(&receiver.numOutstandingCacheRequests)))
-		atomic.AddInt64(&receiver.numOutstandingCacheRequests, -1)
+		if receiver.logger.IsDebugEnabled() {
+			receiver.logger.Debug(fmt.Sprintf("numOutstandingCacheRequests after popping from cacheResponseChane is %d", atomic.LoadInt64(&receiver.numOutstandingCacheRequests)))
+			receiver.logger.Debug(fmt.Sprintf("receiver.cacheResponseChan length after popping from cacheResponseChan is %d", len(receiver.cacheResponseChan)))
+		}
 		if !channelIsOpen {
 			// If channel is closed, we can stop polling. In this case we don't need to handle
 			// the cacheEventInfo since there won't be a menaingful one left on the queue.
