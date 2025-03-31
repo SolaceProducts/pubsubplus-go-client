@@ -1375,6 +1375,44 @@ var _ = Describe("Cache Strategy", func() {
 			Entry("with a CachedOnly without live messages", resource.CacheRequestStrategyCachedOnly, false),
 			Entry("with a CachedOnly with live messages", resource.CacheRequestStrategyCachedOnly, true),
 		)
+		DescribeTable("wildcards on CachedOnly", func(topic_template string, numExpectedCachedMessages int) {
+			cacheRequestID := message.CacheRequestID(0)
+			numConfiguredCachedMessages := 1
+			cacheName := fmt.Sprintf("MaxMsgs%d/delay=2000,msgs=1", numConfiguredCachedMessages)
+			cacheTopic := fmt.Sprintf(topic_template, testcontext.Cache().Vpn)
+			cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.CacheRequestStrategyCachedOnly, cacheName, resource.TopicSubscriptionOf(cacheTopic), 5000, int32(numConfiguredCachedMessages), 0)
+			/* NOTE: We only expect 1 message but allow up to 10 in case there is a logical/formatting error in the topic name or cache request config. */
+			receivedMsgChan := make(chan message.InboundMessage, 10)
+			receiver.ReceiveAsync(func(msg message.InboundMessage) {
+				receivedMsgChan <- msg
+			})
+			cacheResponseChan, err := receiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
+			Expect(err).To(BeNil())
+			Expect(cacheResponseChan).ToNot(BeNil())
+			var cacheResponse solace.CacheResponse
+			Eventually(cacheResponseChan, "3s").Should(Receive(&cacheResponse))
+			Expect(cacheResponse).ToNot(BeNil())
+			Expect(cacheResponse.GetError()).To(BeNil())
+			Expect(cacheResponse.GetCacheRequestID()).To(BeNumerically("==", cacheRequestID))
+			Expect(cacheResponse.GetCacheRequestOutcome()).To(Equal(solace.CacheRequestOutcomeOk))
+			for i := 0; i < numExpectedCachedMessages; i++ {
+				var msg message.InboundMessage
+				Eventually(receivedMsgChan, "5s").Should(Receive(&msg))
+				Expect(msg).ToNot(BeNil())
+				/* NOTE: We can't reliably check the destination of these messages since they will have a concrete
+				 * topic, which would fail a comparison to a wildcard topic despite them being `equivalent` */
+				id, ok := msg.GetCacheRequestID()
+				Expect(ok).To(BeTrue())
+				Expect(id).To(BeNumerically("==", cacheRequestID))
+				Expect(msg.GetCacheStatus()).To(Equal(message.Cached))
+			}
+			Consistently(receivedMsgChan, "1ms").ShouldNot(Receive())
+		},
+			Entry("with topic template wildcarded for all instances", "MaxMsgs*/%s/data1", 3),
+			Entry("with topic template wildcarded for all suffixes on MaxMsgs1", "MaxMsgs1/%s/*", 2),
+			Entry("with topic template careted for suffixes on MaxMsgs1", "MaxMsgs1/%s/>", 2),
+			Entry("with concrete topic on MaxMsgs1", "MaxMsgs1/%s/data1", 1),
+		)
 		It("a direct receiver should get CacheRequestOutcome.Suspect when there is at least one suspect message in the cache response", func() {
 			cacheRequestID := message.CacheRequestID(1)
 			cacheName := "UnitTestSuspect"
@@ -2489,6 +2527,133 @@ var _ = Describe("Cache Strategy", func() {
 					deferredOperation()
 				}
 			})
+			DescribeTable("Unsubscribe after CachedOnly with wildcard topics works", func(topic_template string, numExpectedCachedMessages int) {
+				cacheRequestStrategy := resource.CacheRequestStrategyCachedOnly
+				numConfiguredCachedMessages := 1
+				cacheRequestID := message.CacheRequestID(1)
+				sanityReceiver, err := messagingService.CreateDirectMessageReceiverBuilder().Build()
+				Expect(err).To(BeNil())
+				Expect(sanityReceiver).ToNot(BeNil())
+				err = sanityReceiver.Start()
+				Expect(err).To(BeNil())
+				numExpectedCacheReceiverMsgs := 10
+				cacheReceiverMsgChan := make(chan message.InboundMessage, numExpectedCacheReceiverMsgs)
+				err = receiver.ReceiveAsync(func(msg message.InboundMessage) {
+					cacheReceiverMsgChan <- msg
+				})
+				Expect(err).To(BeNil())
+				numExpectedSanityReceiverMsgs := 10
+				sanityReceiverMsgChan := make(chan message.InboundMessage, numExpectedSanityReceiverMsgs)
+				err = sanityReceiver.ReceiveAsync(func(msg message.InboundMessage) {
+					sanityReceiverMsgChan <- msg
+				})
+				Expect(err).To(BeNil())
+				cacheTopic := fmt.Sprintf(topic_template, testcontext.Cache().Vpn)
+
+				outboundMessage, err := messagingService.MessageBuilder().BuildWithStringPayload("test message")
+				Expect(err).To(BeNil())
+				Expect(outboundMessage).ToNot(BeNil())
+
+				err = receiver.AddSubscription(resource.TopicSubscriptionOf(cacheTopic))
+				Expect(err).To(BeNil())
+
+				numExpectedLiveMessages := 5
+				var publishLiveMessagesOnCacheTopic = func() {
+					for i := 0; i < numExpectedLiveMessages; i++ {
+						err = messagePublisher.Publish(outboundMessage, resource.TopicOf(cacheTopic))
+						Expect(err).To(BeNil())
+					}
+				}
+				var waitOnLiveMessages = func(msgChan chan message.InboundMessage) {
+					for i := 0; i < numExpectedLiveMessages; i++ {
+						var msg message.InboundMessage
+						Eventually(msgChan).Should(Receive(&msg))
+						Expect(msg).ToNot(BeNil())
+						Expect(msg.GetDestinationName()).To(Equal(cacheTopic))
+						id, ok := msg.GetCacheRequestID()
+						Expect(ok).To(BeFalse())
+						Expect(id).To(BeNumerically("==", 0))
+						Expect(msg.GetCacheStatus()).To(Equal(message.Live))
+					}
+				}
+				var waitOnCachedMessages = func(msgChan chan message.InboundMessage) {
+					for i := 0; i < numExpectedCachedMessages; i++ {
+						var msg message.InboundMessage
+						Eventually(msgChan).Should(Receive(&msg))
+						Expect(msg).ToNot(BeNil())
+						/* NOTE: We can't reliably check the destination of these messages since they will have a concrete
+						 * topic, which would fail a comparison to a wildcard topic despite them being `equivalent` */
+						id, ok := msg.GetCacheRequestID()
+						Expect(ok).To(BeTrue())
+						Expect(id).To(BeNumerically("==", cacheRequestID))
+						Expect(msg.GetCacheStatus()).To(Equal(message.Cached))
+					}
+				}
+
+				publishLiveMessagesOnCacheTopic()
+				waitOnLiveMessages(cacheReceiverMsgChan)
+				Consistently(sanityReceiverMsgChan).ShouldNot(Receive())
+				err = receiver.RemoveSubscription(resource.TopicSubscriptionOf(cacheTopic))
+				Expect(err).To(BeNil())
+
+				err = sanityReceiver.AddSubscription(resource.TopicSubscriptionOf(cacheTopic))
+				Expect(err).To(BeNil())
+
+				publishLiveMessagesOnCacheTopic()
+				waitOnLiveMessages(sanityReceiverMsgChan)
+				Consistently(cacheReceiverMsgChan).ShouldNot(Receive())
+
+				cacheName := fmt.Sprintf("MaxMsgs%d/delay=2000,msgs=%d", numConfiguredCachedMessages, numExpectedLiveMessages)
+
+				cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(cacheRequestStrategy, cacheName, resource.TopicSubscriptionOf(cacheTopic), int32(3000), int32(0), int32(0))
+				cacheResponseChan, err := receiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
+				Expect(err).To(BeNil())
+				Expect(cacheResponseChan).ToNot(BeNil())
+				var cacheResponse solace.CacheResponse
+				Eventually(cacheResponseChan, "10s").Should(Receive(&cacheResponse))
+				Expect(cacheResponse).ToNot(BeNil())
+				// assert cache reponse ID matches cache request ID
+				Expect(cacheResponse.GetCacheRequestID()).To(Equal(cacheRequestID))
+				// assert CacheRequestOutcome is Ok
+				Expect(cacheResponse.GetCacheRequestOutcome()).To(Equal(solace.CacheRequestOutcomeOk))
+				// assert err is nil
+				Expect(cacheResponse.GetError()).To(BeNil())
+
+				waitOnLiveMessages(sanityReceiverMsgChan)
+				waitOnCachedMessages(cacheReceiverMsgChan)
+				waitOnCachedMessages(sanityReceiverMsgChan)
+				Consistently(cacheReceiverMsgChan, "1ms").ShouldNot(Receive())
+				Consistently(sanityReceiverMsgChan, "1ms").ShouldNot(Receive())
+
+				publishLiveMessagesOnCacheTopic()
+				waitOnLiveMessages(sanityReceiverMsgChan)
+				Consistently(cacheReceiverMsgChan).ShouldNot(Receive())
+				err = receiver.AddSubscription(resource.TopicSubscriptionOf(cacheTopic))
+				Expect(err).To(BeNil())
+				publishLiveMessagesOnCacheTopic()
+				waitOnLiveMessages(sanityReceiverMsgChan)
+				waitOnLiveMessages(cacheReceiverMsgChan)
+				/* NOTE: Here we are testing that after the cache request applied a subscription to the receiver and
+				 * the application manually re-applied that subscription we do not get duplicate messages on the cache
+				 * receiver.
+				 */
+				Consistently(cacheReceiverMsgChan).ShouldNot(Receive())
+
+				err = receiver.RemoveSubscription(resource.TopicSubscriptionOf(cacheTopic))
+				Expect(err).To(BeNil())
+				publishLiveMessagesOnCacheTopic()
+				waitOnLiveMessages(sanityReceiverMsgChan)
+				Consistently(cacheReceiverMsgChan).ShouldNot(Receive())
+
+				err = sanityReceiver.Terminate(0)
+				Expect(err).To(BeNil())
+			},
+				Entry("with topic template wildcarded for all instances", "MaxMsgs*/%s/data1", 14),
+				Entry("with topic template wildcarded for all suffixes on MaxMsgs1", "MaxMsgs1/%s/*", 2),
+				Entry("with topic template careted for suffixes on MaxMsgs1", "MaxMsgs1/%s/>", 2),
+				Entry("with concrete topic on MaxMsgs1", "MaxMsgs1/%s/data1", 1),
+			)
+
 			DescribeTable("Unsubscribe after cache request works", func(cacheRequestStrategy resource.CachedMessageSubscriptionStrategy) {
 				numExpectedCachedMessages := 3
 				cacheRequestID := message.CacheRequestID(1)
