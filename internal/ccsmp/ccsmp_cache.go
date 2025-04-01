@@ -286,8 +286,6 @@ func goCacheEventCallback( /*opaqueSessionP*/ _ SolClientSessionPt, eventCallbac
 	 * which is guaranteed to be unique for at least the duration that the cache session pointer is in the global
 	 * map since during receiver termination we destory the cache session only after we remove it from all maps.
 	 */
-	eventInfo := CacheEventInfoFromCoreCacheEventInfo(eventCallbackInfo, uintptr(userP))
-	logging.Default.Debug(fmt.Sprintf("goCacheEventCallback: event info is %s", eventInfo.String()))
 	if callback, ok := cacheToEventCallbackMap.Load(SolClientCacheSessionPt(uintptr(userP))); ok {
 		eventInfo := CacheEventInfoFromCoreCacheEventInfo(eventCallbackInfo, uintptr(userP))
 		callback.(SolClientCacheEventCallback)(eventInfo)
