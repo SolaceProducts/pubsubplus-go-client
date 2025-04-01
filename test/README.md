@@ -7,7 +7,13 @@ The integration tests are stored in this directory. These integration tests are 
 *Note:* the SEMPv2 clients' generated code is not committed. To run the tests, run `go generate` from the `./test/sempclient` package. This will take a few minutes.
 
 ## Tooling
+
+To reliably retrieve packaging, use a go proxy.  Be sure to set in your environment:
+- export GOPROXY=https://proxy.golang.org,direct
+- go env -w GOPROXY=https://proxy.golang.org,direct
+
 [Ginkgo](https://onsi.github.io/ginkgo/) is used as the testing framework with [Gomega](https://onsi.github.io/gomega/) as the assert library. The tests also define a `./test/testcontext` package that is stood up before the suite and torn down after the suite is run. This test context is accessible through the CurrentContext variable defined in the root of the test package.
+- go install github.com/onsi/ginkgo/v2/ginkgo@v2.1.3
 
 ## Running the tests
 

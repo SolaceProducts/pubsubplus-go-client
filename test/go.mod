@@ -6,7 +6,7 @@ require (
 	github.com/Microsoft/go-winio v0.5.2 // indirect
 	github.com/Shopify/toxiproxy/v2 v2.3.0
 	github.com/containerd/containerd v1.6.1 // indirect
-	github.com/docker/distribution v2.8.0+incompatible // indirect
+	github.com/docker/distribution v2.8.2+incompatible // indirect
 	github.com/docker/docker v20.10.12+incompatible // indirect
 	github.com/google/uuid v1.3.0
 	github.com/magiconair/properties v1.8.6 // indirect
@@ -14,7 +14,7 @@ require (
 	github.com/moby/term v0.0.0-20210619224110-3f7ff695adc6 // indirect
 	github.com/onsi/ginkgo/v2 v2.1.3
 	github.com/onsi/gomega v1.18.1
-	github.com/opencontainers/image-spec v1.0.2 // indirect
+	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/testcontainers/testcontainers-go v0.12.0
 	golang.org/x/net v0.0.0-20220225172249-27dd8689420f // indirect
 	golang.org/x/sys v0.0.0-20220227234510-4e6760a101f9 // indirect
