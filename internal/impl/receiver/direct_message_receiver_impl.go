@@ -88,6 +88,9 @@ type directMessageReceiverImpl struct {
 	// cachePollingRunning is used to determine whether or not the goroutine that polls the cacheResponseChan
 	// has been started yet.
 	cachePollingRunning uint32
+	// cachePollingRunningChan is used to signal to the application thread when the PollAndProcessCacheResponseChannel
+	// goroutine has started.
+	cachePollingRunningChan chan bool
 	// cacheResponseChan is used to buffer the cache responses from CCSMP.
 	cacheResponseChan chan core.CoreCacheEventInfo
 	// cacheRequestMap is used to map the cache session pointer to the method for handling the cache response,
@@ -922,8 +925,13 @@ func (receiver *directMessageReceiverImpl) StartAndInitCacheRequestorIfNotDoneAl
 	if receiver.cacheResponseChan == nil {
 		receiver.cacheResponseChan = make(chan core.CoreCacheEventInfo, MaxOutstandingCacheRequests)
 	}
+	if receiver.cachePollingRunningChan == nil {
+		receiver.cachePollingRunningChan = make(chan bool)
+	}
 	if !receiver.isCachePollingRunning() {
 		go receiver.PollAndProcessCacheResponseChannel()
+		<-receiver.cachePollingRunningChan
+		receiver.setCachePollingRunning(true)
 		if receiver.logger.IsDebugEnabled() {
 			receiver.logger.Debug("Started go routine for polling cache response channel.")
 		}
@@ -998,7 +1006,9 @@ func (receiver *directMessageReceiverImpl) RequestCachedAsync(cachedMessageSubsc
 	 * 2. Multiple threads submitting cache requests when the receiver is approaching MaxOutstandingCacheRequests
 	 *    outstanding requests, where the threads would race between checking the numOutstandingCacheRequests
 	 *    counter and incrementing this counter.*/
+
 	receiver.cacheResourceLock.Lock()
+
 	err := receiver.checkStateForCacheRequest()
 	if err != nil {
 		receiver.cacheResourceLock.Unlock()
@@ -1053,6 +1063,7 @@ func (receiver *directMessageReceiverImpl) RequestCachedAsyncWithCallback(cached
 		receiver.cacheResourceLock.Unlock()
 		return err
 	}
+
 	atomic.AddInt64(&receiver.numOutstandingCacheRequests, 1)
 	receiver.StartAndInitCacheRequestorIfNotDoneAlready()
 	receiver.cacheResourceLock.Unlock()
@@ -1141,15 +1152,15 @@ func (receiver *directMessageReceiverImpl) teardownCache() {
 
 // PollAndProcessCacheResponseChannel is intended to be run as a go routine.
 func (receiver *directMessageReceiverImpl) PollAndProcessCacheResponseChannel() {
-	receiver.setCachePollingRunning(true)
+	receiver.cachePollingRunningChan <- true
 	var cacheEventInfo core.CoreCacheEventInfo
 	channelIsOpen := true
 	/* poll cacheventinfo channel */
 	for channelIsOpen {
 		cacheEventInfo, channelIsOpen = <-receiver.cacheResponseChan
+		atomic.AddInt64(&receiver.numOutstandingCacheRequests, -1)
 		/* NOTE: Decrement the counter after popping an element from the channel so the application can submit more
 		 * requests.*/
-		atomic.AddInt64(&receiver.numOutstandingCacheRequests, -1)
 		if !channelIsOpen {
 			// If channel is closed, we can stop polling. In this case we don't need to handle
 			// the cacheEventInfo since there won't be a menaingful one left on the queue.
@@ -1166,6 +1177,7 @@ func (receiver *directMessageReceiverImpl) PollAndProcessCacheResponseChannel() 
 		receiver.internalReceiver.CacheRequestor().ProcessCacheEvent(&receiver.cacheRequestMap, cacheEventInfo)
 	}
 	// Indicate that this function has stopped running.
+	close(receiver.cachePollingRunningChan)
 	receiver.setCachePollingRunning(false)
 }
 
