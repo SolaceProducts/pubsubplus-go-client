@@ -1375,6 +1375,44 @@ var _ = Describe("Cache Strategy", func() {
 			Entry("with a CachedOnly without live messages", resource.CacheRequestStrategyCachedOnly, false),
 			Entry("with a CachedOnly with live messages", resource.CacheRequestStrategyCachedOnly, true),
 		)
+		DescribeTable("wildcards on CachedOnly", func(topic_template string, numExpectedCachedMessages int) {
+			cacheRequestID := message.CacheRequestID(0)
+			numConfiguredCachedMessages := 1
+			cacheName := fmt.Sprintf("MaxMsgs%d/delay=2000,msgs=1", numConfiguredCachedMessages)
+			cacheTopic := fmt.Sprintf(topic_template, testcontext.Cache().Vpn)
+			cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(resource.CacheRequestStrategyCachedOnly, cacheName, resource.TopicSubscriptionOf(cacheTopic), 5000, int32(numConfiguredCachedMessages), 0)
+			/* NOTE: We only expect 1 message but allow up to 10 in case there is a logical/formatting error in the topic name or cache request config. */
+			receivedMsgChan := make(chan message.InboundMessage, 10)
+			receiver.ReceiveAsync(func(msg message.InboundMessage) {
+				receivedMsgChan <- msg
+			})
+			cacheResponseChan, err := receiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
+			Expect(err).To(BeNil())
+			Expect(cacheResponseChan).ToNot(BeNil())
+			var cacheResponse solace.CacheResponse
+			Eventually(cacheResponseChan, "3s").Should(Receive(&cacheResponse))
+			Expect(cacheResponse).ToNot(BeNil())
+			Expect(cacheResponse.GetError()).To(BeNil())
+			Expect(cacheResponse.GetCacheRequestID()).To(BeNumerically("==", cacheRequestID))
+			Expect(cacheResponse.GetCacheRequestOutcome()).To(Equal(solace.CacheRequestOutcomeOk))
+			for i := 0; i < numExpectedCachedMessages; i++ {
+				var msg message.InboundMessage
+				Eventually(receivedMsgChan, "5s").Should(Receive(&msg))
+				Expect(msg).ToNot(BeNil())
+				/* NOTE: We can't reliably check the destination of these messages since they will have a concrete
+				 * topic, which would fail a comparison to a wildcard topic despite them being `equivalent` */
+				id, ok := msg.GetCacheRequestID()
+				Expect(ok).To(BeTrue())
+				Expect(id).To(BeNumerically("==", cacheRequestID))
+				Expect(msg.GetCacheStatus()).To(Equal(message.Cached))
+			}
+			Consistently(receivedMsgChan, "1ms").ShouldNot(Receive())
+		},
+			Entry("with topic template wildcarded for all instances", "MaxMsgs*/%s/data1", 3),
+			Entry("with topic template wildcarded for all suffixes on MaxMsgs1", "MaxMsgs1/%s/*", 2),
+			Entry("with topic template careted for suffixes on MaxMsgs1", "MaxMsgs1/%s/>", 2),
+			Entry("with concrete topic on MaxMsgs1", "MaxMsgs1/%s/data1", 1),
+		)
 		It("a direct receiver should get CacheRequestOutcome.Suspect when there is at least one suspect message in the cache response", func() {
 			cacheRequestID := message.CacheRequestID(1)
 			cacheName := "UnitTestSuspect"
@@ -2489,6 +2527,184 @@ var _ = Describe("Cache Strategy", func() {
 					deferredOperation()
 				}
 			})
+			DescribeTable("Unsubscribe after CachedOnly with wildcard topics works", func(topic_template string, numExpectedCachedMessages int) {
+				/* NOTE: The purpose of this test is to verify the behaviour of overlapping wildcard subscriptions
+				 * of various lifetimes for cache requests submitted using the CachedOnly strategy. The `receiver`
+				 * is the DirectMessageReceiver that will send cache requests and receive cache responses. The
+				 * `sanityReceiver` is a second DirectMessageReceiver that is used to receive direct messages. We
+				 * use a second receiver to verify the impact of overlapping subscription between two receivers.*/
+				cacheRequestStrategy := resource.CacheRequestStrategyCachedOnly
+				numConfiguredCachedMessages := 1
+				cacheRequestID := message.CacheRequestID(1)
+				sanityReceiver, err := messagingService.CreateDirectMessageReceiverBuilder().Build()
+				Expect(err).To(BeNil())
+				Expect(sanityReceiver).ToNot(BeNil())
+				err = sanityReceiver.Start()
+				Expect(err).To(BeNil())
+				/* NOTE: We use 20 as the buffer size since it's a round number higher than 14. This will mitigate the
+				 * risk of a hang if the buffer is not drained properly. */
+				numExpectedCacheReceiverMsgs := 20
+				cacheReceiverMsgChan := make(chan message.InboundMessage, numExpectedCacheReceiverMsgs)
+				err = receiver.ReceiveAsync(func(msg message.InboundMessage) {
+					cacheReceiverMsgChan <- msg
+				})
+				Expect(err).To(BeNil())
+				/* NOTE: We use 20 as the buffer size since it's a round number higher than 14. This will mitigate the
+				 * risk of a hang if the buffer is not drained properly. */
+				numExpectedSanityReceiverMsgs := 20
+				sanityReceiverMsgChan := make(chan message.InboundMessage, numExpectedSanityReceiverMsgs)
+				err = sanityReceiver.ReceiveAsync(func(msg message.InboundMessage) {
+					sanityReceiverMsgChan <- msg
+				})
+				Expect(err).To(BeNil())
+				cacheTopic := fmt.Sprintf(topic_template, testcontext.Cache().Vpn)
+
+				outboundMessage, err := messagingService.MessageBuilder().BuildWithStringPayload("test message")
+				Expect(err).To(BeNil())
+				Expect(outboundMessage).ToNot(BeNil())
+
+				numExpectedLiveMessages := 5
+				var publishLiveMessagesOnCacheTopic = func() {
+					for i := 0; i < numExpectedLiveMessages; i++ {
+						err = messagePublisher.Publish(outboundMessage, resource.TopicOf(cacheTopic))
+						Expect(err).To(BeNil())
+					}
+				}
+				var waitOnLiveMessages = func(msgChan chan message.InboundMessage) {
+					for i := 0; i < numExpectedLiveMessages; i++ {
+						var msg message.InboundMessage
+						Eventually(msgChan).Should(Receive(&msg))
+						Expect(msg).ToNot(BeNil())
+						Expect(msg.GetDestinationName()).To(Equal(cacheTopic))
+						id, ok := msg.GetCacheRequestID()
+						Expect(ok).To(BeFalse())
+						Expect(id).To(BeNumerically("==", 0))
+						Expect(msg.GetCacheStatus()).To(Equal(message.Live))
+					}
+				}
+				var waitOnCachedMessages = func(msgChan chan message.InboundMessage) {
+					for i := 0; i < numExpectedCachedMessages; i++ {
+						var msg message.InboundMessage
+						Eventually(msgChan).Should(Receive(&msg))
+						Expect(msg).ToNot(BeNil())
+						/* NOTE: We can't reliably check the destination of these messages since they will have a concrete
+						 * topic, which would fail a comparison to a wildcard topic despite them being `equivalent` */
+						id, ok := msg.GetCacheRequestID()
+						Expect(ok).To(BeTrue())
+						Expect(id).To(BeNumerically("==", cacheRequestID))
+						Expect(msg.GetCacheStatus()).To(Equal(message.Cached))
+					}
+				}
+
+				/* NOTE: Assert that the receiver that will eventually send cache requests can receive live messages on
+				 * the topic that will be used for cache requests. Assert that the receiver used for direct messaging
+				 * does not receive messages on the cache topic when a subscription has not been added to that receiver.
+				 * Remove subscription in preparation for next assertions.
+				 */
+				err = receiver.AddSubscription(resource.TopicSubscriptionOf(cacheTopic))
+				Expect(err).To(BeNil())
+				publishLiveMessagesOnCacheTopic()
+				waitOnLiveMessages(cacheReceiverMsgChan)
+				Consistently(sanityReceiverMsgChan).ShouldNot(Receive())
+				err = receiver.RemoveSubscription(resource.TopicSubscriptionOf(cacheTopic))
+				Expect(err).To(BeNil())
+
+				/* NOTE: Assert that after removing the subscription the cache request receiver no longer receives
+				 * messages on that topic. Assert that after adding a subscription the direct receiver receives
+				 * messages on that topic.*/
+				err = sanityReceiver.AddSubscription(resource.TopicSubscriptionOf(cacheTopic))
+				Expect(err).To(BeNil())
+				publishLiveMessagesOnCacheTopic()
+				waitOnLiveMessages(sanityReceiverMsgChan)
+				Consistently(cacheReceiverMsgChan).ShouldNot(Receive())
+
+				cacheName := fmt.Sprintf("MaxMsgs%d/delay=2000,msgs=%d", numConfiguredCachedMessages, numExpectedLiveMessages)
+
+				/* NOTE: With the subscription to the cache request topic still applied to the sanity receiver, send
+				 * a cache request and assert that a successful cache response was received. */
+				cacheRequestConfig := resource.NewCachedMessageSubscriptionRequest(cacheRequestStrategy, cacheName, resource.TopicSubscriptionOf(cacheTopic), int32(3000), int32(0), int32(0))
+				cacheResponseChan, err := receiver.RequestCachedAsync(cacheRequestConfig, cacheRequestID)
+				Expect(err).To(BeNil())
+				Expect(cacheResponseChan).ToNot(BeNil())
+				var cacheResponse solace.CacheResponse
+				Eventually(cacheResponseChan, "10s").Should(Receive(&cacheResponse))
+				Expect(cacheResponse).ToNot(BeNil())
+				// assert cache reponse ID matches cache request ID
+				Expect(cacheResponse.GetCacheRequestID()).To(Equal(cacheRequestID))
+				// assert CacheRequestOutcome is Ok
+				Expect(cacheResponse.GetCacheRequestOutcome()).To(Equal(solace.CacheRequestOutcomeOk))
+				// assert err is nil
+				Expect(cacheResponse.GetError()).To(BeNil())
+
+				/* NOTE: After sending a cache request on a topic that the sanity receiver is subscribed to, assert
+				 * the following behaviours.
+				 * - The sanity receiver should receive the number of live messages published by the proxy
+				 * - The cache receiver should receive the number of cached messages contained in the response
+				 * - The sanity receiver should receive the number of cached messages contained in the response.
+				 * The sanity receiver receives the live messages because it has a subscription.
+				 * Both receivers receive the cached messages. The cache receiver receives them because it issued the
+				 * cache request. The sanity receiver receives them because it has an overlapping subscription on the
+				 * same topic as the cache request, so the messages get routed to it as well as to the cache receiver.
+				 */
+				waitOnLiveMessages(sanityReceiverMsgChan)
+				waitOnCachedMessages(cacheReceiverMsgChan)
+				waitOnCachedMessages(sanityReceiverMsgChan)
+				Consistently(cacheReceiverMsgChan, "1ms").ShouldNot(Receive())
+				Consistently(sanityReceiverMsgChan, "1ms").ShouldNot(Receive())
+
+				/* NOTE: After sending the cache request etc. above, publish live messages on the same topic and assert
+				 * the following behaviours:
+				 * - The sanity receiver, which still has its subscription to the topic, receives the published
+				 *   messages
+				 * - The cache receiver does not receive any messages. This is because the cache receiver has removed
+				 *   its internal subscription to the topic. This fact about the internal subscription removal is an
+				 *   implementation detail and is not critical to the test, but might be useful for the reader to
+				 *   understand.
+				 * The purpose of these assertions is to verify that message attraction caused by a CachedOnly cache
+				 * request does not persist beyond the lifetime of the cache request.
+				 */
+				publishLiveMessagesOnCacheTopic()
+				waitOnLiveMessages(sanityReceiverMsgChan)
+				Consistently(cacheReceiverMsgChan).ShouldNot(Receive())
+
+				/* NOTE: Add a subscription to the cache receiver and publish messages. Assert that both receivers
+				 * receive all published messages. The purpose of these assertions is to verify that after a CachedOnly
+				 * cache request has concluded, it does not prevent further subscriptions to the same or similar topics
+				 * from being added, and it does not affect subscriptions for other objects in the service.
+				 */
+				err = receiver.AddSubscription(resource.TopicSubscriptionOf(cacheTopic))
+				Expect(err).To(BeNil())
+				publishLiveMessagesOnCacheTopic()
+				waitOnLiveMessages(sanityReceiverMsgChan)
+				waitOnLiveMessages(cacheReceiverMsgChan)
+				/* NOTE: Here we are testing that after the cache request applied a subscription to the receiver and
+				 * the application manually re-applied that subscription we do not get duplicate messages on the cache
+				 * receiver.
+				 */
+				Consistently(cacheReceiverMsgChan).ShouldNot(Receive())
+
+				/* NOTE: Remove the subscription from the cache receiver and publish messages. Assert that the sanity
+				 * receiver receives the messages and the cache receiver does not. The purpose of these assertions is
+				 * to verify that after a CachedOnly cache request has concluded, it does not prevent unsubscribing
+				 * of topics on the receiver, and does not affect subscriptions for other objects in the service.
+				 */
+				err = receiver.RemoveSubscription(resource.TopicSubscriptionOf(cacheTopic))
+				Expect(err).To(BeNil())
+				publishLiveMessagesOnCacheTopic()
+				waitOnLiveMessages(sanityReceiverMsgChan)
+				Consistently(cacheReceiverMsgChan).ShouldNot(Receive())
+
+				/* NOTE: We need to manually cleanup the sanity receiver since it was not created in the general
+				 * `BeforeEach` block. */
+				err = sanityReceiver.Terminate(0)
+				Expect(err).To(BeNil())
+			},
+				Entry("with topic template wildcarded for all instances", "MaxMsgs*/%s/data1", 14),
+				Entry("with topic template wildcarded for all suffixes on MaxMsgs1", "MaxMsgs1/%s/*", 2),
+				Entry("with topic template careted for suffixes on MaxMsgs1", "MaxMsgs1/%s/>", 2),
+				Entry("with concrete topic on MaxMsgs1", "MaxMsgs1/%s/data1", 1),
+			)
+
 			DescribeTable("Unsubscribe after cache request works", func(cacheRequestStrategy resource.CachedMessageSubscriptionStrategy) {
 				numExpectedCachedMessages := 3
 				cacheRequestID := message.CacheRequestID(1)

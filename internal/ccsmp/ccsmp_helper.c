@@ -84,7 +84,6 @@ solClientgo_filterCachedMessageByCacheRequestId(solClient_opaqueSession_pt opaqu
         solClientgo_msgDispatchCacheRequestIdFilterInfo_t * info_p = (solClientgo_msgDispatchCacheRequestIdFilterInfo_t *)user_p;
         if ( solClient_msg_getCacheRequestId(msg_p, &foundCacheRequestId) != SOLCLIENT_OK) {
                 /* Failed operation so inform API message can be discarded. */
-                printf("Failed to retrieve cacheRequestId from msg\n");
                 return SOLCLIENT_FAIL;
         }
         if ( info_p->cacheRequestId != foundCacheRequestId ) {
