@@ -18,6 +18,8 @@
 #define CCSMP_HELPER_H
 
 #include "solclient/solClient.h"
+#include "solclient/solCache.h"
+#include <stdint.h>
 
 // Reexport error info fields as they need to be copied.
 // Since only a single error info struct will be returned,
@@ -44,6 +46,16 @@ typedef struct solClient_errorInfo_wrapper
  * operating systems are supported, this may need to change to a more complex
  * definition.
  */
+
+typedef struct solClientgo_msgDispatchCacheRequestIdFilterInfo {
+        solClient_uint64_t cacheRequestId;
+        solClient_session_rxMsgCallbackFunc_t callback_p;
+        uintptr_t dispatchID;
+} solClientgo_msgDispatchCacheRequestIdFilterInfo_t, *solClientgo_msgDispatchCacheRequestIdFilterInfo_pt;
+
+void solClientgo_freeFilteringConfig(solClientgo_msgDispatchCacheRequestIdFilterInfo_pt filteringConfig_pt);
+void solClientgo_createAndConfigureMessageFiltering(solClientgo_msgDispatchCacheRequestIdFilterInfo_pt * filteringConfig_pt, uintptr_t dispatchId, solClient_uint64_t cacheRequestId);
+
 solClient_returnCode_t  SessionCreate(
                         solClient_propertyArray_pt sessionPropsP,
                         solClient_opaqueContext_pt contextP,
@@ -87,6 +99,13 @@ solClient_returnCode_t  SessionTopicUnsubscribeWithFlags(
                         solClient_uint64_t          dispatchId,
                         solClient_uint64_t          correlationTag);
 
+solClient_returnCode_t  SessionCacheTopicUnsubscribeWithFlags(
+                        solClient_opaqueSession_pt  opaqueSession_p,
+                        const char                  *topicSubscription_p,
+                        solClient_subscribeFlags_t  flags,
+                        solClient_uint64_t          dispatchId,
+                        solClient_uint64_t          correlationTag);
+
 solClient_returnCode_t  SessionReplyTopicSubscribeWithFlags(
                         solClient_opaqueSession_pt  opaqueSession_p,
                         const char                  *topicSubscription_p,
@@ -119,6 +138,48 @@ solClient_returnCode_t  SessionEndpointDeprovisionWithFlags(
                         solClient_propertyArray_pt  endpointProps,
                         solClient_uint32_t  flags,
                         solClient_uint64_t          correlationTag);
+
+solClient_returnCode_t  SessionCreateCacheSession(
+                        solClient_propertyArray_pt cacheSessionProps_p,
+                        solClient_opaqueSession_pt opaqueSession_p,
+                        solClient_opaqueCacheSession_pt * opaqueCacheSession_p);
+
+
+solClient_returnCode_t  CacheSessionSendCacheRequest(
+                        uintptr_t dispatchId,
+                        solClient_opaqueCacheSession_pt opaqueCacheSession_p,
+                        const char * topic_p,
+                        solClient_uint64_t cacheRequestId,
+                        solClient_cacheRequestFlags_t cacheFlags,
+                        solClient_subscribeFlags_t subscribeFlags,
+                        solClientgo_msgDispatchCacheRequestIdFilterInfo_pt configFilter_pt);
+
+
+solClient_returnCode_t
+                        CacheSessionDestroy(
+                        solClient_opaqueCacheSession_pt * opaqueCacheSession_p);
+
+
+solClient_returnCode_t
+                        CacheSessionCancelRequests(
+                        solClient_opaqueCacheSession_pt opaqueCacheSession_p);
+
+/* NOTE: This function prototype is available only to wrapper APIs and is not for use by the application. */
+solClient_returnCode_t
+                        solClient_cacheSession_sendCacheRequestWithDispatch(
+                        solClient_opaqueCacheSession_pt             opaqueCacheSession_p,
+                        const char                                * topic_p,
+                        solClient_uint64_t                          cacheRequestId,
+                        solCache_eventCallbackFunc_t                callback_p,
+                        void                                      * user_p,
+                        solClient_cacheRequestFlags_t               cacheFlags,
+                        solClient_subscribeFlags_t                  subscribeFlags,
+                        solClient_session_rxMsgDispatchFuncInfo_t * dispatchInfo_p);
+
+
+solClient_returnCode_t
+solClientgo_filterCachedMessageByCacheRequestId(solClient_opaqueSession_pt opaqueSession_p, solClient_opaqueMsg_pt msg_p, void * user_p);
+
 
 /**
  * Definition of solclientgo correlation prefix

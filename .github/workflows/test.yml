@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-24.04
     #Steps for the compatiblity test
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Setup Go Environment
         uses: actions/setup-go@v4
         with:
@@ -39,7 +39,7 @@ jobs:
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Install Compose
         uses: ndeloof/install-compose-action@v0.0.1
         with:

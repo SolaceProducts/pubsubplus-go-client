@@ -37,6 +37,10 @@ import (
 	"solace.dev/go/messaging/pkg/solace/resource"
 )
 
+// MaxOutstandingCacheRequests indicates the maximum number of cache responses that can be buffered by the API without
+// being processed by the application.
+const MaxOutstandingCacheRequests int64 = 1024
+
 type receiverBackpressureStrategy byte
 
 const (
@@ -80,6 +84,31 @@ type directMessageReceiverImpl struct {
 	dispatch uintptr
 
 	terminationHandlerID uint
+
+	// cachePollingRunning is used to determine whether or not the goroutine that polls the cacheResponseChan
+	// has been started yet.
+	cachePollingRunning uint32
+	// cachePollingRunningChan is used to signal to the application thread when the PollAndProcessCacheResponseChannel
+	// goroutine has started.
+	cachePollingRunningChan chan bool
+	// cacheResponseChan is used to buffer the cache responses from CCSMP.
+	cacheResponseChan chan core.CoreCacheEventInfo
+	// cacheRequestMap is used to map the cache session pointer to the method for handling the cache response,
+	// as specified by the application on a call to a [ReceiverCacheRequester] interface.
+	cacheRequestMap sync.Map // ([keyType]valueType) [CacheRequestMapIndex]CacheResponseProcessor
+	// cacheResourceLock is used to prevent concurrent attempts at initializing the cacheResponseChan. Concurrent
+	// initialization of this channel could overwrite written to that channel, leading to undefined behaviour.
+	cacheResourceLock sync.Mutex
+
+	/* NOTE: We need to use an atomic instead of just reading the channel len because the channel
+	 * will not grow until it receives a response, which would race with the application's next call to submit a cache
+	 * response.
+	 */
+	// numOutstandingCacheRequests is used to track how many outstanding cache requests the application has submitted.
+	// This tracking allows the receiver to prevent the application from submitting more cache requests than the
+	// configured number of responses that can be handled by the cacheResponseChan. This prevention is done in
+	// [checkStateForCacheRequest].
+	numOutstandingCacheRequests int64
 }
 
 type directInboundMessage struct {
@@ -305,6 +334,7 @@ func (receiver *directMessageReceiverImpl) Terminate(gracePeriod time.Duration) 
 		// is still being processed by the async callback, we will not terminate until that message callback is complete
 		<-receiver.terminationComplete
 	}
+	receiver.teardownCache()
 	return nil
 }
 
@@ -354,6 +384,14 @@ func (receiver *directMessageReceiverImpl) unsolicitedTermination(eventInfo core
 			eventInfo.GetError(),
 		})
 	}
+	/* NOTE: We cleanup cache resources after sending the termination notification so that the application will know
+	 * that it potentially has cache responses that it needs to process as a part of termination. teardownCache() will
+	 * potentially block until all cache responses are processed, depending on the cache request configuration. We
+	 * don't want to delay the notification until after a potentially blocking operation because then the application
+	 * might not know to process the cache responses and this thread would block forever without the application
+	 * knowing.
+	 */
+	receiver.teardownCache()
 }
 
 func (receiver *directMessageReceiverImpl) cleanupSubscriptions() {
@@ -872,6 +910,275 @@ func (receiver *directMessageReceiverImpl) run() {
 
 func (receiver *directMessageReceiverImpl) String() string {
 	return fmt.Sprintf("solace.DirectMessageReceiver at %p", receiver)
+}
+
+// StartAndInitCacheRequestorIfNotDoneAlready allocates whatever resources are required for managing cache requests.
+// This setup is done only once, and is intended to be done after the first cache request has been submitted to the API
+// by the application but before the cache request is passed from Go to C. This is because the CacheRequestor is not a
+// standalone object, but is rather a trait of the its implementor, which may or may not exclusively conduct cache
+// operations. In the case that the CacheRequestor's implementor does not exclusively implement cache operations, e.g. a
+// direct receiver, unless that implementor is directed by the application to conduct cache operations, the resources
+// required for those operations are not needed. In this case, pre-allocating the resources on receiver start would be
+// a waste of time and memory. Only if the implementor is directed to conduct a cache operation are the relevant
+// resources actually required and so allocated.
+func (receiver *directMessageReceiverImpl) StartAndInitCacheRequestorIfNotDoneAlready() {
+	if receiver.cacheResponseChan == nil {
+		receiver.cacheResponseChan = make(chan core.CoreCacheEventInfo, MaxOutstandingCacheRequests)
+	}
+	if receiver.cachePollingRunningChan == nil {
+		receiver.cachePollingRunningChan = make(chan bool)
+	}
+	if !receiver.isCachePollingRunning() {
+		go receiver.PollAndProcessCacheResponseChannel()
+		<-receiver.cachePollingRunningChan
+		receiver.setCachePollingRunning(true)
+		if receiver.logger.IsDebugEnabled() {
+			receiver.logger.Debug("Started go routine for polling cache response channel.")
+		}
+	} else {
+		if receiver.logger.IsDebugEnabled() {
+			receiver.logger.Debug("Didn't start go routine for polling cache response channel again because it is already running.")
+		}
+	}
+}
+
+// isAvailableForCache returns nil if the receiver is ready to send a cache request, or an error if it is not.
+func (receiver *directMessageReceiverImpl) checkStateForCacheRequest() error {
+	var err error
+	var errorString string = ""
+	if receiver.getState() != messageReceiverStateStarted {
+		errorString := "Could not perform cache operations because more the receiver was not in the 'Started' state."
+		receiver.logger.Warning(errorString)
+		return solace.NewError(&solace.IllegalStateError{}, errorString, nil)
+	} else if !receiver.internalReceiver.IsRunning() {
+		/* NOTE: it would be great if we could provide a more detailed error string here, but
+		 * internal.IsRunning() only returns a boolean, so we can't say more than we already have.
+		 */
+		errorString = "Could not perform cache operations because the receiver was not running."
+		err = solace.NewError(&solace.IllegalStateError{}, errorString, nil)
+	} else if atomic.LoadInt64(&receiver.numOutstandingCacheRequests) >= MaxOutstandingCacheRequests {
+		errorString := fmt.Sprintf("Could not perform cache operations because more than %d cache responses are still waiting to be processed by the application.", MaxOutstandingCacheRequests)
+		logging.Default.Warning(errorString)
+		err = solace.NewError(&solace.IllegalStateError{}, errorString, nil)
+	}
+	if errorString != "" {
+		/* Warn log because application tried to conduct operation without properly configuring the object. */
+		receiver.logger.Warning(errorString)
+	}
+	return err
+}
+
+// addCacheSessionToMapIfNotPresent adds a cache session to the map and associates it with a CacheResponseProcessor if
+// it is not already present. If the cache session is already present, this function returns an IllegalStateError.
+func (receiver *directMessageReceiverImpl) addCacheSessionToMapIfNotPresent(cacheRequest core.CacheRequest) error {
+	/* NOTE: There is a race condition in the function where we read one state of the map, and then
+		 * update the state after the map has been mutated. This is because the lock is managed by the map accessor
+		 * functions. This should not happen, since it would require duplicate pointers in CCSMP. The alternative is
+		 * code duplication that IMO is not worth it to avoid a race condition that would only occur because of a bug
+		 * in CCSMP. This sort of bug would have other obvious impacts on the application anyways, so we don't need
+		 * to rely on this path as the only one to notify the application of such a problem.
+	     *
+	     * While this race condition does exist, it can only be expoloited in a situation where CCSMP is giving the Go
+	     * API duplicate cache session pointers. We rely on CCSMP's guarantee of unique cache session pointers to avoid
+	     * the negative consequences of this race condition.
+	*/
+	var err error
+	err = nil
+	if _, found := receiver.cacheRequestMap.Load(cacheRequest.Index()); found {
+		/* Pre-existing cache session found. This error is fatal to the operation but not to the API since
+		 * this does not block other activities like subscribing or trying to send a distint cache request, but does
+		 * prevent the API from indexing the cache session which is necessary for tracking cache request lifecycles.
+		 */
+		err = solace.NewError(&solace.IllegalStateError{},
+			fmt.Sprintf("The application API to create a new cache request using cache session pointer [0x%x] but another cache request's cache session under that pointer already exists.", cacheRequest.Index()), nil)
+		return err
+	}
+	/* No pre-existing cache session found, we can index the current one and continue. */
+	receiver.cacheRequestMap.Store(cacheRequest.Index(), cacheRequest)
+	return err
+}
+
+func (receiver *directMessageReceiverImpl) RequestCachedAsync(cachedMessageSubscriptionRequest resource.CachedMessageSubscriptionRequest, cacheRequestID apimessage.CacheRequestID) (<-chan solace.CacheResponse, error) {
+	/* NOTE: We need to hold the lock around the state check and resource alloc because we need to guard against
+	 * two race conditions:
+	 * 1. Multiple threads submitting cache requests and simlutaneously initializing the cacheResponseChan, thus
+	 *    potentially overwriting any data written to that channel.
+	 * 2. Multiple threads submitting cache requests when the receiver is approaching MaxOutstandingCacheRequests
+	 *    outstanding requests, where the threads would race between checking the numOutstandingCacheRequests
+	 *    counter and incrementing this counter.*/
+
+	receiver.cacheResourceLock.Lock()
+
+	err := receiver.checkStateForCacheRequest()
+	if err != nil {
+		receiver.cacheResourceLock.Unlock()
+		return nil, err
+	}
+	atomic.AddInt64(&receiver.numOutstandingCacheRequests, 1)
+	receiver.StartAndInitCacheRequestorIfNotDoneAlready()
+	receiver.cacheResourceLock.Unlock()
+	applicationChannel := make(chan solace.CacheResponse, 1)
+	var applicationCallback = func(cacheResponse solace.CacheResponse) {
+		applicationChannel <- cacheResponse
+	}
+	cacheResponseProcessor := core.NewCacheResponseProcessor(applicationCallback)
+
+	var cacheEventCallback = func(cacheEventInfo core.CoreCacheEventInfo) {
+		receiver.cacheResponseChan <- cacheEventInfo
+	}
+
+	/* We don't need to check the channel that is returned here since this functionality is tested through unit
+	 * testing and because we just instantiated the channel ourselves. */
+	cacheRequest, err := receiver.internalReceiver.CacheRequestor().CreateCacheRequest(cachedMessageSubscriptionRequest, cacheRequestID, cacheResponseProcessor, receiver.dispatch)
+	if err != nil {
+		atomic.AddInt64(&receiver.numOutstandingCacheRequests, -1)
+		close(applicationChannel)
+		return nil, err
+	}
+	/* store cache session in table with channel */
+	if err = receiver.addCacheSessionToMapIfNotPresent(cacheRequest); err != nil {
+		atomic.AddInt64(&receiver.numOutstandingCacheRequests, -1)
+		return nil, err
+	}
+	err = receiver.internalReceiver.CacheRequestor().SendCacheRequest(cacheRequest, cacheEventCallback, receiver.dispatch)
+	if err != nil {
+		atomic.AddInt64(&receiver.numOutstandingCacheRequests, -1)
+		close(applicationChannel)
+		receiver.cacheRequestMap.Delete(cacheRequest.Index())
+		_ = receiver.internalReceiver.CacheRequestor().DestroyCacheRequest(cacheRequest)
+		/* NOTE: We drop the inner error here, because the application would expect a send error from a function
+		 * intended to send a cache request, not an error regarding leaked resources. Both errors are logged, so the
+		 * application developer can investigate the logs in the event of a resource-related problem.
+		 */
+		return nil, err
+	}
+
+	return applicationChannel, err
+}
+
+func (receiver *directMessageReceiverImpl) RequestCachedAsyncWithCallback(cachedMessageSubscriptionRequest resource.CachedMessageSubscriptionRequest, cacheRequestID apimessage.CacheRequestID, callback func(solace.CacheResponse)) error {
+	receiver.cacheResourceLock.Lock()
+	err := receiver.checkStateForCacheRequest()
+	if err != nil {
+		receiver.cacheResourceLock.Unlock()
+		return err
+	}
+
+	atomic.AddInt64(&receiver.numOutstandingCacheRequests, 1)
+	receiver.StartAndInitCacheRequestorIfNotDoneAlready()
+	receiver.cacheResourceLock.Unlock()
+
+	cacheResponseProcessor := core.NewCacheResponseProcessor(callback)
+
+	var cacheEventCallback = func(cacheEventInfo core.CoreCacheEventInfo) {
+		receiver.cacheResponseChan <- cacheEventInfo
+	}
+
+	cacheRequest, err := receiver.internalReceiver.CacheRequestor().CreateCacheRequest(cachedMessageSubscriptionRequest, cacheRequestID, cacheResponseProcessor, receiver.dispatch)
+	if err != nil {
+		atomic.AddInt64(&receiver.numOutstandingCacheRequests, -1)
+		return err
+	}
+	/* store cache session in table with channel */
+	if err = receiver.addCacheSessionToMapIfNotPresent(cacheRequest); err != nil {
+		atomic.AddInt64(&receiver.numOutstandingCacheRequests, -1)
+		return err
+	}
+	err = receiver.internalReceiver.CacheRequestor().SendCacheRequest(cacheRequest, cacheEventCallback, receiver.dispatch)
+	if err != nil {
+		atomic.AddInt64(&receiver.numOutstandingCacheRequests, -1)
+		receiver.cacheRequestMap.Delete(cacheRequest.Index())
+		_ = receiver.internalReceiver.CacheRequestor().DestroyCacheRequest(cacheRequest)
+		/* NOTE: We drop the inner error here, because the application would expect a send error from a function
+		 * intended to send a cache request, not an error regarding leaked resources. Both errors are logged, so the
+		 * application developer can investigate the logs in the event of a resource-related problem.
+		 */
+		return err
+	}
+	return err
+}
+
+const cachePollingRunningTrue uint32 = 1
+const cachePollingRunningFalse uint32 = 0
+
+func (receiver *directMessageReceiverImpl) isCachePollingRunning() bool {
+	return atomic.LoadUint32(&receiver.cachePollingRunning) == cachePollingRunningTrue
+}
+
+func (receiver *directMessageReceiverImpl) setCachePollingRunning(running bool) {
+	if running {
+		atomic.StoreUint32(&receiver.cachePollingRunning, cachePollingRunningTrue)
+	} else {
+		atomic.StoreUint32(&receiver.cachePollingRunning, cachePollingRunningFalse)
+	}
+}
+
+// teardownCache is used to clean up cache-related resources as a part of termination. This method assumes
+// that terminate has already been called and that we don't need to run state checks, since the caller or one
+// of its parents should hold the state for it.
+/* WARNING: If the application has submitted any cache requests with a callback for processing, this function will
+ * block until all the callbacks are processed. */
+func (receiver *directMessageReceiverImpl) teardownCache() {
+	if running := receiver.isCachePollingRunning(); !running {
+		/* We can return early since either the resources and shutdown are being handled by a
+				 * different thread right now, or it's already been done before, or because resources
+		         * were never allocated to begin with. */
+		return
+	}
+
+	/* INFO: For all cache sessions remaining in the map, issue CCSMP cancellation.*/
+	receiver.cacheRequestMap.Range(func(key, value interface{}) bool {
+		generatedEvent := receiver.internalReceiver.CacheRequestor().CancelPendingCacheRequests(key.(core.CacheRequestMapIndex), value.(core.CacheRequest))
+		/* NOTE: If generatedEvent is nil, that means CCSMP was able to cancel the request and push its own event
+		 * to the buffer. If it is not nil, CCSMP was unable to cancel the cache request, an event was generated,
+		 * and that event now needs to be pushed to the buffer.*/
+		if generatedEvent != nil {
+			/* WARNING: This will block if the next cache response in the channel is associated with a
+			 * cache request that the application elected to process their cache responses through
+			 * a callback and the channel is full, until the application finishes processing the event
+			 * through that callback.*/
+			receiver.cacheResponseChan <- *generatedEvent
+		}
+		return true
+	})
+
+	/* INFO: For all cache sessions remaining in the map, generate cancellation events for them and put them
+	 * on the cacheResponseChan. These should get to the chan after the actual CCSMP cancellations. Edit
+	 * ProcessCacheEvent if necessary to ignore events without a corresponding cache session so that if
+	 * any duplicates are generated, they are ignored by ProcessCacheEvent and not passed to the
+	 * application.*/
+	close(receiver.cacheResponseChan)
+}
+
+// PollAndProcessCacheResponseChannel is intended to be run as a go routine.
+func (receiver *directMessageReceiverImpl) PollAndProcessCacheResponseChannel() {
+	receiver.cachePollingRunningChan <- true
+	var cacheEventInfo core.CoreCacheEventInfo
+	channelIsOpen := true
+	/* poll cacheventinfo channel */
+	for channelIsOpen {
+		cacheEventInfo, channelIsOpen = <-receiver.cacheResponseChan
+		atomic.AddInt64(&receiver.numOutstandingCacheRequests, -1)
+		/* NOTE: Decrement the counter after popping an element from the channel so the application can submit more
+		 * requests.*/
+		if !channelIsOpen {
+			// If channel is closed, we can stop polling. In this case we don't need to handle
+			// the cacheEventInfo since there won't be a menaingful one left on the queue.
+			// Any function that closes the channel must guarantee this.
+			if receiver.logger.IsDebugEnabled() {
+				receiver.logger.Debug("cacheResponseChan was closed, exiting PollAndProcessCacheResponseChannel loop.")
+			}
+			break
+		}
+		/* We decrement the counter first, since as soon as we pop the CacheEventInfo
+		 * off the channel, CCSMP is able to put another on. If CCSMP is able resume processing the
+		 * cache responses, we should unblock the application by allowing it to submit more cache
+		 * requests ASAP.*/
+		receiver.internalReceiver.CacheRequestor().ProcessCacheEvent(&receiver.cacheRequestMap, cacheEventInfo)
+	}
+	// Indicate that this function has stopped running.
+	close(receiver.cachePollingRunningChan)
+	receiver.setCachePollingRunning(false)
 }
 
 type directMessageReceiverBuilderImpl struct {

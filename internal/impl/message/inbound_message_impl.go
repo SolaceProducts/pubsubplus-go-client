@@ -56,19 +56,19 @@ func newInboundMessage(msgP ccsmp.SolClientMessagePt) *InboundMessageImpl {
 // block waiting for the first call to complete. Additional calls
 // will return immediately. The instance is considered unusable after Dispose
 // has been called.
-func (message *InboundMessageImpl) Dispose() {
-	proceed := atomic.CompareAndSwapInt32(&message.disposed, 0, 1)
+func (inboundMessage *InboundMessageImpl) Dispose() {
+	proceed := atomic.CompareAndSwapInt32(&inboundMessage.disposed, 0, 1)
 	if proceed {
 		// free ccsmp message pointer
-		freeInboundMessage(message)
+		freeInboundMessage(inboundMessage)
 		// clear the finalizer
-		runtime.SetFinalizer(message, nil)
+		runtime.SetFinalizer(inboundMessage, nil)
 	}
 }
 
 // free will free the underlying message pointer
-func freeInboundMessage(message *InboundMessageImpl) {
-	err := ccsmp.SolClientMessageFree(&message.messagePointer)
+func freeInboundMessage(inboundMessage *InboundMessageImpl) {
+	err := ccsmp.SolClientMessageFree(&inboundMessage.messagePointer)
 	if err != nil && logging.Default.IsErrorEnabled() {
 		logging.Default.Error("encountered unexpected error while freeing message pointer: " + err.GetMessageAsString() + " [sub code = " + strconv.Itoa(int(err.SubCode())) + "]")
 	}
@@ -77,8 +77,8 @@ func freeInboundMessage(message *InboundMessageImpl) {
 // GetDestinationName gets the destination name on which the message was received.
 // The destination may be either a topic or a queue.
 // Returns an empty string if the information is not available.
-func (message *InboundMessageImpl) GetDestinationName() string {
-	destName, errorInfo := ccsmp.SolClientMessageGetDestinationName(message.messagePointer)
+func (inboundMessage *InboundMessageImpl) GetDestinationName() string {
+	destName, errorInfo := ccsmp.SolClientMessageGetDestinationName(inboundMessage.messagePointer)
 	if errorInfo != nil {
 		if errorInfo.ReturnCode == ccsmp.SolClientReturnCodeFail {
 			logging.Default.Debug(fmt.Sprintf("Unable to retrieve the destination this message was published to: %s, subcode: %d", errorInfo.GetMessageAsString(), errorInfo.SubCode()))
@@ -90,8 +90,8 @@ func (message *InboundMessageImpl) GetDestinationName() string {
 // GetTimeStamp will get the timestamp as time.Time.
 // This timestamp represents the time that the message was received by the API.
 // This may differ from the time that the message is received by the MessageReceiver.
-func (message *InboundMessageImpl) GetTimeStamp() (time.Time, bool) {
-	t, errInfo := ccsmp.SolClientMessageGetTimestamp(message.messagePointer)
+func (inboundMessage *InboundMessageImpl) GetTimeStamp() (time.Time, bool) {
+	t, errInfo := ccsmp.SolClientMessageGetTimestamp(inboundMessage.messagePointer)
 	if errInfo != nil {
 		if errInfo.ReturnCode == ccsmp.SolClientReturnCodeFail {
 			logging.Default.Debug(fmt.Sprintf("Encountered error retrieving Sender Timestamp: %s, subcode: %d", errInfo.GetMessageAsString(), errInfo.SubCode()))
@@ -103,8 +103,8 @@ func (message *InboundMessageImpl) GetTimeStamp() (time.Time, bool) {
 
 // GetSenderTimestamp will get the timestamp as time.Time.
 // This timestamp is often set automatically when the message is published.
-func (message *InboundMessageImpl) GetSenderTimestamp() (time.Time, bool) {
-	t, errInfo := ccsmp.SolClientMessageGetSenderTimestamp(message.messagePointer)
+func (inboundMessage *InboundMessageImpl) GetSenderTimestamp() (time.Time, bool) {
+	t, errInfo := ccsmp.SolClientMessageGetSenderTimestamp(inboundMessage.messagePointer)
 	if errInfo != nil {
 		if errInfo.ReturnCode == ccsmp.SolClientReturnCodeFail {
 			logging.Default.Debug(fmt.Sprintf("Encountered error retrieving Sender Timestamp: %s, subcode: %d", errInfo.GetMessageAsString(), errInfo.SubCode()))
@@ -115,8 +115,8 @@ func (message *InboundMessageImpl) GetSenderTimestamp() (time.Time, bool) {
 }
 
 // GetSenderID will get the sender ID set on the message.
-func (message *InboundMessageImpl) GetSenderID() (string, bool) {
-	id, errInfo := ccsmp.SolClientMessageGetSenderID(message.messagePointer)
+func (inboundMessage *InboundMessageImpl) GetSenderID() (string, bool) {
+	id, errInfo := ccsmp.SolClientMessageGetSenderID(inboundMessage.messagePointer)
 	if errInfo != nil {
 		if errInfo.ReturnCode == ccsmp.SolClientReturnCodeFail {
 			logging.Default.Debug(fmt.Sprintf("Encountered error retrieving Sender ID: %s, subcode: %d", errInfo.GetMessageAsString(), errInfo.SubCode()))
@@ -127,13 +127,13 @@ func (message *InboundMessageImpl) GetSenderID() (string, bool) {
 }
 
 // IsRedelivered function
-func (message *InboundMessageImpl) IsRedelivered() bool {
-	return ccsmp.SolClientMessageGetMessageIsRedelivered(message.messagePointer)
+func (inboundMessage *InboundMessageImpl) IsRedelivered() bool {
+	return ccsmp.SolClientMessageGetMessageIsRedelivered(inboundMessage.messagePointer)
 }
 
 // GetReplicationGroupMessageID function
-func (message *InboundMessageImpl) GetReplicationGroupMessageID() (rgmid.ReplicationGroupMessageID, bool) {
-	rmidPt, errInfo := ccsmp.SolClientMessageGetRGMID(message.messagePointer)
+func (inboundMessage *InboundMessageImpl) GetReplicationGroupMessageID() (rgmid.ReplicationGroupMessageID, bool) {
+	rmidPt, errInfo := ccsmp.SolClientMessageGetRGMID(inboundMessage.messagePointer)
 	if errInfo != nil {
 		if errInfo.ReturnCode == ccsmp.SolClientReturnCodeFail {
 			logging.Default.Debug(fmt.Sprintf("Encountered error retrieving ReplicationGroupMessageID: %s, subcode: %d", errInfo.GetMessageAsString(), errInfo.SubCode()))
@@ -146,15 +146,50 @@ func (message *InboundMessageImpl) GetReplicationGroupMessageID() (rgmid.Replica
 // GetMessageDiscardNotification retrieves the message discard notification about
 // previously discarded messages. Returns a MessageDiscardNotification, not expected
 // to be nil.
-func (message *InboundMessageImpl) GetMessageDiscardNotification() message.MessageDiscardNotification {
-	if message.IsDisposed() {
+func (inboundMessage *InboundMessageImpl) GetMessageDiscardNotification() message.MessageDiscardNotification {
+	if inboundMessage.IsDisposed() {
 		logging.Default.Warning("Failed to retrieve discard notification: Bad msg_p pointer '0x0'")
 		return nil
 	}
 	return &discardNotification{
-		internalDiscard: message.internalDiscard,
-		brokerDiscard:   ccsmp.SolClientMessageGetMessageDiscardNotification(message.messagePointer),
+		internalDiscard: inboundMessage.internalDiscard,
+		brokerDiscard:   ccsmp.SolClientMessageGetMessageDiscardNotification(inboundMessage.messagePointer),
 	}
+}
+
+// GetCacheRequestID retrieves the [CacheRequestID] of the message
+// and a [True] result if the message was received as a part of a
+// cache response. Otherwise, returns 0 and False.
+func (inboundMessage *InboundMessageImpl) GetCacheRequestID() (message.CacheRequestID, bool) {
+	cacheID, errInfo := ccsmp.SolClientMessageGetCacheRequestID(inboundMessage.messagePointer)
+	if errInfo != nil {
+		if errInfo.ReturnCode == ccsmp.SolClientReturnCodeFail {
+			logging.Default.Info(fmt.Sprintf("Encountered error retrieving Cache ID: %s, subcode: %d", errInfo.GetMessageAsString(), errInfo.SubCode()))
+		}
+		return 0, false
+	}
+	return message.CacheRequestID(cacheID), true
+}
+
+// GetCacheStatus retrieves the [CacheStatus] of the message, indicating its provenance.
+func (inboundMessage *InboundMessageImpl) GetCacheStatus() message.CacheStatus {
+	cacheStatus := ccsmp.SolClientMessageIsCachedMessage(inboundMessage.messagePointer)
+
+	switch cacheStatus {
+	// live messages
+	case ccsmp.SolClientCacheStatusLiveMessage:
+		return message.Live
+		// cache messages
+	case ccsmp.SolClientCacheStatusCacheMessage:
+		return message.Cached
+		// suspect messages
+	case ccsmp.SolClientCacheStatusSuspectMessage:
+		return message.Suspect
+		// invalid messages, error
+	default:
+		logging.Default.Error(fmt.Sprintf("Encountered error retrieving Cache status: %d", int(cacheStatus)))
+	}
+	return message.CacheStatus(cacheStatus) // error cache status
 }
 
 type discardNotification struct {
@@ -184,8 +219,8 @@ func (notification *discardNotification) String() string {
 type MessageID = ccsmp.SolClientMessageID
 
 // GetMessageID function
-func GetMessageID(message *InboundMessageImpl) (MessageID, bool) {
-	id, err := ccsmp.SolClientMessageGetMessageID(message.messagePointer)
+func GetMessageID(inboundMessage *InboundMessageImpl) (MessageID, bool) {
+	id, err := ccsmp.SolClientMessageGetMessageID(inboundMessage.messagePointer)
 	if err != nil {
 		return 0, false
 	}
@@ -193,8 +228,8 @@ func GetMessageID(message *InboundMessageImpl) (MessageID, bool) {
 }
 
 // GetReplyToDestinationName function
-func GetReplyToDestinationName(message *InboundMessageImpl) (string, bool) {
-	destName, errorInfo := ccsmp.SolClientMessageGetReplyToDestinationName(message.messagePointer)
+func GetReplyToDestinationName(inboundMessage *InboundMessageImpl) (string, bool) {
+	destName, errorInfo := ccsmp.SolClientMessageGetReplyToDestinationName(inboundMessage.messagePointer)
 	if errorInfo != nil {
 		if errorInfo.ReturnCode == ccsmp.SolClientReturnCodeFail {
 			logging.Default.Debug(fmt.Sprintf("Unable to retrieve the reply to destination this message was published to: %s, subcode: %d", errorInfo.GetMessageAsString(), errorInfo.SubCode()))

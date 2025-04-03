@@ -198,3 +198,15 @@ const UnableToDeprovisionParentServiceNotStarted = "cannot deprovision endpoint 
 
 // CouldNotConfirmProvisionDeprovisionServiceUnavailable error string
 const CouldNotConfirmProvisionDeprovisionServiceUnavailable = "could not confirm provision/deprovision, the messaging service was terminated"
+
+// WithCacheRequestID error string
+const WithCacheRequestID = "with cache request ID:"
+
+// FailedToSendCacheRequest error string
+const FailedToSendCacheRequest = "Failed to send cache request"
+
+// WithCacheSessionPointer error string
+const WithCacheSessionPointer = "with cache session pointer:"
+
+// FailedToDestroyCacheSession error string
+const FailedToDestroyCacheSession = "Failed to destroy cache session"

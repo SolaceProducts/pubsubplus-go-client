@@ -75,9 +75,31 @@ func OAuth() *OAuthConfig {
 	return instance.OAuth()
 }
 
+// Cache returns the Cache config
+func Cache() *CacheConfig {
+	return instance.Cache()
+}
+
+// CacheProxy returns the CacheProxy config
+func CacheProxy() *CacheProxyConfig {
+	return instance.CacheProxy()
+}
+
 // function to wait for semp serivces
 func WaitForSEMPReachable() error {
 	return instance.WaitForSEMPReachable()
+}
+
+// CacheEnabled returns `true` if the infrastructure required for running cache tests is available. Returns `false`
+// otherwise.
+func CacheEnabled() bool {
+	return instance.CacheEnabled()
+}
+
+// CacheProxyEnabled returns `true` if the infrastructure required for running cache proxy tests is
+// available. Returns `false` otherwise.
+func CacheProxyEnabled() bool {
+	return instance.CacheProxyEnabled()
 }
 
 // testContext represents a test context
@@ -100,15 +122,27 @@ type testContext interface {
 	ToxiProxy() ToxiProxy
 	// OAuth returns the OAuth config
 	OAuth() *OAuthConfig
+	// Cache returns the Cache config
+	Cache() *CacheConfig
+	// CacheProxy returns the CacheProxyConfig
+	CacheProxy() *CacheProxyConfig
 	// waits for semp service to be reachable
 	WaitForSEMPReachable() error
+	// CacheEnabled returns `true` if the infrastructure required for running cache tests is available. Returns `false`
+	// otherwise.
+	CacheEnabled() bool
+	// CacheProxyEnabled returns `true` if the infrastructure required for running cache proxy tests is available.
+	// Returns `false` otherwise
+	CacheProxyEnabled() bool
 }
 
 type testContextCommon struct {
-	config          *TestConfig
-	semp            *sempV2Impl
-	toxi            *toxiProxyImpl
-	kerberosEnabled bool
+	config            *TestConfig
+	semp              *sempV2Impl
+	toxi              *toxiProxyImpl
+	kerberosEnabled   bool
+	cacheEnabled      bool
+	cacheProxyEnabled bool
 }
 
 // GetConnectionDetails impl
@@ -129,12 +163,29 @@ func (context *testContextCommon) ToxiProxy() ToxiProxy {
 	}
 	return context.toxi
 }
+
 func (context *testContextCommon) OAuth() *OAuthConfig {
 	return context.config.OAuth
 }
 
 func (context *testContextCommon) Kerberos() bool {
 	return context.kerberosEnabled
+}
+
+func (context *testContextCommon) Cache() *CacheConfig {
+	return context.config.Cache
+}
+
+func (context *testContextCommon) CacheEnabled() bool {
+	return context.cacheEnabled
+}
+
+func (context *testContextCommon) CacheProxy() *CacheProxyConfig {
+	return context.config.CacheProxy
+}
+
+func (context *testContextCommon) CacheProxyEnabled() bool {
+	return context.cacheProxyEnabled
 }
 
 // loads the configs based on the given path
@@ -196,7 +247,7 @@ func (context *testContextCommon) waitForVPNState(state string) error {
 		}
 		select {
 		case <-timeoutChannel:
-			return fmt.Errorf("timed out waiting for vpn status", context.config.Messaging.VPN)
+			return fmt.Errorf("timed out waiting for vpn status %s", context.config.Messaging.VPN)
 		case <-time.After(pollInterval):
 			continue
 		}

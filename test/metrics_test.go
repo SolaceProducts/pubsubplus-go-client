@@ -167,6 +167,27 @@ var _ = Describe("Metrics", func() {
 				Expect(messagingService.Metrics().GetValue(metrics.TotalMessagesReceived)).To(BeNumerically("==", messagingService.Metrics().GetValue(metrics.DirectMessagesReceived)+messagingService.Metrics().GetValue(metrics.PersistentMessagesReceived)))
 			})
 
+			It("can retrieve cache metrics", func() {
+				Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSent)).To(BeNumerically("==", 0))
+				Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsFailed)).To(BeNumerically("==", 0))
+				Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSucceeded)).To(BeNumerically("==", 0))
+				Expect(messagingService.Metrics().GetValue(metrics.DirectMessagesReceived)).To(BeNumerically("==", 0))
+
+				messageChannel := helpers.ReceiveOneMessage(messagingService, topic)
+				helpers.PublishOneMessage(messagingService, topic)
+				// Wait for the message to arrive
+				Eventually(messageChannel).Should(Receive())
+				newSentMsgs := messagingService.Metrics().GetValue(metrics.DirectMessagesSent)
+				newReceivedMsgs := messagingService.Metrics().GetValue(metrics.DirectMessagesReceived)
+				Expect(newSentMsgs).To(BeNumerically(">", 0))
+				Expect(newReceivedMsgs).To(BeNumerically("==", newSentMsgs))
+
+				// should still all be zero since we did not send any cache messages
+				Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSent)).To(BeNumerically("==", 0))
+				Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsFailed)).To(BeNumerically("==", 0))
+				Expect(messagingService.Metrics().GetValue(metrics.CacheRequestsSucceeded)).To(BeNumerically("==", 0))
+			})
+
 			// TODO test persistent metrics
 		})
 	})

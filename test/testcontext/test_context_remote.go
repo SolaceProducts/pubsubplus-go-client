@@ -19,6 +19,10 @@
 
 package testcontext
 
+import (
+	"fmt"
+)
+
 const remoteConfig = "./data/config/config_remote.json"
 
 type remoteTestContext struct {
@@ -51,7 +55,21 @@ func (context *remoteTestContext) Setup() error {
 			return err
 		}
 		context.toxi = newToxiProxy(context.config.ToxiProxy)
-		context.toxi.setup()
+		context.toxi.setupWithPreExistingProxy()
+	}
+
+	if context.config.Cache != nil && context.config.Cache.Image != "" {
+		context.cacheEnabled = true
+		fmt.Println("Waiting for Cache setup")
+		err = context.setupCache()
+		if err != nil {
+			context.cacheEnabled = false
+			return err
+		}
+	}
+	if context.config.CacheProxy != nil && context.config.CacheProxy.Image != "" {
+		fmt.Println("Cache Proxy has been enabled, but currently no verification of cache proxy is available.")
+		context.cacheProxyEnabled = true
 	}
 
 	return nil

@@ -295,10 +295,8 @@ func (provisioner *endpointProvisionerImpl) Deprovision(queueName string, ignore
 		return solace.NewError(&solace.IllegalStateError{}, constants.UnableToDeprovisionParentServiceNotStarted, nil)
 	}
 
-	properties := provisioner.properties.GetConfiguration() // we don't need all these properties for deprov
-
-	// Override defaults durability to be True since we currently only support durable
-	// properties[config.EndpointPropertyDurable] = true
+	// we don't need all these properties for deprov
+	properties := provisioner.properties.GetConfiguration()
 
 	endpointProperties, err := validateEndpointProperties(properties)
 	if err != nil {

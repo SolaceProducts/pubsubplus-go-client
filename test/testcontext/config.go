@@ -33,6 +33,8 @@ type TestConfig struct {
 	TestContainers *TestContainersConfig `json:"testcontainers,omitempty"`
 	Kerberos       *KerberosConfig       `json:"kerberos,omitempty"`
 	OAuth          *OAuthConfig          `json:"oauth,omitempty"`
+	Cache          *CacheConfig          `json:"cache,omitempty"`
+	CacheProxy     *CacheProxyConfig     `json:"cache_proxy,omitempty"`
 }
 
 // TestContainersConfig common context specific config should be placed here
@@ -65,6 +67,50 @@ type KerberosConfig struct {
 	Domain   string `json:"domain" env:"PUBSUB_DOMAIN"`
 	Username string `json:"username" env:"KUSER"`
 	Password string `json:"password" env:"KPASSWORD"`
+}
+
+// CacheConfig represents Cache's config
+type CacheConfig struct {
+	Image string `env:"SOLCACHE_TEST_IMAGE"` // The image is proprietary, so we don't want to commit its name
+	// or other info to vcs.
+	Hostname          string                   `json:"hostname" env:"PUBSUB_CACHE_HOSTNAME"`
+	SuspectHostname   string                   `json:"suspect_hostname" env:"PUBSUB_CACHE_SUSPECT_HOSTNAME"`
+	Vpn               string                   `json:"vpn"`
+	DistributedCaches []DistributedCacheConfig `json:"distributed_caches"`
+}
+
+// DistributedCacheConfig represents the DistributedCache's config
+type DistributedCacheConfig struct {
+	Name          string               `json:"name"`
+	Properties    *struct{}            `json:"properties,omitempty"`
+	CacheClusters []CacheClusterConfig `json:"cache_clusters"`
+}
+
+// CacheClusterConfig represents the CacheCluster's config
+type CacheClusterConfig struct {
+	Name       string   `json:"name"`
+	Topics     []string `json:"topics"`
+	Properties *struct {
+		MaxMsgsPerTopic int `json:"maxMsgsPerTopic"`
+		MaxTopicCount   int `json:"maxTopicCount"`
+		MaxMemory       int `json:"maxMemory"`
+	} `json:"properties,omitempty"`
+	CacheInstances []CacheInstanceConfig `json:"cache_instances"`
+}
+
+// CacheInstanceConfig represents the CacheIntance's config
+type CacheInstanceConfig struct {
+	Name             string `json:"name"`
+	Autostart        bool   `json:"autostart"`
+	OperationalState string `json:"operational_state"`
+	Properties       *struct {
+		StopOnLostMsgEnabled bool `json:"stopOnLostMsgEnabled,omitempty"`
+	} `json:"properties,omitempty"`
+}
+
+// CacheProxyConfig represents Cache Proxy's config
+type CacheProxyConfig struct {
+	Image string `env:"SOLCACHEPROXY_TEST_IMAGE"`
 }
 
 // ToEnvironment dumps the config to a map of environment variables

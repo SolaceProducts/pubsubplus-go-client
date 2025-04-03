@@ -186,6 +186,15 @@ const (
 	// backpressure configuration.
 	PublishMessagesBackpressureDiscarded
 
+	// CacheRequestsSent indicates number of sent cache requests.
+	CacheRequestsSent
+
+	// CacheRequestsFailed indicates number of cache requests that failed.
+	CacheRequestsFailed
+
+	// CacheRequestsSucceeded indicates number of cache requests that succeeded.
+	CacheRequestsSucceeded
+
 	// MetricCount is the number of metrics defined by this package.
 	MetricCount int = iota
 )

@@ -180,11 +180,23 @@ func DisconnectMessagingServiceWithFunction(messagingService solace.MessagingSer
 
 // ForceDisconnectViaSEMPv2 function
 func ForceDisconnectViaSEMPv2(messagingService solace.MessagingService) {
+	ForceDisconnectViaSEMPv2WithConfiguration(messagingService, DefaultConfiguration())
+}
+
+// ForceDisconnectViaSEMPv2WithConfiguration function allows different configurations to be provided, such as VPN name
+func ForceDisconnectViaSEMPv2WithConfiguration(messagingService solace.MessagingService, configuration config.ServicePropertyMap) {
+	vpnName, ok := configuration[config.ServicePropertyVPNName].(string)
+	/* NOTE: This interface currently doesn't support returning an error, so if the conversion failed we just set
+	 * the vpn name to the error string and let the test run. This will fail the test and alert the developer that
+	 * something went wrong without needing to change this interface. */
+	if !ok {
+		vpnName = "string conversion for VPN name from service property map failed."
+	}
 	_, _, err := testcontext.SEMP().Action().ClientApi.
 		DoMsgVpnClientDisconnect(
 			testcontext.SEMP().ActionCtx(),
 			action.MsgVpnClientDisconnect{},
-			testcontext.Messaging().VPN,
+			vpnName,
 			url.QueryEscape(messagingService.GetApplicationID()),
 		)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())

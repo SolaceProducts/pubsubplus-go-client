@@ -24,17 +24,9 @@ import (
 )
 
 // Our generated SEMPv2 client has **bool as the datatype for booleans to be able to differentiate between "missing" and "false"
-
-// True defined
-var True = boolPointer(true)
-
-// False defined
-var False = boolPointer(false)
-
-func boolPointer(b bool) **bool {
-	bp := &b
-	return &bp
-}
+var True = testcontext.True
+var False = testcontext.False
+var boolPointer = testcontext.BoolPointer
 
 // AddSubscriptionTopicException function
 func AddSubscriptionTopicException(topicString string) {
