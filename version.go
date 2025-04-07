@@ -23,4 +23,4 @@ func init() {
 	core.SetVersion(version)
 }
 
-const version = "1.9.0"
+const version = "1.9.1"
