@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2024 Solace Corporation. All rights reserved.
+// Copyright 2021-2025 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,9 +25,9 @@ package ccsmp
 import "C"
 
 const (
-	// SolClientStatsRXDirectBytes: The number of bytes received.
+	// SolClientStatsRXDirectBytes: The number of bytes received in Direct messages.
 	SolClientStatsRXDirectBytes SolClientStatsRX = C.SOLCLIENT_STATS_RX_DIRECT_BYTES
-	// SolClientStatsRXDirectMsgs: The number of messages received.
+	// SolClientStatsRXDirectMsgs: The number of Direct messages received.
 	SolClientStatsRXDirectMsgs SolClientStatsRX = C.SOLCLIENT_STATS_RX_DIRECT_MSGS
 	// SolClientStatsRXReads: The number of non-empty reads.
 	SolClientStatsRXReads SolClientStatsRX = C.SOLCLIENT_STATS_RX_READS

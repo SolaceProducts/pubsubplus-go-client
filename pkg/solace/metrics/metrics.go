@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2024 Solace Corporation. All rights reserved.
+// Copyright 2021-2025 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -185,6 +185,15 @@ const (
 	// a publisher not having buffer space to queue a message when in a buffered
 	// backpressure configuration.
 	PublishMessagesBackpressureDiscarded
+
+	// CacheRequestsSent indicates number of sent cache requests.
+	CacheRequestsSent
+
+	// CacheRequestsFailed indicates number of cache requests that failed.
+	CacheRequestsFailed
+
+	// CacheRequestsSucceeded indicates number of cache requests that succeeded.
+	CacheRequestsSucceeded
 
 	// MetricCount is the number of metrics defined by this package.
 	MetricCount int = iota

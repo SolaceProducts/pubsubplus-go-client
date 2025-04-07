@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2024 Solace Corporation. All rights reserved.
+// Copyright 2021-2025 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,26 @@ import (
 
 	"solace.dev/go/messaging/pkg/solace/message/rgmid"
 )
+
+// CacheStatus indicates whether or not a message was received as a part of a cache response
+// and if it was, what kind of cache response.
+// Refer to the documentation of each variant for more details.
+type CacheStatus int
+
+const (
+	// The message was received independent of any cache response.
+	Live CacheStatus = iota
+
+	// The message was received as a part of a cache response from a trusted cache.
+	Cached
+
+	// The message was received as a part of a cache response from a suspect cache.
+	Suspect
+)
+
+// CacheRequestID - a type to be used for correlating received,
+// previously cached messages with their associated cache response.
+type CacheRequestID uint64
 
 // InboundMessage represents a message received by a consumer.
 type InboundMessage interface {
@@ -60,6 +80,14 @@ type InboundMessage interface {
 	// IsRedelivered retrieves the message's redelivery status. Returns true if the message
 	// redelivery occurred in the past, otherwise false.
 	IsRedelivered() bool
+
+	// GetCacheRequestID retrieves the [CacheRequestID] of the message
+	// and a [True] result if the message was received as a part of a
+	// cache response. Otherwise, returns 0 and False.
+	GetCacheRequestID() (CacheRequestID, bool)
+
+	// GetCacheStatus retrieves the [CacheStatus] of the message, indicating its provenance.
+	GetCacheStatus() CacheStatus
 }
 
 // MessageDiscardNotification is used to indicate that there are discarded messages.

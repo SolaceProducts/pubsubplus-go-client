@@ -7,7 +7,13 @@ The integration tests are stored in this directory. These integration tests are 
 *Note:* the SEMPv2 clients' generated code is not committed. To run the tests, run `go generate` from the `./test/sempclient` package. This will take a few minutes.
 
 ## Tooling
+
+To reliably retrieve packaging, use a go proxy.  Be sure to set in your environment:
+- export GOPROXY=https://proxy.golang.org,direct
+- go env -w GOPROXY=https://proxy.golang.org,direct
+
 [Ginkgo](https://onsi.github.io/ginkgo/) is used as the testing framework with [Gomega](https://onsi.github.io/gomega/) as the assert library. The tests also define a `./test/testcontext` package that is stood up before the suite and torn down after the suite is run. This test context is accessible through the CurrentContext variable defined in the root of the test package.
+- go install github.com/onsi/ginkgo/v2/ginkgo@v2.1.3
 
 ## Running the tests
 
@@ -40,6 +46,20 @@ Kerberos tests can be run when using testcontainers by exporting the variable KR
 
 ### OAuth
 OAuth tests can be run when using testcontainers by exporting the variable OAUTH_TEST_IMAGE with a valid OAuth server image.
+
+### Cache
+Cache tests can be run when using testcontainers by exporting the variables:
+- PUBSUB_CACHE_HOSTNAME=<name of cache instance>
+- PUBSUB_CACHE_SUPSECT_HOSTNAME=<name of suspect cache instance>
+- PUBSUB_CACHE_TEST_IMAGE=<name of docker image for cache instances>
+- PUBSUB_CACHEPROXY_TEST_IMAGE=<name of docker image for cahce proxy instances>
+These environment variables are used to create and destroy the various docker containers that are required for testing. Modifying these variables after they have been used to create containers will lead to undefined behaviour and should not be done. Populating these variables during test execution should not be expected to cause the containers to be created partway through the tests, and will lead to undefined behaviour.
+PUBSUB_CACHE_HOSTNAME, PUBSUB_CACHE_SUPSECT_HOSTNAME, and PUBSUB_CACHE_TEST_IMAGE are all necessary to run cache tests.
+PUBSUB_CACHE_HOSTNAME, and PUBSUB_CACHEPROXY_TEST_IMAGE are all necessary to run cache proxy tests. For tests that use both cache and cache proxy, all four variables are needed. Cache suspect is just a specfially configured cache instance, so tests that use suspect cache have the same requirements as those that use cache.
+The docker images for cache and suspect cache instances are the same. The docker images for cache and cache proxy are distinct. The cache docker image is proprietary and can only be gotten through a purchased product key. The docker image for cache proxy is proprietary, for internal use only, and not available to the general public.
+
+### Running the tests from inside a docker container
+To run the tests from inside a docker container, the TEST_FOLDER variable inside the container must be set to the absolute path of the parent directory of the fixtures directory in your mounted Go API clone. This will allow docker-compose to find the fixtures directory, which it must resolve to stand up the containers for the broker, and others.
 
 ## Generated SEMPv2 client
 In addition to the above generated code, we generate a SEMPv2 client based on the SEMPv2 spec using the [OpenAPI generator](https://github.com/OpenAPITools/openapi-generator) that is used in tests in order to configure remote resources. To generate the SEMPv2 client, Docker must be installed. Navigate to `./test/sempclient` and run `go generate`. This will generate the config, action and monitor APIs. See `./test/sempclient/semp-client.go` for the various generate directives.

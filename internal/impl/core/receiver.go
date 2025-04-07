@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2024 Solace Corporation. All rights reserved.
+// Copyright 2021-2025 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -71,6 +71,8 @@ type Receiver interface {
 	IncrementDuplicateAckCount()
 	// Creates a new persistent receiver with the given callback
 	NewPersistentReceiver(properties []string, callback RxCallback, eventCallback PersistentEventCallback) (PersistentReceiver, ErrorInfo)
+	// CacheRequestor() returns the manager that can be used to run cache operations
+	CacheRequestor() CacheRequestor
 }
 
 // PersistentReceiver interface
@@ -194,6 +196,11 @@ func (receiver *ccsmpBackedReceiver) Replier() Replier {
 // Send the ReplyPublishable through the ccsmp session
 func (receiver *ccsmpBackedReceiver) SendReply(replyMsg ReplyPublishable) ErrorInfo {
 	return receiver.session.SolClientSessionPublish(replyMsg)
+}
+
+// Return self under a different interface to constrain usage to cache operations
+func (receiver *ccsmpBackedReceiver) CacheRequestor() CacheRequestor {
+	return receiver
 }
 
 func (receiver *ccsmpBackedReceiver) Events() Events {

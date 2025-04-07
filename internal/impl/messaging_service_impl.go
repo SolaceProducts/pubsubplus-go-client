@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2024 Solace Corporation. All rights reserved.
+// Copyright 2021-2025 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -325,7 +325,9 @@ func (service *messagingServiceImpl) MessageBuilder() solace.OutboundMessageBuil
 
 // EndpointProvisioner aids the type-safe collection of queue properties,
 // and can provision multiple queues with different names (but identical properties) on the broker.
-// Warning: This is a mutable object. The fluent builder style setters modify and return the original object. Make copies explicitly.
+// Warning: This is a mutable object.
+// The fluent builder style setters modify and return the original object.
+// Make copies explicitly.
 func (service *messagingServiceImpl) EndpointProvisioner() solace.EndpointProvisioner {
 	return provisioner.NewEndpointProvisionerImpl(service.transport.EndpointProvisioner())
 }

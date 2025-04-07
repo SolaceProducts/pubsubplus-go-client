@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2024 Solace Corporation. All rights reserved.
+// Copyright 2021-2025 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,17 +24,9 @@ import (
 )
 
 // Our generated SEMPv2 client has **bool as the datatype for booleans to be able to differentiate between "missing" and "false"
-
-// True defined
-var True = boolPointer(true)
-
-// False defined
-var False = boolPointer(false)
-
-func boolPointer(b bool) **bool {
-	bp := &b
-	return &bp
-}
+var True = testcontext.True
+var False = testcontext.False
+var boolPointer = testcontext.BoolPointer
 
 // AddSubscriptionTopicException function
 func AddSubscriptionTopicException(topicString string) {

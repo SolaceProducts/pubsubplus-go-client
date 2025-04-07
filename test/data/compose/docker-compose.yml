@@ -48,6 +48,6 @@ services:
 
 secrets:
   server.pem:
-    file: "../fixtures/api-server.pem" # Path relative to the docker-compose file
+    file: "${TEST_FOLDER}/fixtures/api-server.pem" # Path relative to the docker-compose file
   server_passphrase:
-    file: "../fixtures/api-server-passphrase.txt"
+    file: "${TEST_FOLDER}/fixtures/api-server-passphrase.txt"

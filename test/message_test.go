@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2024 Solace Corporation. All rights reserved.
+// Copyright 2021-2025 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ import (
 	"solace.dev/go/messaging/pkg/solace/config"
 	"solace.dev/go/messaging/pkg/solace/message"
 	"solace.dev/go/messaging/pkg/solace/message/sdt"
+	"solace.dev/go/messaging/pkg/solace/metrics"
 	"solace.dev/go/messaging/pkg/solace/resource"
 	"solace.dev/go/messaging/test/helpers"
 	"solace.dev/go/messaging/test/testcontext"
@@ -1104,12 +1105,16 @@ var _ = Describe("Remote Message Tests", func() {
 
 				publisher.PublishWithProperties(outboundMessage, resource.TopicOf(topic), config.MessagePropertyMap{key: value})
 
+				Eventually(func() uint64 {
+					return messagingService.Metrics().GetValue(metrics.DirectMessagesSent)
+				}, 10*time.Second).Should(BeNumerically("==", uint64(1)))
+
 				select {
 				case inboundMessage := <-inboundMessageChannel:
 					retrieved, ok := getter(inboundMessage)
 					Expect(ok).To(BeTrue())
 					Expect(retrieved).To(BeEquivalentTo(value))
-				case <-time.After(1 * time.Second):
+				case <-time.After(5 * time.Second):
 					Fail("timed out waiting for message to be delivered")
 				}
 			})
@@ -1406,6 +1411,24 @@ var _ = Describe("Remote Message Tests", func() {
 			}
 		})
 
+		// Cache inbound message - check that messages that are not part of a cache response
+		// have no cached request ID (calling GetCachedRequestID() on a normal/live message returns 0 and false)
+		It("should get cache request ID of 0 from a received LIVE message", func() {
+			msg, err := messageBuilder.BuildWithStringPayload("hello world")
+			Expect(err).ToNot(HaveOccurred())
+
+			publisher.Publish(msg, resource.TopicOf(topic))
+
+			select {
+			case inboundMessage := <-inboundMessageChannel:
+				cacheRequestID, ok := inboundMessage.GetCacheRequestID()
+				Expect(ok).To(BeFalse())                                    // for a LIVE message
+				Expect(cacheRequestID).To(Equal(message.CacheRequestID(0))) // for a LIVE message
+			case <-time.After(1 * time.Second):
+				Fail("timed out waiting for message to be delivered")
+			}
+		})
+
 		inboundMessageGetterList := map[string](func(msg message.InboundMessage) func()){
 			"GetApplicationMessageID":   func(msg message.InboundMessage) func() { return func() { msg.GetApplicationMessageID() } },
 			"GetApplicationMessageType": func(msg message.InboundMessage) func() { return func() { msg.GetApplicationMessageType() } },
@@ -1431,6 +1454,8 @@ var _ = Describe("Remote Message Tests", func() {
 					Expect(discardNotification).To(BeNil())
 				}
 			},
+
+			"GetCacheRequestID": func(msg message.InboundMessage) func() { return func() { msg.GetCacheRequestID() } },
 		}
 
 		for functionName, getter := range inboundMessageGetterList {

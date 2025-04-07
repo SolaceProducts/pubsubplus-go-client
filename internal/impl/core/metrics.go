@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2024 Solace Corporation. All rights reserved.
+// Copyright 2021-2025 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -43,6 +43,7 @@ var rxMetrics = map[metrics.Metric]ccsmp.SolClientStatsRX{
 	metrics.TotalBytesReceived:                        ccsmp.SolClientStatsRXTotalDataBytes,
 	metrics.TotalMessagesReceived:                     ccsmp.SolClientStatsRXTotalDataMsgs,
 	metrics.CompressedBytesReceived:                   ccsmp.SolClientStatsRXCompressedBytes,
+	metrics.CacheRequestsFailed:                       ccsmp.SolClientStatsRXCacherequestErrorResponse,
 	metrics.PersistentMessagesAccepted:                ccsmp.SolClientStatsRXSettleAccepted,
 	metrics.PersistentMessagesFailed:                  ccsmp.SolClientStatsRXSettleFailed,
 	metrics.PersistentMessagesRejected:                ccsmp.SolClientStatsRXSettleRejected,
@@ -66,6 +67,7 @@ var txMetrics = map[metrics.Metric]ccsmp.SolClientStatsTX{
 	metrics.PublishedMessagesAcknowledged:    ccsmp.SolClientStatsTXGuaranteedMsgsSentConfirmed,
 	metrics.PublishMessagesDiscarded:         ccsmp.SolClientStatsTXDiscardChannelError,
 	metrics.PublisherWouldBlock:              ccsmp.SolClientStatsTXWouldBlock,
+	metrics.CacheRequestsSent:                ccsmp.SolClientStatsTXCacherequestSent,
 }
 
 var clientMetrics = map[metrics.Metric]NextGenMetric{
@@ -74,6 +76,11 @@ var clientMetrics = map[metrics.Metric]NextGenMetric{
 	metrics.PublishMessagesTerminationDiscarded:   MetricPublishMessagesTerminationDiscarded,
 	metrics.PublishMessagesBackpressureDiscarded:  MetricPublishMessagesBackpressureDiscarded,
 	metrics.InternalDiscardNotifications:          MetricInternalDiscardNotifications,
+}
+
+// this contains all the aggregated metrics
+var aggregatedMetrics = map[metrics.Metric]([]interface{}){
+	metrics.CacheRequestsSucceeded: []interface{}{ccsmp.SolClientStatsRXCacherequestOkResponse, ccsmp.SolClientStatsRXCacherequestFulfillData},
 }
 
 // NextGenMetric structure
@@ -97,6 +104,14 @@ const (
 
 	// metricCount initialized
 	metricCount int = iota
+)
+
+// AggregatedMetric structure
+type AggregatedMetric int
+
+const (
+	// CacheRequestsSucceeded initialized
+	CacheRequestsSucceeded AggregatedMetric = iota
 )
 
 // Metrics interface
@@ -174,6 +189,26 @@ func (backedMetrics *ccsmpBackedMetrics) getNextGenStat(metric NextGenMetric) ui
 	return atomic.LoadUint64(&backedMetrics.metrics[metric])
 }
 
+func (backedMetrics *ccsmpBackedMetrics) getAggregateStat(stats []interface{}) uint64 {
+	// accumulate multiple ccsmp metrics to generate an aggregated metric
+	aggregatedMetricsCount := uint64(0)
+	for _, stat := range stats {
+		// switch through and sum up the metrics
+		switch casted := stat.(type) {
+		case ccsmp.SolClientStatsRX:
+			// this is a RX stat
+			aggregatedMetricsCount += backedMetrics.getRXStat(casted)
+		case ccsmp.SolClientStatsTX:
+			// this is a TX stat
+			aggregatedMetricsCount += backedMetrics.getTXStat(casted)
+		default:
+			// don't recognize the metric stat, continue
+			logging.Default.Warning("Could not find mapping for aggregated metric with ID " + fmt.Sprint(stat))
+		}
+	}
+	return aggregatedMetricsCount
+}
+
 func (backedMetrics *ccsmpBackedMetrics) GetStat(metric metrics.Metric) uint64 {
 	if rxMetric, ok := rxMetrics[metric]; ok {
 		// check for duplicate counts due to auto-acks and remove from final result
@@ -188,10 +223,11 @@ func (backedMetrics *ccsmpBackedMetrics) GetStat(metric metrics.Metric) uint64 {
 		return backedMetrics.getTXStat(txMetric)
 	} else if clientMetric, ok := clientMetrics[metric]; ok {
 		return backedMetrics.getNextGenStat(clientMetric)
+	} else if aggregatedMetricArray, ok := aggregatedMetrics[metric]; ok {
+		return backedMetrics.getAggregateStat(aggregatedMetricArray)
 	}
 	logging.Default.Warning("Could not find mapping for metric with ID " + fmt.Sprint(metric))
 	return 0
-
 }
 
 func (backedMetrics *ccsmpBackedMetrics) ResetStats() {

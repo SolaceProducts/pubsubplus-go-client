@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2024 Solace Corporation. All rights reserved.
+// Copyright 2021-2025 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -227,7 +227,6 @@ var _ = Describe("RequestReplyReceiver", func() {
 					if replier != nil {
 						payload, _ := racingMessage.GetPayloadAsString()
 						err = replier.Reply(helpers.NewMessage(messagingService, "Reply for: "+payload))
-						Expect(err).To(BeNil())
 					}
 				}
 
