@@ -161,9 +161,9 @@ type TransportSecurityStrategy struct {
 type TransportSecurityProtocol string
 
 const (
-	// TransportSecurityProtocolSSLv3 represents SSLv3.
+	// TransportSecurityProtocolSSLv3 is deprecated, do not use.
 	TransportSecurityProtocolSSLv3 TransportSecurityProtocol = "SSLv3"
-	// TransportSecurityProtocolTLSv1 represents TLSv1.
+	// TransportSecurityProtocolTLSv1 is deprecated, do not use.
 	TransportSecurityProtocolTLSv1 TransportSecurityProtocol = "TLSv1"
 	// TransportSecurityProtocolTLSv1_1 represents TLSv1.1.
 	TransportSecurityProtocolTLSv1_1 TransportSecurityProtocol = "TLSv1.1"
