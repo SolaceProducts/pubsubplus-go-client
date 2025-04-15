@@ -34,17 +34,7 @@
 #define SOLCLIENT_CONTEXT_PROP_DEFAULT_MULTI_THREAD   SOLCLIENT_PROP_ENABLE_VAL
 
 #define SOLCLIENT_SESSION_PROP_SSL_PROTOCOL  "SESSION_SSL_PROTOCOL"  /**< This property specifies a comma separated list of the encryption protocol(s) to use. Allowed protocols are 'SSLv3', 'TLSv1', 'TLSv1.1', 'TLSv1.2'. Default: ::SOLCLIENT_SESSION_PROP_DEFAULT_SSL_PROTOCOL. */
-<<<<<<< HEAD
-#define SOLCLIENT_SESSION_DEFAULT_PROP_SSL_PROTOCOL          ""         /**< The default value for ::SOLCLIENT_SESSION_PROP_SSL_PROTOCOL*/ 
-
-#define SOLCLIENT_SESSION_PROP_SSL_EXCLUDED_PROTOCOLS        "SESSION_SSL_EXCLUDED_PROTOCOLS"  /**< This property specifies a comma separated list of excluded SSL protocol(s). Valid SSL protocols are 'SSLv3', 'TLSv1', 'TLSv1.1', 'TLSv1.2', 'TLSv1.3'. Default: ::SOLCLIENT_SESSION_PROP_DEFAULT_SSL_EXCLUDED_PROTOCOLS. */
-#define SOLCLIENT_SESSION_PROP_DEFAULT_SSL_EXCLUDED_PROTOCOLS         ""         /**< The default value for ::SOLCLIENT_SESSION_PROP_SSL_EXCLUDED_PROTOCOLS*/
-#define SOLCLIENT_SESSION_PROP_SSL_PROTOCOL_TLSV1                 ("TLSv1") /**< Deprecated. Do not use. */
-#define SOLCLIENT_SESSION_PROP_SSL_PROTOCOL_SSLV3                 ("SSLv3") /**< Deprecated. Do not use. */
-
-=======
 #define SOLCLIENT_SESSION_DEFAULT_PROP_SSL_PROTOCOL          "TLSv1.2,TLSv1.1,TLSv1,SSLv3"         /**< The default value for ::SOLCLIENT_SESSION_PROP_SSL_PROTOCOL*/ 
->>>>>>> EBP-511_tls13
 #define SOLCLIENT_SESSION_PROP_MAX_FLOWS                     "SESSION_MAX_FLOWS" /**< The maximum number of Flows supported on this Session. The valid range is 0..2000. Default: ::SOLCLIENT_SESSION_PROP_DEFAULT_MAX_FLOWS */
 
 #define SOLCLIENT_SESSION_PROP_DEFAULT_MAX_FLOWS                     "100"       /**< The default maximum number of subscriber Flows that may be created in a Session. */
