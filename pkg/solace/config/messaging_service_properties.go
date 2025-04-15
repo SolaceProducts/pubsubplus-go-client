@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2024 Solace Corporation. All rights reserved.
+// Copyright 2021-2025 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -271,8 +271,8 @@ const (
 	// the host used to connect.
 	TransportLayerSecurityPropertyCertValidateServername ServiceProperty = "solace.messaging.tls.cert-validate-servername"
 
-	// TransportLayerSecurityPropertyExcludedProtocols is deprecated, use TransportLayerSecurityPropertyMinimumProtocol and
-	// TransportLayerSecurityPropertyMaximumProtocol instead.
+	// TransportLayerSecurityPropertyExcludedProtocols is a comma-separated list specifying SSL protocols to exclude.
+	// Valid protocols are 'SSLv3', 'TLSv1', 'TLSv1.1' and 'TLSv1.2'
 	TransportLayerSecurityPropertyExcludedProtocols ServiceProperty = "solace.messaging.tls.excluded-protocols"
 
 	// TransportLayerSecurityPropertyMinimumProtocol is the oldest TLS protocol version accepted.

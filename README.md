@@ -58,4 +58,4 @@ https://solace.com/support
 - The [Solace Developer Portal](https://dev.solace.com)
 - Understanding [Solace technology](https://solace.com/products/tech/)
 
-Copyright 2021-2024 Solace Corporation. All rights reserved.
+Copyright 2021-2025 Solace Corporation. All rights reserved.

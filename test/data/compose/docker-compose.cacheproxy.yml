@@ -1,0 +1,16 @@
+version: '3.5'
+
+networks:
+  solace_internal_net:
+    name: solace_internal_net
+    driver: bridge
+
+services:
+  solcacheproxy:
+    image: $SOLCACHEPROXY_TEST_IMAGE
+    networks:
+      - solace_internal_net
+    container_name: solcacheproxy
+    command: /home/solace/solcacheproxy.sh -h $PUBSUB_HOSTNAME -u unittest -w unittest -v SolCacheUT -c MaxMsgs3,Suspect,MaxMsgs1,MaxMsgs10
+    links:
+      - solbroker

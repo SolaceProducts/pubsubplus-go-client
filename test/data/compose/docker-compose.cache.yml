@@ -1,0 +1,77 @@
+version: '3.5'
+
+# Additive compose file for solacche related services
+# This requires the docker-compose.yml file
+
+networks:
+  solace_internal_net:
+    name: solace_internal_net
+    driver: bridge
+
+services:
+  solcache3:
+    image: $SOLCACHE_TEST_IMAGE
+    networks:
+      - solace_internal_net
+    container_name: ${PUBSUB_CACHE_HOSTNAME}_3
+    hostname: ${PUBSUB_CACHE_HOSTNAME}_3
+    environment:
+      - CONFIG_FILE_PATH=/home/solace/config/config.txt
+    links:
+      - solbroker
+    volumes:
+      - ${TEST_FOLDER}/fixtures/solCacheConfig3.txt:/home/solace/config/config.txt
+
+  solcacheSuspect:
+    image: $SOLCACHE_TEST_IMAGE
+    networks:
+      - solace_internal_net
+    container_name: $PUBSUB_CACHE_SUSPECT_HOSTNAME
+    hostname: $PUBSUB_CACHE_SUSPECT_HOSTNAME
+    environment:
+      - CONFIG_FILE_PATH=/home/solace/config/config.txt
+    links:
+      - solbroker
+    volumes:
+      - ${TEST_FOLDER}/fixtures/solCacheConfigSuspect.txt:/home/solace/config/config.txt
+
+  solcache1:
+    image: $SOLCACHE_TEST_IMAGE
+    networks:
+      - solace_internal_net
+    container_name: ${PUBSUB_CACHE_HOSTNAME}_1
+    hostname: ${PUBSUB_CACHE_HOSTNAME}_1
+    environment:
+      - CONFIG_FILE_PATH=/home/solace/config/config.txt
+    links:
+      - solbroker
+    volumes:
+      - ${TEST_FOLDER}/fixtures/solCacheConfig1.txt:/home/solace/config/config.txt
+
+  solcache10:
+    image: $SOLCACHE_TEST_IMAGE
+    networks:
+      - solace_internal_net
+    container_name: ${PUBSUB_CACHE_HOSTNAME}_10
+    hostname: ${PUBSUB_CACHE_HOSTNAME}_10
+    environment:
+      - CONFIG_FILE_PATH=/home/solace/config/config.txt
+    links:
+      - solbroker
+    volumes:
+      - ${TEST_FOLDER}/fixtures/solCacheConfig10.txt:/home/solace/config/config.txt
+
+
+secrets:
+  solCacheConfig3.txt:
+    file: "${TEST_FOLDER}/fixtures/solCacheConfig3.txt"
+  solCacheConfigSuspect.txt:
+    file: "${TEST_FOLDER}/fixtures/solCacheConfigSuspect.txt"
+  solCacheConfig1.txt:
+    file: "${TEST_FOLDER}/fixtures/solCacheConfig1.txt"
+  solCacheConfig10.txt:
+    file: "${TEST_FOLDER}/fixtures/solCacheConfig10.txt"
+
+# TEST_FOLDER is necessary for when the tests are run in a container. 
+# To pass the proper docker volume mounting path. 
+# See docker-compose.yml for more details.

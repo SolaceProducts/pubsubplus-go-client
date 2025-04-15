@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2024 Solace Corporation. All rights reserved.
+// Copyright 2021-2025 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -169,8 +169,6 @@ const (
 	TransportSecurityProtocolTLSv1_1 TransportSecurityProtocol = "TLSv1.1"
 	// TransportSecurityProtocolTLSv1_2 represents TLSv1.2.
 	TransportSecurityProtocolTLSv1_2 TransportSecurityProtocol = "TLSv1.2"
-	// TransportSecurityProtocolTLSv1_3 represents TLSv1.3.
-	TransportSecurityProtocolTLSv1_3 TransportSecurityProtocol = "TLSv1.3"
 )
 
 // NewTransportSecurityStrategy creates a transport security strategy with default configuration.
@@ -190,7 +188,7 @@ func (tss TransportSecurityStrategy) Downgradable() TransportSecurityStrategy {
 	return tss
 }
 
-// WithExcludedProtocols is deprecated, use WithMinimumProtocol and WithMaximumProtocol instead.
+// WithExcludedProtocols specifies the list of SSL or TLS protocols to not use.
 func (tss TransportSecurityStrategy) WithExcludedProtocols(protocols ...TransportSecurityProtocol) TransportSecurityStrategy {
 	protocolsCS := ""
 	for _, protocol := range protocols {
@@ -200,18 +198,6 @@ func (tss TransportSecurityStrategy) WithExcludedProtocols(protocols ...Transpor
 		protocolsCS += string(protocol)
 	}
 	tss.config[TransportLayerSecurityPropertyExcludedProtocols] = protocolsCS
-	return tss
-}
-
-// WithMinimumProtocol specifies the lowest TLS protocol version to allow.
-func (tss TransportSecurityStrategy) WithMinimumProtocol(protocol TransportSecurityProtocol) TransportSecurityStrategy {
-	tss.config[TransportLayerSecurityPropertyMinimumProtocol] = string(protocol)
-	return tss
-}
-
-// WithMaximumProtocol specifies the highest TLS protocol version to negotiate.
-func (tss TransportSecurityStrategy) WithMaximumProtocol(protocol TransportSecurityProtocol) TransportSecurityStrategy {
-	tss.config[TransportLayerSecurityPropertyMaximumProtocol] = string(protocol)
 	return tss
 }
 
@@ -251,8 +237,8 @@ func (tss TransportSecurityStrategy) WithCertificateValidation(
 	return tss
 }
 
-// WithCipherSuites configures cipher suites to use with TLSv1.2 and older. Has no effect when TLSv1.3 is negotiated.
-// The cipher suites value is a comma-separated list of cipher suites and must be from the following table:
+// WithCipherSuites configures cipher suites to use. The cipher suites value is a comma-separated
+// list of cipher suites and must be from the following table:
 //
 //	+-----------------+-------------------------------+--------------------+
 //	| 'AES256-SHA'    | 'ECDHE-RSA-AES256-SHA'        | 'AES256-GCM-SHA384'|

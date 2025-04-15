@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2024 Solace Corporation. All rights reserved.
+// Copyright 2021-2025 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -93,8 +93,6 @@ var servicePropertyToCCSMPMap = map[config.ServiceProperty]property{
 	config.TransportLayerSecurityPropertyCipherSuites:           {ccsmp.SolClientSessionPropSslCipherSuites, defaultConverter},
 	config.TransportLayerSecurityPropertyTrustStorePath:         {ccsmp.SolClientSessionPropSslTrustStoreDir, defaultConverter},
 	config.TransportLayerSecurityPropertyTrustedCommonNameList:  {ccsmp.SolClientSessionPropSslTrustedCommonNameList, defaultConverter},
-	config.TransportLayerSecurityPropertyMinimumProtocol:        {ccsmp.SolClientSessionPropMinimumTlsProtocolVersion, defaultConverter},
-	config.TransportLayerSecurityPropertyMaximumProtocol:        {ccsmp.SolClientSessionPropMaximumTlsProtocolVersion, defaultConverter},
 }
 
 // propertyConverter is used to convert the interface{} stored in a map to a string used by CCSMP

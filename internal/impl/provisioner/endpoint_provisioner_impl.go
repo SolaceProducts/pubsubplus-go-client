@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2024 Solace Corporation. All rights reserved.
+// Copyright 2021-2025 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -295,10 +295,8 @@ func (provisioner *endpointProvisionerImpl) Deprovision(queueName string, ignore
 		return solace.NewError(&solace.IllegalStateError{}, constants.UnableToDeprovisionParentServiceNotStarted, nil)
 	}
 
-	properties := provisioner.properties.GetConfiguration() // we don't need all these properties for deprov
-
-	// Override defaults durability to be True since we currently only support durable
-	// properties[config.EndpointPropertyDurable] = true
+	// we don't need all these properties for deprov
+	properties := provisioner.properties.GetConfiguration()
 
 	endpointProperties, err := validateEndpointProperties(properties)
 	if err != nil {
