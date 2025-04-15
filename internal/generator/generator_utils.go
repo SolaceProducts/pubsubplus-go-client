@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2024 Solace Corporation. All rights reserved.
+// Copyright 2021-2025 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ import (
 
 const copyrightHeader = `// pubsubplus-go-client
 //
-// Copyright 2021-2024 Solace Corporation. All rights reserved.
+// Copyright 2021-2025 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -85,14 +85,7 @@ func FromDefine(inputFile, outputFile, enumPrefix, variablePrefix, header, foote
 			valueString = fmt.Sprintf("\"%s\"", value)
 		}
 		comment := strings.ReplaceAll(string(row[3]), "\n", "")
-
-		var line string
-		if strings.Contains(name, "Tls") {
-			ignore := "//lint:ignore ST1003 staticcheck would want TLS to be all caps."
-			line = fmt.Sprintf("	// %s: %s\n	%s\n	%s = %s\n", name, comment, ignore, name, valueString)
-		} else {
-			line = fmt.Sprintf("	// %s: %s\n	%s = %s\n", name, comment, name, valueString)
-		}
+		line := fmt.Sprintf("	// %s: %s\n	%s = %s\n", name, comment, name, valueString)
 		generatedCode.WriteString(line)
 	}
 	generatedCode.WriteString(footer)

@@ -1,6 +1,6 @@
 // pubsubplus-go-client
 //
-// Copyright 2021-2024 Solace Corporation. All rights reserved.
+// Copyright 2021-2025 Solace Corporation. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import (
 // The DirectMessageReceiver is used to receive direct messages.
 type DirectMessageReceiver interface {
 	MessageReceiver // Include all functionality of MessageReceiver.
+	ReceiverCacheRequests
 
 	// StartAsyncCallback starts the DirectMessageReceiver asynchronously.
 	// Calls the callback when started with an error if one occurred, otherwise nil
