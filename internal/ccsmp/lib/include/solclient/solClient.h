@@ -2391,8 +2391,6 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
 #define SOLCLIENT_SESSION_PROP_SSL_PROTOCOL_TLSV1_3				  ("TLSv1.3")
 #define SOLCLIENT_SESSION_PROP_SSL_PROTOCOL_TLSV1_2				  ("TLSv1.2")
 #define SOLCLIENT_SESSION_PROP_SSL_PROTOCOL_TLSV1_1				  ("TLSv1.1")
-#define SOLCLIENT_SESSION_PROP_SSL_PROTOCOL_TLSV1                 ("TLSv1")
-#define SOLCLIENT_SESSION_PROP_SSL_PROTOCOL_SSLV3                 ("SSLv3")
 /*@}*/
 
 #define SOLCLIENT_SESSION_PROP_MINIMUM_TLS_PROTOCOL_VERSION ("SESSION_MINIMUM_TLS_PROTOCOL_VERSION") /**< Disallow older TLS protocols than this. Use one of the SSL protocols above. Default value: SOLCLIENT_SESSION_PROP_DEFAULT_MINIMUM_TLS_PROTOCOL_VERSION */
