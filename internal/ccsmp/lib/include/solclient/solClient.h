@@ -2392,8 +2392,6 @@ Note: This property is used for all entries specified by the property ::SOLCLIEN
 /*@{*/
 #define SOLCLIENT_SESSION_PROP_SSL_PROTOCOL_TLSV1_2				  ("TLSv1.2")
 #define SOLCLIENT_SESSION_PROP_SSL_PROTOCOL_TLSV1_1				  ("TLSv1.1")
-#define SOLCLIENT_SESSION_PROP_SSL_PROTOCOL_TLSV1                 ("TLSv1")
-#define SOLCLIENT_SESSION_PROP_SSL_PROTOCOL_SSLV3                 ("SSLv3")
 /*@}*/
 
 /** @defgroup propertymax Configuration Properties Maximum Sizes
