@@ -139,17 +139,19 @@ var _ = Describe("MessagingService Lifecycle", func() {
 		cfgMap := config.ServicePropertyMap{
 			config.TransportLayerPropertyHost:              "myHost",
 			config.TransportLayerPropertyConnectionRetries: 1,
+                        config.TransportLayerSecurityPropertyMinimumProtocol: "TLSv1.2",
 		}
-		expectedJSON := `{"solace":{"messaging":{"transport":{"connection-retries":1,"host":"myHost"}}}}`
+		expectedJSON := `{"solace":{"messaging":{"tls":{"minimum-protocol":"TLSv1.2"},"transport":{"connection-retries":1,"host":"myHost"}}}}`
 		result, err := json.Marshal(cfgMap)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(string(result)).To(Equal(expectedJSON))
 	})
 	It("should be able to load a messaging service config from json", func() {
-		cfg := `{"solace":{"messaging":{"transport":{"host":"myHost","connection-retries":1}}}}`
+		cfg := `{"solace":{"messaging":{"tls":{"maximum-protocol":"TLSv1.2"},"transport":{"connection-retries":1,"host":"myHost"}}}}`
 		expectedCfgMap := config.ServicePropertyMap{
 			config.TransportLayerPropertyHost:              "myHost",
 			config.TransportLayerPropertyConnectionRetries: 1,
+                        config.TransportLayerSecurityPropertyMaximumProtocol: "TLSv1.2",
 		}
 		actualCfgMap := config.ServicePropertyMap{}
 		err := json.Unmarshal([]byte(cfg), &actualCfgMap)
@@ -529,6 +531,55 @@ var _ = Describe("MessagingService Lifecycle", func() {
 							WithExcludedProtocols(config.TransportSecurityProtocolSSLv3, config.TransportSecurityProtocolTLSv1, config.TransportSecurityProtocolTLSv1_1))
 						helpers.TestConnectDisconnectMessagingServiceClientValidation(builder, func(client *monitor.MsgVpnClient) {
 							Expect(client.TlsVersion).To(BeEquivalentTo(config.TransportSecurityProtocolTLSv1_2))
+						})
+					})
+					It("should be able to connect with minimum protocol", func() {
+						builder.WithTransportSecurityStrategy(config.NewTransportSecurityStrategy().
+							WithMinimumProtocol(config.TransportSecurityProtocolTLSv1_2))
+						helpers.TestConnectDisconnectMessagingServiceClientValidation(builder, func(client *monitor.MsgVpnClient) {
+							Expect(client.TlsVersion).To(BeEquivalentTo(config.TransportSecurityProtocolTLSv1_2))
+						})
+					})
+					It("should be able to connect with maximum protocol", func() {
+						builder.WithTransportSecurityStrategy(config.NewTransportSecurityStrategy().
+							WithMaximumProtocol(config.TransportSecurityProtocolTLSv1_2))
+						helpers.TestConnectDisconnectMessagingServiceClientValidation(builder, func(client *monitor.MsgVpnClient) {
+							Expect(client.TlsVersion).To(BeEquivalentTo(config.TransportSecurityProtocolTLSv1_2))
+						})
+					})
+					It("fails to build with min > max", func() {
+                                                tss := config.NewTransportSecurityStrategy()
+                                                tss.WithMinimumProtocol(config.TransportSecurityProtocolTLSv1_3)
+                                                tss.WithMaximumProtocol(config.TransportSecurityProtocolTLSv1_2)
+						builder.WithTransportSecurityStrategy(tss)
+						
+						_, err := builder.Build()
+						Expect(err).To(HaveOccurred())
+						Expect(err).To(BeAssignableToTypeOf(&solace.InvalidConfigurationError{}))
+						Expect(err.Error()).To(ContainSubstring("can't be higher than"))
+					})
+
+					It("fails to build with mixed protocol version configs", func() {
+                                                tss := config.NewTransportSecurityStrategy()
+                                                tss.WithMinimumProtocol(config.TransportSecurityProtocolTLSv1_2)
+                                                tss.WithMaximumProtocol(config.TransportSecurityProtocolTLSv1_2)
+					        tss.WithExcludedProtocols(config.TransportSecurityProtocolSSLv3, config.TransportSecurityProtocolTLSv1, config.TransportSecurityProtocolTLSv1_1)
+						builder.WithTransportSecurityStrategy(tss)
+						_, err := builder.Build()
+						Expect(err).To(HaveOccurred())
+						Expect(err).To(BeAssignableToTypeOf(&solace.InvalidConfigurationError{}))
+						Expect(err.Error()).To(ContainSubstring("Attempt to configure both deprecated and new tls version control properties."))
+					})
+
+
+                                        // When we upgrade the broker, this will fail by conneccting successfully, but until then, it's useful.
+                                        // EBP-511
+					It("fails to connect with TLSv1.3 because the broker is old", func() {
+                                                tss := config.NewTransportSecurityStrategy()
+                                                tss.WithMinimumProtocol(config.TransportSecurityProtocolTLSv1_3)
+						builder.WithTransportSecurityStrategy(tss)
+						helpers.TestFailedConnectMessagingService(builder, func(err error) {
+							helpers.ValidateNativeError(err, subcode.CommunicationError)
 						})
 					})
 				})
